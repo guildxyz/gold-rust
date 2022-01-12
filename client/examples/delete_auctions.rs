@@ -1,10 +1,9 @@
 use agsol_gold_contract::instruction::factory::{delete_auction, DeleteAuctionArgs};
 use agsol_gold_contract::pda::get_auction_pool_seeds;
-use agsol_gold_contract::state::{
-    AuctionPool, AuctionRootState,
-};
+use agsol_gold_contract::state::{AuctionPool, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
+
 use log::{error, info, warn};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
@@ -16,6 +15,8 @@ use solana_sdk::transaction::Transaction;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+use anyhow::anyhow;
+
 #[rustfmt::skip]
 const TEST_ADMIN_SECRET: [u8; 64] = [
     81, 206, 2, 84, 194, 25, 213, 226, 169, 97,
@@ -26,6 +27,17 @@ const TEST_ADMIN_SECRET: [u8; 64] = [
     134, 62, 149, 92, 86, 216, 113, 95, 245, 151,
     34, 17, 205, 3
 ];
+
+fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
+    if input.len() > 32 {
+        return Err(anyhow!("input is longer than 32 bytes"));
+    }
+    let mut array = [0_u8; 32];
+    for (i, c) in input.chars().enumerate() {
+        array[i] = c as u8;
+    }
+    Ok(array)
+}
 
 const MIN_BALANCE: u64 = 1_000_000_000; // lamports
 const SLEEP_DURATION: u64 = 5000; // milliseconds
@@ -49,8 +61,13 @@ struct Opt {
         requires("keypair")
     )]
     mainnet: bool,
-    #[structopt(long, help("The auction bot's keypair file"))]
+    #[structopt(long, help("The contract admin's keypair file"))]
     keypair: Option<PathBuf>,
+    #[structopt(
+        long,
+        help("The id of the auction to delete. If no id is provided, deletes ALL frozen auctions")
+    )]
+    auction_id: Option<String>,
 }
 
 pub fn main() {
@@ -73,7 +90,13 @@ pub fn main() {
         Keypair::from_bytes(&TEST_ADMIN_SECRET).unwrap()
     };
 
-    if let Err(e) = try_main(&connection, &admin_keypair, &GOLD_ID, should_airdrop) {
+    if let Err(e) = try_main(
+        &connection,
+        &admin_keypair,
+        &GOLD_ID,
+        should_airdrop,
+        opt.auction_id,
+    ) {
         error!("{}", e);
     }
 }
@@ -83,6 +106,7 @@ fn try_main(
     admin_keypair: &Keypair,
     program_id: &Pubkey,
     should_airdrop: bool,
+    auction_id: Option<String>,
 ) -> Result<(), anyhow::Error> {
     // AIRDROP IF NECESSARY
     let admin_balance = connection.get_balance(&admin_keypair.pubkey())?;
@@ -113,19 +137,31 @@ fn try_main(
         Pubkey::find_program_address(&get_auction_pool_seeds(), program_id);
     let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
     let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
+
     // READ INDIVIDUAL STATES
-    for (auction_id, state_pubkey) in auction_pool.pool.contents().iter() {
-        if let Err(err) = delete_frozen_auction(
-            connection,
-            auction_id,
-            state_pubkey,
-            admin_keypair,
-        ) {
+    if let Some(id) = auction_id {
+        let id_bytes = pad_to_32_bytes(&id)?;
+        // unwrap is fine here, it is only a dev tool and invalid id results in a non-recoverable errors anyway
+        let state_pubkey = auction_pool.pool.get(&id_bytes).unwrap();
+        if let Err(err) = delete_frozen_auction(connection, &id_bytes, state_pubkey, admin_keypair)
+        {
             error!(
                 "auction \"{}\" threw error {:?}",
-                String::from_utf8_lossy(auction_id),
+                String::from_utf8_lossy(&id_bytes),
                 err
             );
+        }
+    } else {
+        for (auction_id, state_pubkey) in auction_pool.pool.contents().iter() {
+            if let Err(err) =
+                delete_frozen_auction(connection, auction_id, state_pubkey, admin_keypair)
+            {
+                error!(
+                    "auction \"{}\" threw error {:?}",
+                    String::from_utf8_lossy(auction_id),
+                    err
+                );
+            }
         }
     }
 
@@ -141,17 +177,19 @@ fn delete_frozen_auction(
 ) -> Result<(), anyhow::Error> {
     let auction_state_data = connection.get_account_data(state_pubkey)?;
     let mut auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
-    
+
     // IF NOT FROZEN, CONTINUE ITERATION
     // Note: Expired auctions could be deleted as well
     if !auction_state.status.is_frozen {
-        info!("auction {} is not frozen", String::from_utf8_lossy(auction_id));
+        info!(
+            "auction {} is not frozen",
+            String::from_utf8_lossy(auction_id)
+        );
         return Ok(());
     }
 
     info!("auction {} is frozen", String::from_utf8_lossy(auction_id));
 
-    
     let mut finished = false;
     while !finished {
         let delete_auction_args = DeleteAuctionArgs {
@@ -193,6 +231,6 @@ fn delete_frozen_auction(
         }
     }
     info!("auction {} deleted", String::from_utf8_lossy(auction_id));
-    
+
     Ok(())
 }
