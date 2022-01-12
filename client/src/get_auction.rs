@@ -14,10 +14,7 @@ use metaplex_token_metadata::ID as META_ID;
 use spl_token::state::Mint;
 use std::convert::TryFrom;
 
-pub async fn get_auction(
-    auction_id: String,
-    cycle: Option<u64>,
-) -> Result<FrontendAuction, anyhow::Error> {
+pub async fn get_auction_root(auction_id: String) -> Result<FrontendAuctionRoot, anyhow::Error> {
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&get_auction_pool_seeds(), &GOLD_ID);
     let mut client = RpcClient::new(NET);
@@ -38,40 +35,12 @@ pub async fn get_auction(
         .get_and_deserialize_account_data(root_state_pubkey)
         .await?;
 
-    // cycle num for cycle state pda
-    let cycle_num = if let Some(num) = cycle {
-        num
-    } else {
-        root_state.status.current_auction_cycle
-    };
-
-    // read cycle state
-    let (cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
-        &GOLD_ID,
-    );
-    let cycle_state: AuctionCycleState = client
-        .get_and_deserialize_account_data(&cycle_state_pubkey)
-        .await?;
-
     let token_config = match root_state.token_config {
         TokenConfig::Nft(ref data) => {
-            let mint_pubkey = if cycle_num == root_state.status.current_auction_cycle {
-                // get master mint
-                let (master_mint_pubkey, _) =
-                    Pubkey::find_program_address(&get_master_mint_seeds(&auction_id), &GOLD_ID);
-                master_mint_pubkey
-            } else {
-                // get child mint
-                let (child_mint_pubkey, _) = Pubkey::find_program_address(
-                    &get_child_mint_seeds(&cycle_num.to_le_bytes(), &auction_id),
-                    &GOLD_ID,
-                );
-                child_mint_pubkey
-            };
-
+            let (master_mint_pubkey, _) =
+                Pubkey::find_program_address(&get_master_mint_seeds(&auction_id), &GOLD_ID);
             let (metadata_pubkey, _) =
-                Pubkey::find_program_address(&get_metadata_seeds(&mint_pubkey), &META_ID);
+                Pubkey::find_program_address(&get_metadata_seeds(&master_mint_pubkey), &META_ID);
             let mut metadata: Metadata = client
                 .get_and_deserialize_account_data(&metadata_pubkey)
                 .await?;
@@ -98,19 +67,40 @@ pub async fn get_auction(
             }
         }
     };
-    Ok(FrontendAuction {
-        root_state,
-        cycle_state,
+
+    Ok(FrontendAuctionRoot {
+        state: root_state,
         token_config,
+        pubkey: *root_state_pubkey,
     })
+}
+
+pub async fn get_auction_cycle_state(
+    root_state_pubkey: &Pubkey,
+    cycle_num: u64,
+) -> Result<AuctionCycleState, anyhow::Error> {
+    // read cycle state
+    anyhow::ensure!(cycle_num != 0);
+    let mut client = RpcClient::new(NET);
+    let (cycle_state_pubkey, _) = Pubkey::find_program_address(
+        &get_auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
+        &GOLD_ID,
+    );
+    client
+        .get_and_deserialize_account_data(&cycle_state_pubkey)
+        .await
 }
 
 #[cfg(test)]
 mod test {
-    use super::get_auction;
+    use super::*;
     #[tokio::test]
     async fn query_auction() {
-        let result = get_auction("goldxyz-dao".to_string(), Some(1)).await;
-        println!("{:#?}", result);
+        let root = get_auction_root("goldxyz-dao".to_string()).await;
+        println!("{:#?}", root);
+        if let Ok(root_state) = root {
+            let cycle = get_auction_cycle_state(&root_state.pubkey, 1).await;
+            println!("{:#?}", cycle);
+        }
     }
 }

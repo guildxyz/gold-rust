@@ -24,17 +24,28 @@ wasm_instruction!(claim_funds);
 wasm_instruction!(delete_auction);
 wasm_instruction!(initialize_contract);
 
-#[wasm_bindgen(js_name = "getAuctionWasm")]
-pub async fn get_auction_wasm(
-    auction_id: String,
-    cycle: Option<u64>,
-) -> Result<Uint8Array, JsValue> {
-    let frontend_auction = get_auction::get_auction(auction_id, cycle)
+#[wasm_bindgen(js_name = "getAuctionRootWasm")]
+pub async fn get_auction_root_wasm(auction_id: String) -> Result<Uint8Array, JsValue> {
+    let auction_root = get_auction::get_auction_root(auction_id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))?;
 
     Ok(Uint8Array::from(
-        frontend_auction.try_to_vec().unwrap().as_slice(),
+        auction_root.try_to_vec().unwrap().as_slice(),
+    ))
+}
+
+#[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
+pub async fn get_auction_cycle_state_wasm(
+    root_state_pubkey: Pubkey,
+    cycle_num: u64,
+) -> Result<Uint8Array, JsValue> {
+    let auction_cycle_state = get_auction::get_auction_cycle_state(&root_state_pubkey, cycle_num)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    Ok(Uint8Array::from(
+        auction_cycle_state.try_to_vec().unwrap().as_slice(),
     ))
 }
 
