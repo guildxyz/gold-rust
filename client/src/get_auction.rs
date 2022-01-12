@@ -69,8 +69,7 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
     };
 
     let cycle_state =
-        get_auction_cycle_state(root_state_pubkey, root_state.status.current_auction_cycle)
-            .await?;
+        get_auction_cycle_state(root_state_pubkey, root_state.status.current_auction_cycle).await?;
 
     let mut available_funds = get_treasury_without_rent(&mut client, &auction_id).await?;
 
