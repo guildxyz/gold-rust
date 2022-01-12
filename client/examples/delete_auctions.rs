@@ -73,10 +73,8 @@ pub fn main() {
         Keypair::from_bytes(&TEST_ADMIN_SECRET).unwrap()
     };
 
-    loop {
-        if let Err(e) = try_main(&connection, &admin_keypair, &GOLD_ID, should_airdrop) {
-            error!("{}", e);
-        }
+    if let Err(e) = try_main(&connection, &admin_keypair, &GOLD_ID, should_airdrop) {
+        error!("{}", e);
     }
 }
 
