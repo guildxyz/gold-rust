@@ -8,8 +8,11 @@ use solana_program::pubkey::Pubkey;
 #[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub enum FrontendTokenConfig {
     Nft {
+        #[alias(String)]
         name: MaxLenString<MAX_NAME_LENGTH>,
+        #[alias(String)]
         symbol: MaxLenString<MAX_SYMBOL_LENGTH>,
+        #[alias(String)]
         uri: MaxLenString<MAX_URI_LENGTH>,
         is_repeating: bool,
     },
