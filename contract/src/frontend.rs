@@ -24,8 +24,9 @@ pub enum FrontendTokenConfig {
 }
 
 #[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
-pub struct FrontendAuctionRoot {
-    pub state: AuctionRootState,
+pub struct FrontendAuction {
+    pub root_state_pubkey: Pubkey,
+    pub root_state: AuctionRootState,
     pub token_config: FrontendTokenConfig,
-    pub pubkey: Pubkey,
+    pub available_funds: u64,
 }

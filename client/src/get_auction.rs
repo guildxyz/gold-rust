@@ -14,7 +14,7 @@ use metaplex_token_metadata::ID as META_ID;
 use spl_token::state::Mint;
 use std::convert::TryFrom;
 
-pub async fn get_auction_root(auction_id: String) -> Result<FrontendAuctionRoot, anyhow::Error> {
+pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&get_auction_pool_seeds(), &GOLD_ID);
     let mut client = RpcClient::new(NET);
@@ -68,10 +68,21 @@ pub async fn get_auction_root(auction_id: String) -> Result<FrontendAuctionRoot,
         }
     };
 
-    Ok(FrontendAuctionRoot {
-        state: root_state,
+    let cycle_state =
+        get_auction_cycle_state(root_state_pubkey, root_state.status.current_auction_cycle)
+            .await?;
+
+    let mut available_funds = get_treasury_without_rent(&mut client, &auction_id).await?;
+
+    if let Some(bid_data) = cycle_state.bid_history.get_last_element() {
+        available_funds = available_funds.saturating_sub(bid_data.bid_amount);
+    }
+
+    Ok(FrontendAuction {
+        root_state_pubkey: *root_state_pubkey,
+        root_state,
         token_config,
-        pubkey: *root_state_pubkey,
+        available_funds,
     })
 }
 
@@ -91,16 +102,30 @@ pub async fn get_auction_cycle_state(
         .await
 }
 
+pub async fn get_treasury_without_rent(
+    client: &mut RpcClient,
+    auction_id: &[u8],
+) -> Result<u64, anyhow::Error> {
+    let (auction_bank_pubkey, _) =
+        Pubkey::find_program_address(&get_auction_bank_seeds(auction_id), &GOLD_ID);
+
+    let bank_account = client.get_account(&auction_bank_pubkey).await?;
+    let rent = client
+        .get_minimum_balance_for_rent_exemption(bank_account.data.len())
+        .await?;
+    Ok(bank_account.lamports.saturating_sub(rent))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     #[tokio::test]
     async fn query_auction() {
-        let root = get_auction_root("goldxyz-dao".to_string()).await;
-        println!("{:#?}", root);
-        if let Ok(root_state) = root {
-            let cycle = get_auction_cycle_state(&root_state.pubkey, 1).await;
-            println!("{:#?}", cycle);
+        let auction_result = get_auction("goldxyz-dao".to_string()).await;
+        println!("{:#?}", auction_result);
+        if let Ok(auction) = auction_result {
+            let cycle_result = get_auction_cycle_state(&auction.root_state_pubkey, 1).await;
+            println!("{:#?}", cycle_result);
         }
     }
 }
