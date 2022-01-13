@@ -20,8 +20,8 @@ async fn test_delete_small_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
-        encore_period: 1,
+        cycle_period: 300,
+        encore_period: 10,
         minimum_bid_amount: 100_000, // lamports
         number_of_cycles: Some(10),
     };
@@ -118,8 +118,8 @@ async fn test_delete_inactive_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
-        encore_period: 1,
+        cycle_period: 300,
+        encore_period: 10,
         minimum_bid_amount: 100_000, // lamports
         number_of_cycles: Some(3),
     };
@@ -192,8 +192,8 @@ async fn test_delete_just_long_enough_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
-        encore_period: 1,
+        cycle_period: 300,
+        encore_period: 10,
         minimum_bid_amount: 100_000, // lamports
         number_of_cycles: Some(RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL),
     };
@@ -268,8 +268,8 @@ async fn test_delete_long_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
-        encore_period: 1,
+        cycle_period: 300,
+        encore_period: 10,
         minimum_bid_amount: 100_000, // lamports
         number_of_cycles: Some(RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL + 1),
     };
@@ -293,6 +293,14 @@ async fn test_delete_long_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
+    let (_, auction_cycle_state) =
+        get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
+
+    dbg!("cycle end time:", auction_cycle_state.end_time);
+    dbg!(
+        "pre close n cycles timestamp:",
+        testbench.block_time().await
+    );
     close_n_cycles(
         &mut testbench,
         auction_id,
@@ -399,8 +407,10 @@ async fn close_n_cycles(
             .unwrap();
 
         // NOTE: This would be more robust but slower
-        // warp_to_cycle_end(testbench, auction_id).await;
-        testbench.warp_n_seconds(cycle_period + 1).await;
+        //warp_to_cycle_end(testbench, auction_id).await;
+
+        testbench.warp_n_seconds(cycle_period).await;
+        // let pre_cycle_end_time = testbench.block_time().await;
 
         close_cycle_transaction(
             testbench,
@@ -411,5 +421,9 @@ async fn close_n_cycles(
         )
         .await
         .unwrap();
+
+        // These might come handy later as well...
+        // let post_cycle_end_time = testbench.block_time().await;
+        // dbg!(post_cycle_end_time - pre_cycle_end_time);
     }
 }

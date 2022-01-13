@@ -1,4 +1,3 @@
-use crate::error::AuctionContractError;
 use crate::{
     MAX_AUCTION_NUM, MAX_BID_HISTORY_LENGTH, MAX_DESCRIPTION_LEN, MAX_SOCIALS_LEN, MAX_SOCIALS_NUM,
 };
@@ -137,15 +136,20 @@ pub struct AuctionRootState {
     pub auction_name: AuctionName,
     /// Owner of the auction (has freeze authority).
     pub auction_owner: Pubkey,
-    /// Description of the auctions.
+    /// Description of the auction.
     pub description: AuctionDescription,
-    /// Configuration parameters of the auctions.
+    /// Configuration parameters of the auction.
     pub auction_config: AuctionConfig,
     /// Configuration parameters of the auctioned tokens/NFTs.
     pub token_config: TokenConfig,
     /// Status of the auction.
     pub status: AuctionStatus,
-    pub current_treasury: u64,
+    /// All-time total funds raised in this auction.
+    pub all_time_treasury: u64,
+    /// Currently claimable funds from closed cycles.
+    pub available_funds: u64,
+    /// Start timestamp of the auction (in seconds)
+    pub start_time: UnixTimestamp,
 }
 
 /// State respective to a given auction cycle.
@@ -154,8 +158,6 @@ pub struct AuctionRootState {
     BorshSchema, BorshDeserialize, BorshSerialize, MaxSerializedLen, AccountState, Debug, Clone,
 )]
 pub struct AuctionCycleState {
-    /// When the auction cycle started (in seconds).
-    pub start_time: UnixTimestamp,
     /// When the auction cycle will end (in seconds).
     pub end_time: UnixTimestamp,
     /// The most recent bids of the current auction cycle.
@@ -181,66 +183,6 @@ pub struct AuctionPool {
 pub struct ContractBankState {
     /// Address of the admin who deployed the contract.
     pub contract_admin_pubkey: Pubkey,
-}
-
-#[repr(C)]
-pub enum AuctionInteraction {
-    Bid,
-    CloseCycle,
-}
-
-#[repr(C)]
-pub struct AuctionStateTemp<'a> {
-    pub root_state: &'a AuctionRootState,
-    pub cycle_state: &'a AuctionCycleState,
-}
-
-impl<'a> AuctionStateTemp<'a> {
-    pub fn check_status(
-        &self,
-        current_timestamp: UnixTimestamp,
-        interaction_type: AuctionInteraction,
-    ) -> Result<(), AuctionContractError> {
-        if self.root_state.status.is_frozen {
-            return Err(AuctionContractError::AuctionFrozen);
-        }
-        if !self.root_state.status.is_active {
-            return Err(AuctionContractError::AuctionEnded);
-        }
-        match interaction_type {
-            AuctionInteraction::Bid => {
-                if current_timestamp >= self.cycle_state.end_time {
-                    return Err(AuctionContractError::AuctionCycleEnded);
-                }
-            }
-            AuctionInteraction::CloseCycle => {
-                if current_timestamp < self.cycle_state.end_time {
-                    return Err(AuctionContractError::AuctionIsInProgress);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn check_bid_amount(&self, bid_amount: u64) -> Result<(), AuctionContractError> {
-        if bid_amount < self.root_state.auction_config.minimum_bid_amount {
-            return Err(AuctionContractError::InvalidBidAmount);
-        }
-        if let Some(most_recent_bid) = self.cycle_state.bid_history.get_last_element() {
-            if bid_amount <= most_recent_bid.bid_amount {
-                return Err(AuctionContractError::InvalidBidAmount);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn is_last_auction_cycle(&self) -> bool {
-        if let Some(number_of_cycles) = self.root_state.auction_config.number_of_cycles {
-            return self.root_state.status.current_auction_cycle >= number_of_cycles;
-        }
-        false
-    }
 }
 
 #[cfg(test)]
@@ -318,7 +260,9 @@ mod test_max_serialized_len {
             auction_config,
             token_config,
             status: auction_status,
-            current_treasury: 0,
+            all_time_treasury: 0,
+            available_funds: 0,
+            start_time: 0,
         };
 
         assert_eq!(
@@ -327,7 +271,6 @@ mod test_max_serialized_len {
         );
 
         let cycle_state = AuctionCycleState {
-            start_time: 0,
             end_time: 100_000_000,
             bid_history: bid_history.clone(),
         };

@@ -108,15 +108,15 @@ pub fn close_auction_cycle(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    let auction_state = AuctionStateTemp {
-        root_state: &auction_root_state,
-        cycle_state: &current_auction_cycle_state,
-    };
-
     // Check auction status (freeze, active, able to end cycle)
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
-    auction_state.check_status(current_timestamp, AuctionInteraction::CloseCycle)?;
+    check_status(
+        &auction_root_state,
+        &current_auction_cycle_state,
+        current_timestamp,
+        AuctionInteraction::CloseCycle,
+    )?;
 
     // If there were no bids, just reset auction cycle
     let most_recent_bid_option = current_auction_cycle_state.bid_history.get_last_element();
@@ -124,6 +124,10 @@ pub fn close_auction_cycle(
         if top_bidder_account.key != &most_recent_bid.bidder_pubkey {
             return Err(AuctionContractError::TopBidderAccountMismatch.into());
         }
+        auction_root_state.available_funds = auction_root_state
+            .available_funds
+            .checked_add(most_recent_bid.bid_amount)
+            .ok_or(AuctionContractError::ArithmeticError)?;
     } else {
         current_auction_cycle_state.end_time = current_auction_cycle_state
             .end_time
@@ -350,7 +354,7 @@ pub fn close_auction_cycle(
 
                 increment_uri(
                     &mut new_master_metadata.uri,
-                    auction_state.is_last_auction_cycle(),
+                    is_last_auction_cycle(&auction_root_state),
                 )?;
 
                 let change_master_metadata_ix = meta_instruction::update_metadata_accounts(
@@ -437,7 +441,7 @@ pub fn close_auction_cycle(
     }
 
     // Reset auction cycle
-    if auction_state.is_last_auction_cycle() {
+    if is_last_auction_cycle(&auction_root_state) {
         auction_root_state.status.is_active = false;
     } else {
         create_state_account(
@@ -449,15 +453,15 @@ pub fn close_auction_cycle(
             AuctionCycleState::MAX_SERIALIZED_LEN,
         )?;
 
-        let mut next_auction_cycle_state = current_auction_cycle_state;
-
-        next_auction_cycle_state.bid_history = BidHistory::new();
-
-        next_auction_cycle_state.start_time = clock.unix_timestamp;
-        next_auction_cycle_state.end_time = next_auction_cycle_state
-            .start_time
+        let end_time = clock
+            .unix_timestamp
             .checked_add(auction_root_state.auction_config.cycle_period)
             .ok_or(AuctionContractError::ArithmeticError)?;
+
+        let next_auction_cycle_state = AuctionCycleState {
+            bid_history: BidHistory::new(),
+            end_time,
+        };
 
         next_auction_cycle_state.write(next_auction_cycle_state_account)?;
         auction_root_state.status.current_auction_cycle = auction_root_state
