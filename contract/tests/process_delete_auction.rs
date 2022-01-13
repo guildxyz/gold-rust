@@ -293,9 +293,6 @@ async fn test_delete_long_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    let (_, auction_cycle_state) =
-        get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
-
     close_n_cycles(
         &mut testbench,
         auction_id,
@@ -393,7 +390,7 @@ async fn close_n_cycles(
     auction_owner: &TestUser,
     payer: &Keypair,
     n: u64,
-    cycle_period: i64,
+    _cycle_period: i64,
 ) {
     let bid_amount = 100_000;
     for _ in 0..n {
