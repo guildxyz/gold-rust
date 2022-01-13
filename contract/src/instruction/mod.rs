@@ -39,4 +39,7 @@ pub enum AuctionInstruction {
         id: AuctionId,
         num_of_cycles_to_delete: u64,
     },
+    VerifyAuction {
+        id: AuctionId,
+    },
 }

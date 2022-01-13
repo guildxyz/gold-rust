@@ -255,6 +255,38 @@ pub async fn freeze_auction_transaction(
 }
 
 #[allow(unused)]
+pub async fn verify_auction_transaction(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+    contract_admin_keypair: &Keypair,
+) -> Result<i64, AuctionContractError> {
+    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
+        get_state_pubkeys(testbench, auction_id).await;
+
+    let verify_args = VerifyAuctionArgs {
+        contract_admin_pubkey: contract_admin_keypair.pubkey(),
+        auction_id,
+    };
+    let verify_instruction = verify_auction(&verify_args);
+
+    let payer_balance_before = testbench
+        .get_account_lamports(&contract_admin_keypair.pubkey())
+        .await;
+    let verify_result = testbench
+        .process_transaction(&[verify_instruction.clone()], contract_admin_keypair, None)
+        .await;
+    let payer_balance_after = testbench
+        .get_account_lamports(&contract_admin_keypair.pubkey())
+        .await;
+
+    if verify_result.is_err() {
+        return Err(to_auction_error(verify_result.err().unwrap()));
+    }
+
+    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+}
+
+#[allow(unused)]
 pub async fn claim_funds_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],

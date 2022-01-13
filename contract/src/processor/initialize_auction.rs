@@ -356,6 +356,7 @@ pub fn initialize_auction(
             current_auction_cycle: 1,
             is_active: true,
             is_frozen: false,
+            is_verified: false,
         },
         current_treasury: 0,
     };
