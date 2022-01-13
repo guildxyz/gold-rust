@@ -296,11 +296,6 @@ async fn test_delete_long_auction() {
     let (_, auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
-    dbg!("cycle end time:", auction_cycle_state.end_time);
-    dbg!(
-        "pre close n cycles timestamp:",
-        testbench.block_time().await
-    );
     close_n_cycles(
         &mut testbench,
         auction_id,
@@ -407,9 +402,9 @@ async fn close_n_cycles(
             .unwrap();
 
         // NOTE: This would be more robust but slower
-        //warp_to_cycle_end(testbench, auction_id).await;
+        warp_to_cycle_end(testbench, auction_id).await;
 
-        testbench.warp_n_seconds(cycle_period).await;
+        //testbench.warp_n_seconds(cycle_period).await;
         // let pre_cycle_end_time = testbench.block_time().await;
 
         close_cycle_transaction(
