@@ -64,8 +64,6 @@ pub struct AuctionStatus {
     pub is_frozen: bool,
     /// The auction is active until all auction cycles have passed.
     pub is_active: bool,
-    /// The auction can be verified by the contract owners.
-    pub is_verified: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -148,6 +146,8 @@ pub struct AuctionRootState {
     /// Status of the auction.
     pub status: AuctionStatus,
     pub current_treasury: u64,
+    /// The auction can be verified by the contract owners.
+    pub is_verified: bool,
 }
 
 /// State respective to a given auction cycle.
@@ -278,7 +278,6 @@ mod test_max_serialized_len {
             is_active: true,
             is_frozen: false,
             current_auction_cycle: 1,
-            is_verified: false,
         };
 
         let description_string: DescriptionString =
@@ -322,6 +321,7 @@ mod test_max_serialized_len {
             token_config,
             status: auction_status,
             current_treasury: 0,
+            is_verified: false,
         };
 
         assert_eq!(

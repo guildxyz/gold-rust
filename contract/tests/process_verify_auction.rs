@@ -38,7 +38,7 @@ async fn test_process_verify_auction() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(!auction_root_state.status.is_verified);
+    assert!(!auction_root_state.is_verified);
 
     // Verifying auction
     let payer = testbench.clone_payer();
@@ -49,7 +49,7 @@ async fn test_process_verify_auction() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(auction_root_state.status.is_verified);
+    assert!(auction_root_state.is_verified);
 
     assert_eq!(-balance_change as u64, TRANSACTION_FEE);
 
@@ -61,5 +61,5 @@ async fn test_process_verify_auction() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(auction_root_state.status.is_verified);
+    assert!(auction_root_state.is_verified);
 }
