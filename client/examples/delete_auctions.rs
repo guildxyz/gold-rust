@@ -1,3 +1,4 @@
+use agsol_gold_client::pad_to_32_bytes;
 use agsol_gold_contract::instruction::factory::{delete_auction, DeleteAuctionArgs};
 use agsol_gold_contract::pda::get_auction_pool_seeds;
 use agsol_gold_contract::state::{AuctionPool, AuctionRootState};
@@ -15,8 +16,6 @@ use solana_sdk::transaction::Transaction;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use anyhow::anyhow;
-
 #[rustfmt::skip]
 const TEST_ADMIN_SECRET: [u8; 64] = [
     81, 206, 2, 84, 194, 25, 213, 226, 169, 97,
@@ -28,20 +27,8 @@ const TEST_ADMIN_SECRET: [u8; 64] = [
     34, 17, 205, 3
 ];
 
-fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
-    if input.len() > 32 {
-        return Err(anyhow!("input is longer than 32 bytes"));
-    }
-    let mut array = [0_u8; 32];
-    for (i, c) in input.chars().enumerate() {
-        array[i] = c as u8;
-    }
-    Ok(array)
-}
-
 const MIN_BALANCE: u64 = 1_000_000_000; // lamports
-const SLEEP_DURATION: u64 = 5000; // milliseconds
-const DELETE_SLEEP_DURATION: u64 = 1000; // milliseconds
+const SLEEP_DURATION: u64 = 1000; // milliseconds
 
 // default option is deploying on the testnet
 #[derive(Debug, StructOpt)]
@@ -127,11 +114,6 @@ fn try_main(
             }
         }
     }
-    // GET CURRENT BLOCKCHAIN TIME
-    let slot = connection.get_slot()?;
-    let block_time = connection.get_block_time(slot)?;
-    info!("time: {} [s]", block_time);
-    std::thread::sleep(std::time::Duration::from_millis(SLEEP_DURATION));
     // READ AUCTION POOL
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&get_auction_pool_seeds(), program_id);
@@ -141,7 +123,8 @@ fn try_main(
     // READ INDIVIDUAL STATES
     if let Some(id) = auction_id {
         let id_bytes = pad_to_32_bytes(&id)?;
-        // unwrap is fine here, it is only a dev tool and invalid id results in a non-recoverable errors anyway
+        // unwrap is fine here, it is only a dev tool and invalid id results in
+        // non-recoverable errors anyway
         let state_pubkey = auction_pool.pool.get(&id_bytes).unwrap();
         if let Err(err) = delete_frozen_auction(connection, &id_bytes, state_pubkey, admin_keypair)
         {
@@ -168,7 +151,6 @@ fn try_main(
     Ok(())
 }
 
-#[allow(deprecated)] // TODO remove this once solana 1.9.0 is out
 fn delete_frozen_auction(
     connection: &RpcClient,
     auction_id: &[u8; 32],
@@ -177,18 +159,16 @@ fn delete_frozen_auction(
 ) -> Result<(), anyhow::Error> {
     let auction_state_data = connection.get_account_data(state_pubkey)?;
     let mut auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
-
+    let auction_id_string = String::from_utf8_lossy(auction_id);
+    // NOTE: Expired auctions could be deleted as well but maybe those should
+    // be deleted individually after talking to their owners
     // IF NOT FROZEN, CONTINUE ITERATION
-    // Note: Expired auctions could be deleted as well
     if !auction_state.status.is_frozen {
-        info!(
-            "auction {} is not frozen",
-            String::from_utf8_lossy(auction_id)
-        );
+        info!("auction {} is not frozen", auction_id_string);
         return Ok(());
     }
 
-    info!("auction {} is frozen", String::from_utf8_lossy(auction_id));
+    info!("auction {} is frozen", auction_id_string);
 
     let mut finished = false;
     while !finished {
@@ -202,8 +182,7 @@ fn delete_frozen_auction(
 
         let delete_auction_ix = delete_auction(&delete_auction_args);
 
-        // TODO use latest blockhash once it's on the devnet
-        let (latest_blockhash, _) = connection.get_recent_blockhash()?;
+        let latest_blockhash = connection.get_latest_blockhash()?;
 
         let transaction = Transaction::new_signed_with_payer(
             &[delete_auction_ix],
@@ -212,16 +191,13 @@ fn delete_frozen_auction(
             latest_blockhash,
         );
 
-        // TODO use send_and_confirm_transaction once `get_latest_blockhash` is stabilized
-        let signature = connection.send_transaction(&transaction)?;
+        let signature = connection.send_and_confirm_transaction(&transaction)?;
         info!(
             "auction {}    deleted until cycle: {}    signature: {:?}",
-            String::from_utf8_lossy(auction_id),
-            auction_state.status.current_auction_cycle,
-            signature
+            auction_id_string, auction_state.status.current_auction_cycle, signature
         );
 
-        std::thread::sleep(std::time::Duration::from_millis(DELETE_SLEEP_DURATION));
+        std::thread::sleep(std::time::Duration::from_millis(SLEEP_DURATION));
 
         // Check if auction is deleted completely
         if let Ok(auction_state_data) = connection.get_account_data(state_pubkey) {
@@ -230,7 +206,7 @@ fn delete_frozen_auction(
             finished = true;
         }
     }
-    info!("auction {} deleted", String::from_utf8_lossy(auction_id));
+    info!("auction {} deleted", auction_id_string);
 
     Ok(())
 }

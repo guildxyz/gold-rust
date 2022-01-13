@@ -134,7 +134,6 @@ fn try_main(
     Ok(())
 }
 
-#[allow(deprecated)] // TODO remove this once solana 1.9.0 is out
 fn close_cycle(
     connection: &RpcClient,
     auction_id: &[u8; 32],
@@ -187,8 +186,7 @@ fn close_cycle(
     };
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
 
-    // TODO use latest blockhash once it's on the devnet
-    let (latest_blockhash, _) = connection.get_recent_blockhash()?;
+    let latest_blockhash = connection.get_latest_blockhash()?;
 
     let transaction = Transaction::new_signed_with_payer(
         &[close_auction_cycle_ix],
@@ -197,8 +195,7 @@ fn close_cycle(
         latest_blockhash,
     );
 
-    // TODO use send_and_confirm_transaction once `get_latest_blockhash` is stabilized
-    let signature = connection.send_transaction(&transaction)?;
+    let signature = connection.send_and_confirm_transaction(&transaction)?;
     info!(
         "auction \"{}\"    cycle: {}    signature: {:?}",
         String::from_utf8_lossy(auction_id),
