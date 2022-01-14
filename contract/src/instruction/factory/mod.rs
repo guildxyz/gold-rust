@@ -5,6 +5,7 @@ mod freeze_auction;
 mod initialize_auction;
 mod initialize_contract;
 mod place_bid;
+mod verify_auction;
 
 pub use claim_funds::*;
 pub use close_auction_cycle::*;
@@ -13,6 +14,7 @@ pub use freeze_auction::*;
 pub use initialize_auction::*;
 pub use initialize_contract::*;
 pub use place_bid::*;
+pub use verify_auction::*;
 
 use super::AuctionInstruction;
 use crate::pda::*;

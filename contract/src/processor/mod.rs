@@ -5,6 +5,7 @@ mod delete_auction;
 mod freeze;
 mod initialize_auction;
 mod initialize_contract;
+mod verify_auction;
 
 use crate::error::AuctionContractError;
 use crate::instruction::AuctionInstruction;
@@ -79,5 +80,8 @@ pub fn process(
             id,
             num_of_cycles_to_delete,
         ),
+        AuctionInstruction::VerifyAuction { id } => {
+            verify_auction::process_verify_auction(program_id, accounts, id)
+        }
     }
 }

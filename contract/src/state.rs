@@ -150,6 +150,8 @@ pub struct AuctionRootState {
     pub available_funds: u64,
     /// Start timestamp of the auction (in seconds)
     pub start_time: UnixTimestamp,
+    /// The auction can be verified by the contract owners.
+    pub is_verified: bool,
 }
 
 /// State respective to a given auction cycle.
@@ -263,6 +265,7 @@ mod test_max_serialized_len {
             all_time_treasury: 0,
             available_funds: 0,
             start_time: 0,
+            is_verified: false,
         };
 
         assert_eq!(
