@@ -108,7 +108,7 @@ async fn test_process_bid() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert_eq!(auction_root_state.current_treasury, bid_amount);
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 
     // Test higher than current bid
     let bid_amount_higher = 2_000_000;
@@ -141,7 +141,7 @@ async fn test_process_bid() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert_eq!(auction_root_state.current_treasury, bid_amount_higher);
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount_higher);
 
     // Invalid use case
     // Test bid lower than current bid

@@ -138,13 +138,14 @@ pub fn initialize_auction(
     }
     // NOTE: can the "double unwrap" be avoided?
     let start_time = auction_start_timestamp.unwrap_or(clock.unix_timestamp);
-    let end_time = start_time.checked_add(auction_config.cycle_period).unwrap();
+    let end_time = start_time
+        .checked_add(auction_config.cycle_period)
+        .ok_or(AuctionContractError::ArithmeticError)?;
 
     // Create default initialization state objects
     let bid_history = BidHistory::new();
 
     let cycle_state = AuctionCycleState {
-        start_time,
         end_time,
         bid_history,
     };
@@ -357,7 +358,9 @@ pub fn initialize_auction(
             is_active: true,
             is_frozen: false,
         },
-        current_treasury: 0,
+        all_time_treasury: 0,
+        available_funds: 0,
+        start_time,
         is_verified: false,
     };
     root_state.write(auction_root_state_account)?;
