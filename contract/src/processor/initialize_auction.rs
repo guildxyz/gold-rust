@@ -200,7 +200,7 @@ pub fn initialize_auction(
             // Create mint and respective holding account
             // and mint a single NFT to the holding account
 
-            initialize_create_metadata_args(&mut metadata_args, is_repeating)?;
+            initialize_create_metadata_args(&mut metadata_args, is_repeating);
 
             // create mint account
             create_mint_account(
