@@ -5,9 +5,9 @@ use test_factory::{initialize_new_auction, TestUser};
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
-use agsol_gold_contract::unpuff_metadata;
 use agsol_testbench::tokio;
 
 use metaplex_token_metadata::ID as META_ID;
@@ -84,7 +84,6 @@ async fn test_process_initialize_auction() {
         .await;
     unpuff_metadata(&mut master_metadata.data);
     assert_eq!(master_metadata.data.uri, "uri/1.json");
-    
 
     // check state account
     let (auction_root_state_pubkey, _) =
