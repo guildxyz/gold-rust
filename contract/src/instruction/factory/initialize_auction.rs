@@ -20,7 +20,7 @@ pub struct InitializeAuctionArgs {
 impl InitializeAuctionArgs {
     pub fn new_test(
         owner: Pubkey,
-        config: AuctionConfig,
+        auction_config: AuctionConfig,
         id: [u8; 32],
         token_type: TokenType,
     ) -> Self {
@@ -48,7 +48,7 @@ impl InitializeAuctionArgs {
             auction_owner_pubkey: owner,
             auction_id: id,
             auction_name: [111; 32],
-            auction_config: config,
+            auction_config,
             auction_description: AuctionDescription {
                 description: MaxLenString::new("Cool description".to_string()),
                 socials: vec![MaxLenString::new("https://www.gold.xyz".to_string())]

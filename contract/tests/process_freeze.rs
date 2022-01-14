@@ -66,7 +66,7 @@ async fn test_process_freeze() {
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
     assert!(auction_root_state.status.is_frozen);
-    assert_eq!(auction_root_state.current_treasury, 0);
+    assert_eq!(auction_root_state.all_time_treasury, 0);
     assert_eq!(
         initial_balance - TRANSACTION_FEE,
         get_account_lamports(&mut testbench, &user.keypair.pubkey()).await

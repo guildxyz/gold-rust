@@ -82,9 +82,13 @@ pub async fn warp_to_cycle_end(testbench: &mut Testbench, auction_id: [u8; 32]) 
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
 
-    testbench
-        .warp_n_seconds(auction_root_state.auction_config.cycle_period + 1)
-        .await;
+    let current_time = testbench.block_time().await;
+    let warp_duration = auction_cycle_state.end_time - current_time + 1;
+
+    if warp_duration > 1 {
+        testbench.warp_n_seconds(warp_duration).await;
+    }
+
     let current_time = testbench.block_time().await;
     assert!(auction_cycle_state.end_time < current_time);
 }
