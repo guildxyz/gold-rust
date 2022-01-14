@@ -153,7 +153,7 @@ pub fn initialize_auction(
 
     let token_config = match create_token_args {
         CreateTokenArgs::Nft {
-            metadata_args,
+            mut metadata_args,
             is_repeating,
         } => {
             // Nft accounts
@@ -199,6 +199,8 @@ pub fn initialize_auction(
 
             // Create mint and respective holding account
             // and mint a single NFT to the holding account
+
+            initialize_create_metadata_args(&mut metadata_args, is_repeating);
 
             // create mint account
             create_mint_account(

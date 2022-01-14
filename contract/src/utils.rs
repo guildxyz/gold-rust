@@ -10,6 +10,7 @@ use solana_program::sysvar::rent::ID as RENT_ID;
 use spl_token::state::{Account, Mint};
 use spl_token::ID as TOKEN_ID;
 
+use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
 use metaplex_token_metadata::ID as META_ID;
 
 use crate::state::{AuctionCycleState, AuctionRootState};
@@ -160,4 +161,49 @@ pub fn is_last_auction_cycle(root_state: &AuctionRootState) -> bool {
         return root_state.status.current_auction_cycle >= number_of_cycles;
     }
     false
+}
+
+pub fn initialize_create_metadata_args(
+    metadata_args: &mut CreateMetadataAccountArgs,
+    is_repeating: bool,
+) {
+    if is_repeating {
+        metadata_args.data.uri.push_str("/0.json");
+    } else {
+        metadata_args.data.uri.push_str("/1.json");
+    }
+}
+
+#[cfg(test)]
+mod initialize_auction_tests {
+    use super::*;
+
+    fn get_test_args() -> CreateMetadataAccountArgs {
+        CreateMetadataAccountArgs {
+            data: metaplex_token_metadata::state::Data {
+                name: "random auction".to_owned(),
+                symbol: "RAND".to_owned(),
+                uri: "uri".to_owned(),
+                seller_fee_basis_points: 10,
+                creators: None,
+            },
+            is_mutable: true,
+        }
+    }
+
+    #[test]
+    fn test_initialize_metadata_args_valid() {
+        let mut test_args_not_repeating = get_test_args();
+        initialize_create_metadata_args(&mut test_args_not_repeating, false);
+        assert_eq!("uri/1.json", test_args_not_repeating.data.uri);
+
+        let mut test_args_repeating = get_test_args();
+        initialize_create_metadata_args(&mut test_args_repeating, true);
+        assert_eq!("uri/0.json", test_args_repeating.data.uri);
+
+        let mut longer_uri_args = get_test_args();
+        longer_uri_args.data.uri = "something/with/long/path".to_owned();
+        initialize_create_metadata_args(&mut longer_uri_args, true);
+        assert_eq!("something/with/long/path/0.json", longer_uri_args.data.uri);
+    }
 }
