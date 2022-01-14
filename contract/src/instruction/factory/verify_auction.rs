@@ -3,6 +3,7 @@ use super::*;
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct VerifyAuctionArgs {
     pub contract_admin_pubkey: Pubkey,
+    #[alias([u8; 32])]
     pub auction_id: AuctionId,
 }
 
