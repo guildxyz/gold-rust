@@ -30,7 +30,7 @@ impl InitializeAuctionArgs {
                     data: metaplex_token_metadata::state::Data {
                         name: "random auction".to_owned(),
                         symbol: "RAND".to_owned(),
-                        uri: "uri/1.json".to_owned(),
+                        uri: "uri/".to_owned(),
                         seller_fee_basis_points: 10,
                         creators: None,
                     },
