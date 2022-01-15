@@ -179,12 +179,13 @@ pub struct AuctionPool {
 }
 
 #[repr(C)]
-#[derive(
-    BorshSchema, BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone,
-)]
+#[derive(BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone)]
 pub struct ContractBankState {
-    /// Address of the admin who deployed the contract.
+    /// Address of the contract admin who may delete auctions.
     pub contract_admin_pubkey: Pubkey,
+    /// Address of the withdraw authority who may withdraw from the contract
+    /// bank.
+    pub withdraw_authority: Pubkey,
 }
 
 #[cfg(test)]

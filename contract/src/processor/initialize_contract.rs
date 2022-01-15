@@ -1,6 +1,10 @@
 use super::*;
 
-pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+pub fn initialize_contract(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    withdraw_authority: Pubkey,
+) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let contract_admin_account = next_account_info(account_info_iter)?;
     let contract_bank_account = next_account_info(account_info_iter)?;
@@ -58,6 +62,7 @@ pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> Pro
         )?;
         let contract_bank_state = ContractBankState {
             contract_admin_pubkey: *contract_admin_account.key,
+            withdraw_authority,
         };
         contract_bank_state.write(contract_bank_account)?;
     }

@@ -4,19 +4,19 @@ use metaplex_token_metadata::state::{EDITION, PREFIX};
 use solana_program::pubkey::Pubkey;
 
 pub fn get_contract_pda_seeds<'a>() -> [&'a [u8]; 1] {
-    [b"auction_contract"]
+    [b"gold_contract"]
 }
 
 pub fn get_auction_pool_seeds<'a>() -> [&'a [u8]; 1] {
-    [b"auction_pool"]
+    [b"gold_auction_pool"]
 }
 
 pub fn get_auction_bank_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"auction_bank", auction_id]
+    [b"gold_auction_bank", auction_id]
 }
 
 pub fn get_auction_root_state_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"auction_root_state", auction_id]
+    [b"gold_auction_root_state", auction_id]
 }
 
 pub fn get_auction_cycle_state_seeds<'a>(
@@ -24,29 +24,29 @@ pub fn get_auction_cycle_state_seeds<'a>(
     cycle_number_bytes: &'a [u8],
 ) -> [&'a [u8]; 3] {
     [
-        b"auction_cycle_state",
+        b"gold_auction_cycle_state",
         auction_root_state_pubkey.as_ref(),
         cycle_number_bytes,
     ]
 }
 
 pub fn get_contract_bank_seeds<'a>() -> [&'a [u8]; 1] {
-    [b"auction_contract_bank"]
+    [b"gold_contract_bank"]
 }
 
 pub fn get_token_mint_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"token_mint", auction_id]
+    [b"gold_token_mint", auction_id]
 }
 pub fn get_token_holding_seeds<'a>(mint: &'a Pubkey, user: &'a Pubkey) -> [&'a [u8]; 3] {
-    [b"token_holding", mint.as_ref(), user.as_ref()]
+    [b"gold_token_holding", mint.as_ref(), user.as_ref()]
 }
 
 pub fn get_master_mint_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"master_mint", auction_id]
+    [b"gold_master_mint", auction_id]
 }
 
 pub fn get_master_holding_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"master_holding", auction_id]
+    [b"gold_master_holding", auction_id]
 }
 
 pub fn get_edition_seeds(mint_pubkey: &Pubkey) -> [&[u8]; 4] {
@@ -64,7 +64,7 @@ pub fn get_user_asset_seeds<'a>(
     mint_pubkey: &'a Pubkey,
 ) -> [&'a [u8]; 4] {
     [
-        b"user_asset",
+        b"gold_user_asset",
         auction_id,
         user_pubkey.as_ref(),
         mint_pubkey.as_ref(),
@@ -72,15 +72,15 @@ pub fn get_user_asset_seeds<'a>(
 }
 
 pub fn get_auction_mint_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
-    [b"auction_mint", auction_id]
+    [b"gold_auction_mint", auction_id]
 }
 
 pub fn get_child_mint_seeds<'a>(edition: &'a [u8; 8], auction_id: &'a [u8]) -> [&'a [u8]; 3] {
-    [b"child_mint", auction_id, edition]
+    [b"gold_child_mint", auction_id, edition]
 }
 
 pub fn get_child_holding_seeds<'a>(edition: &'a [u8; 8], auction_id: &'a [u8]) -> [&'a [u8]; 3] {
-    [b"child_holding", auction_id, edition]
+    [b"gold_child_holding", auction_id, edition]
 }
 
 pub fn get_edition_marker_seeds<'a>(edition_str: &'a str, mint: &'a Pubkey) -> [&'a [u8]; 5] {

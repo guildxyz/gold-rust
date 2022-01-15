@@ -4,6 +4,7 @@ pub mod factory;
 use crate::state::{AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::clock::UnixTimestamp;
+use solana_program::pubkey::Pubkey;
 
 // NOTE could hold a reference to description and metadata args
 // to avoid cloning them, in the factory, but performance is not
@@ -12,7 +13,9 @@ use solana_program::clock::UnixTimestamp;
 #[repr(C)]
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub enum AuctionInstruction {
-    InitializeContract,
+    InitializeContract {
+        withdraw_authority: Pubkey,
+    },
     InitializeAuction {
         id: AuctionId,
         auction_name: AuctionName,
@@ -41,5 +44,8 @@ pub enum AuctionInstruction {
     },
     VerifyAuction {
         id: AuctionId,
+    },
+    AdminWithdraw {
+        amount: u64,
     },
 }

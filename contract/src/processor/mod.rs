@@ -1,3 +1,4 @@
+mod admin_withdraw;
 mod bid;
 mod claim_funds;
 mod close_auction_cycle;
@@ -41,8 +42,8 @@ pub fn process(
 ) -> ProgramResult {
     let instruction: AuctionInstruction = try_from_slice_unchecked(instruction_data)?;
     match instruction {
-        AuctionInstruction::InitializeContract => {
-            initialize_contract::initialize_contract(program_id, accounts)
+        AuctionInstruction::InitializeContract { withdraw_authority } => {
+            initialize_contract::initialize_contract(program_id, accounts, withdraw_authority)
         }
         AuctionInstruction::InitializeAuction {
             id,
@@ -82,6 +83,9 @@ pub fn process(
         ),
         AuctionInstruction::VerifyAuction { id } => {
             verify_auction::process_verify_auction(program_id, accounts, id)
+        }
+        AuctionInstruction::AdminWithdraw { amount } => {
+            admin_withdraw::process_admin_withdraw(program_id, accounts, amount)
         }
     }
 }

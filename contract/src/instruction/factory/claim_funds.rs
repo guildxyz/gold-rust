@@ -2,7 +2,6 @@ use super::*;
 
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct ClaimFundsArgs {
-    pub contract_admin_pubkey: Pubkey,
     pub auction_owner_pubkey: Pubkey,
     #[alias([u8; 32])]
     pub auction_id: AuctionId,
@@ -31,7 +30,6 @@ pub fn claim_funds(args: &ClaimFundsArgs) -> Instruction {
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(auction_cycle_state_pubkey, false),
-        AccountMeta::new(args.contract_admin_pubkey, false),
         AccountMeta::new(contract_bank_pubkey, false),
     ];
 
