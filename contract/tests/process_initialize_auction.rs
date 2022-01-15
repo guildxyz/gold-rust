@@ -5,15 +5,19 @@ use test_factory::{initialize_new_auction, TestUser};
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
+
+use metaplex_token_metadata::ID as META_ID;
+
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
 use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
-const AUCTION_CREATION_COST: u64 = 24_005_040 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_067_680 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
@@ -69,6 +73,17 @@ async fn test_process_initialize_auction() {
         .unwrap();
 
     assert_eq!(master_holding_data.amount, 1);
+
+    // check metadata
+    let (master_metadata_pubkey, _) =
+        Pubkey::find_program_address(&get_metadata_seeds(&master_mint_pubkey), &META_ID);
+    let mut master_metadata = testbench
+        .get_and_deserialize_account_data::<metaplex_token_metadata::state::Metadata>(
+            &master_metadata_pubkey,
+        )
+        .await;
+    unpuff_metadata(&mut master_metadata.data);
+    assert_eq!(master_metadata.data.uri, "uri/1.json");
 
     // check state account
     let (auction_root_state_pubkey, _) =

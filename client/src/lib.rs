@@ -70,7 +70,7 @@ pub fn wasm_auction_pool_pubkey() -> Vec<u8> {
 // NOTE special characters are chopped off to fit an u8, so it won't be
 // correct, however, we may assume in this case that the input is valid.
 // Else, we will throw an error when the auction with this id is not found
-fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
+pub fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
     if input.len() > 32 {
         return Err(anyhow!("input is longer than 32 bytes"));
     }

@@ -64,15 +64,15 @@ pub fn process_bid(
     }
 
     // Check and update auction status
-    let auction_state = AuctionStateTemp {
-        root_state: &auction_root_state,
-        cycle_state: &auction_cycle_state,
-    };
-
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
-    auction_state.check_status(current_timestamp, AuctionInteraction::Bid)?;
-    auction_state.check_bid_amount(amount)?;
+    check_status(
+        &auction_root_state,
+        &auction_cycle_state,
+        current_timestamp,
+        AuctionInteraction::Bid,
+    )?;
+    check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
 
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
     let previous_bid_amount = if let Some(ref most_recent_bid) = most_recent_bid_option {
@@ -84,8 +84,8 @@ pub fn process_bid(
         0
     };
 
-    auction_root_state.current_treasury = auction_root_state
-        .current_treasury
+    auction_root_state.all_time_treasury = auction_root_state
+        .all_time_treasury
         .checked_add(amount)
         .ok_or(AuctionContractError::ArithmeticError)?
         .checked_sub(previous_bid_amount)

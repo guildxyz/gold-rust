@@ -16,7 +16,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
 const CLOSE_AUCTION_CYCLE_LAST_CYCLE: u64 = 12_799_440;
-const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_613_520;
+const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_557_840;
 
 #[tokio::test]
 async fn test_process_close_auction_cycle() {
@@ -73,10 +73,6 @@ async fn test_process_close_auction_cycle() {
     // Check if auction timings were correctly updated
     assert_eq!(auction_cycle_state_pubkey, same_auction_cycle_state_pubkey);
     assert_eq!(
-        auction_cycle_state.start_time,
-        same_auction_cycle_state.start_time
-    );
-    assert_eq!(
         auction_cycle_state.end_time + auction_config.cycle_period,
         same_auction_cycle_state.end_time
     );
@@ -110,6 +106,8 @@ async fn test_process_close_auction_cycle() {
         auction_root_state.auction_config.encore_period,
         auction_config.encore_period
     );
+    assert_eq!(auction_root_state.available_funds, 0);
+    assert_eq!(auction_root_state.all_time_treasury, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
 
     // Test some bids were taken
@@ -139,7 +137,9 @@ async fn test_process_close_auction_cycle() {
         CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER + TRANSACTION_FEE,
     );
 
-    let (auction_cycle_state_pubkey, _auction_cycle_state) =
+    let new_cycle_min_end_time =
+        auction_cycle_state.end_time + auction_root_state.auction_config.cycle_period;
+    let (_auction_cycle_state_pubkey, auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
     // Check if asset holding is created and asset is minted
@@ -159,10 +159,14 @@ async fn test_process_close_auction_cycle() {
     assert_eq!(user_1_nft_account.amount, 1);
     assert_eq!(child_mint_account.supply, 1);
 
-    let auction_cycle_state = testbench
-        .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
+    assert!(auction_cycle_state.end_time >= new_cycle_min_end_time);
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert_eq!(auction_root_state.available_funds, bid_amount);
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 }
 
 #[tokio::test]
@@ -483,7 +487,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
             data: metaplex_token_metadata::state::Data {
                 name: "random auction".to_owned(),
                 symbol: "RAND".to_owned(),
-                uri: "uri/1.json".to_owned(),
+                uri: "uri".to_owned(),
                 seller_fee_basis_points: 10,
                 creators: None,
             },

@@ -76,8 +76,8 @@ pub fn freeze_auction(
         checked_debit_account(auction_bank_account, most_recent_bid.bid_amount)?;
         checked_credit_account(top_bidder_account, most_recent_bid.bid_amount)?;
 
-        auction_root_state.current_treasury = auction_root_state
-            .current_treasury
+        auction_root_state.all_time_treasury = auction_root_state
+            .all_time_treasury
             .checked_sub(most_recent_bid.bid_amount)
             .ok_or(AuctionContractError::ArithmeticError)?;
     }

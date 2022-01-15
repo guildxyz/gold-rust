@@ -51,7 +51,7 @@ pub fn process_claim_funds(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_root_state = AuctionRootState::read(auction_root_state_account)?;
+    let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
 
     if auction_owner_account.key != &auction_root_state.auction_owner {
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
@@ -109,6 +109,14 @@ pub fn process_claim_funds(
 
     checked_debit_account(auction_bank_account, auction_owner_share)?;
     checked_debit_account(auction_bank_account, contract_admin_share)?;
+
+    // Update available funds in the root state
+    auction_root_state.available_funds = auction_root_state
+        .available_funds
+        .checked_sub(amount)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    auction_root_state.write(auction_root_state_account)?;
 
     Ok(())
 }

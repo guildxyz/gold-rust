@@ -11,7 +11,7 @@ use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
-const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_613_520;
+const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_557_840;
 
 #[tokio::test]
 async fn test_process_claim_funds() {
@@ -103,6 +103,12 @@ async fn test_process_claim_funds() {
         CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER + TRANSACTION_FEE,
     );
 
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert_eq!(auction_root_state.available_funds, bid_amount);
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
+
     // This should be successful because the auction cycle of the bid has ended
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
@@ -117,6 +123,15 @@ async fn test_process_claim_funds() {
         claim_amount / 20 * 19 - TRANSACTION_FEE,
         owner_balance_change as u64
     );
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert_eq!(
+        auction_root_state.available_funds,
+        bid_amount - claim_amount
+    );
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 
     // Close last (second) auction cycle
     warp_to_cycle_end(&mut testbench, auction_id).await;
@@ -154,6 +169,11 @@ async fn test_process_claim_funds() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
+    assert_eq!(
+        auction_root_state.available_funds,
+        bid_amount - 2 * claim_amount
+    );
+    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
     assert!(auction_root_state.status.is_frozen);
 
     // Claim funds from a frozen auction
