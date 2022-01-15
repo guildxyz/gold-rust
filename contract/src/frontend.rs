@@ -28,5 +28,4 @@ pub struct FrontendAuction {
     pub root_state_pubkey: Pubkey,
     pub root_state: AuctionRootState,
     pub token_config: FrontendTokenConfig,
-    pub available_funds: u64,
 }

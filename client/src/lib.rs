@@ -20,8 +20,6 @@ wasm_instruction!(initialize_auction);
 wasm_instruction!(freeze_auction);
 wasm_instruction!(place_bid);
 wasm_instruction!(claim_funds);
-wasm_instruction!(delete_auction);
-wasm_instruction!(initialize_contract);
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
 pub async fn get_auction_wasm(auction_id: String) -> Result<Uint8Array, JsValue> {

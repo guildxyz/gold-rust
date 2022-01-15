@@ -68,20 +68,10 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
         }
     };
 
-    let cycle_state =
-        get_auction_cycle_state(root_state_pubkey, root_state.status.current_auction_cycle).await?;
-
-    let mut available_funds = get_treasury_without_rent(&mut client, &auction_id).await?;
-
-    if let Some(bid_data) = cycle_state.bid_history.get_last_element() {
-        available_funds = available_funds.saturating_sub(bid_data.bid_amount);
-    }
-
     Ok(FrontendAuction {
         root_state_pubkey: *root_state_pubkey,
         root_state,
         token_config,
-        available_funds,
     })
 }
 
@@ -99,20 +89,6 @@ pub async fn get_auction_cycle_state(
     client
         .get_and_deserialize_account_data(&cycle_state_pubkey)
         .await
-}
-
-pub async fn get_treasury_without_rent(
-    client: &mut RpcClient,
-    auction_id: &[u8],
-) -> Result<u64, anyhow::Error> {
-    let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(auction_id), &GOLD_ID);
-
-    let bank_account = client.get_account(&auction_bank_pubkey).await?;
-    let rent = client
-        .get_minimum_balance_for_rent_exemption(bank_account.data.len())
-        .await?;
-    Ok(bank_account.lamports.saturating_sub(rent))
 }
 
 #[cfg(test)]
