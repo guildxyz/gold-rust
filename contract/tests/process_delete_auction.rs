@@ -39,11 +39,11 @@ async fn test_delete_small_auction() {
     .unwrap();
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     close_n_cycles(
         &mut testbench,
@@ -137,11 +137,11 @@ async fn test_delete_inactive_auction() {
     .unwrap();
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     close_n_cycles(
         &mut testbench,
@@ -211,11 +211,11 @@ async fn test_delete_just_long_enough_auction() {
     .unwrap();
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     close_n_cycles(
         &mut testbench,
@@ -287,11 +287,11 @@ async fn test_delete_long_auction() {
     .unwrap();
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     close_n_cycles(
         &mut testbench,
@@ -364,7 +364,7 @@ async fn does_nth_cycle_state_exist(
     n: u64,
 ) -> bool {
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(auction_root_state_pubkey, &n.to_le_bytes()),
+        &auction_cycle_state_seeds(auction_root_state_pubkey, &n.to_le_bytes()),
         &CONTRACT_ID,
     );
     is_existing_account(testbench, &auction_cycle_state_pubkey).await

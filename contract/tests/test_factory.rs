@@ -12,7 +12,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::TransactionError;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{get_auction_cycle_state_seeds, get_auction_root_state_seeds};
+use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
 use agsol_gold_contract::state::{
     AuctionConfig, AuctionCycleState, AuctionDescription, AuctionRootState, BidData,
     CreateTokenArgs, NftData, TokenConfig, TokenData, TokenType,
@@ -158,7 +158,7 @@ pub async fn get_top_bid(
     auction_cycle_state
         .bid_history
         .get_last_element()
-        .map(|elem| elem.clone())
+        .cloned()
 }
 
 #[allow(unused)]
@@ -181,12 +181,12 @@ pub async fn get_state_pubkeys(
     auction_id: [u8; 32],
 ) -> (Pubkey, Pubkey) {
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let cycle_number = get_current_cycle_number(testbench, &auction_root_state_pubkey).await;
     let cycle_number_bytes = cycle_number.to_le_bytes();
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(&auction_root_state_pubkey, &cycle_number_bytes),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &cycle_number_bytes),
         &CONTRACT_ID,
     );
 
@@ -301,7 +301,7 @@ pub async fn claim_funds_transaction(
     amount: u64,
 ) -> Result<i64, AuctionContractError> {
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let payer = testbench.clone_payer();
 
@@ -339,7 +339,7 @@ pub async fn delete_auction_transaction(
     contract_admin_keypair: &Keypair,
 ) -> Result<(), AuctionContractError> {
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let mut delete_auction_args = DeleteAuctionArgs {
         contract_admin_pubkey: contract_admin_keypair.pubkey(),
@@ -471,7 +471,7 @@ pub async fn get_auction_cycle_pubkey(
         .current_auction_cycle
         .to_le_bytes();
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(auction_root_state_pubkey, &cycle_number_bytes),
+        &auction_cycle_state_seeds(auction_root_state_pubkey, &cycle_number_bytes),
         &CONTRACT_ID,
     );
 
@@ -523,6 +523,7 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
     let initialize_contract_args = InitializeContractArgs {
         contract_admin: testbench.payer().pubkey(),
         withdraw_authority: testbench.payer().pubkey(),
+        initial_auction_pool_len: 100,
     };
     let init_contract_ix = initialize_contract(&initialize_contract_args);
     testbench

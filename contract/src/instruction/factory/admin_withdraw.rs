@@ -7,7 +7,7 @@ pub struct AdminWithdrawArgs {
 
 pub fn admin_withdraw(args: &AdminWithdrawArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
     let accounts = vec![
         AccountMeta::new(args.withdraw_authority, true),
@@ -32,7 +32,7 @@ pub struct AdminWithdrawReassignArgs {
 
 pub fn admin_withdraw_reassign(args: &AdminWithdrawReassignArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
     let accounts = vec![
         AccountMeta::new_readonly(args.withdraw_authority, true),

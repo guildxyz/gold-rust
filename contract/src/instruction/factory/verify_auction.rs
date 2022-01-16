@@ -7,10 +7,10 @@ pub struct VerifyAuctionArgs {
 
 pub fn verify_auction(args: &VerifyAuctionArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
 
     let accounts = vec![
         AccountMeta::new(args.contract_admin_pubkey, true),

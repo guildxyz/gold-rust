@@ -39,7 +39,7 @@ async fn test_process_claim_funds() {
     .unwrap();
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     // Invalid use case
     // Trying to claim from an auction with insufficient treasury
@@ -176,7 +176,7 @@ async fn test_process_claim_funds() {
 
     // Claim funds from a frozen auction
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
     let contract_balance_before = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,

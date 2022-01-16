@@ -75,7 +75,7 @@ pub fn process_bid(
     check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
 
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
-    let previous_bid_amount = if let Some(ref most_recent_bid) = most_recent_bid_option {
+    let previous_bid_amount = if let Some(most_recent_bid) = most_recent_bid_option {
         if top_bidder_account.key != &most_recent_bid.bidder_pubkey {
             return Err(AuctionContractError::TopBidderAccountMismatch.into());
         }

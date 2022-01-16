@@ -37,9 +37,9 @@ async fn test_process_tokens() {
     .unwrap();
 
     let (token_mint_pubkey, _) =
-        Pubkey::find_program_address(&get_token_mint_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&token_mint_seeds(&auction_id), &CONTRACT_ID);
 
-    let (contract_pda, _) = Pubkey::find_program_address(&get_contract_pda_seeds(), &CONTRACT_ID);
+    let (contract_pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &CONTRACT_ID);
 
     let token_mint = testbench
         .get_mint_account(&token_mint_pubkey)
@@ -76,7 +76,7 @@ async fn test_process_tokens() {
     assert_eq!(token_mint.supply, 0);
 
     let (token_holding_pubkey, _) = Pubkey::find_program_address(
-        &get_token_holding_seeds(&token_mint_pubkey, &auction_owner.keypair.pubkey()),
+        &token_holding_seeds(&token_mint_pubkey, &auction_owner.keypair.pubkey()),
         &CONTRACT_ID,
     );
     assert_eq!(
@@ -112,7 +112,7 @@ async fn test_process_tokens() {
     assert_eq!(token_mint.supply, 100);
 
     let (token_holding_pubkey, _) = Pubkey::find_program_address(
-        &get_token_holding_seeds(&token_mint_pubkey, &user_1.keypair.pubkey()),
+        &token_holding_seeds(&token_mint_pubkey, &user_1.keypair.pubkey()),
         &CONTRACT_ID,
     );
     let token_holding = testbench

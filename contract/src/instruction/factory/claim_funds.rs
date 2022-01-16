@@ -11,19 +11,16 @@ pub struct ClaimFundsArgs {
 
 pub fn claim_funds(args: &ClaimFundsArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(
-            &auction_root_state_pubkey,
-            &args.cycle_number.to_le_bytes(),
-        ),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &args.cycle_number.to_le_bytes()),
         &crate::ID,
     );
 
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
     let accounts = vec![
         AccountMeta::new(args.auction_owner_pubkey, true),

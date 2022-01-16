@@ -31,7 +31,7 @@ async fn test_process_close_auction_cycle() {
     };
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let user_1 = TestUser::new(&mut testbench).await;
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
@@ -326,7 +326,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     initialize_new_auction(
         &mut testbench,
@@ -480,7 +480,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let create_token_args = CreateTokenArgs::Nft {
         metadata_args: CreateMetadataAccountArgs {

@@ -11,11 +11,11 @@ pub struct CloseAuctionCycleArgs {
 
 pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
 
-    let (contract_pda, _) = Pubkey::find_program_address(&get_contract_pda_seeds(), &crate::ID);
+    let (contract_pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &crate::ID);
 
     let top_bidder = if let Some(bidder) = args.top_bidder_pubkey {
         bidder
@@ -24,14 +24,14 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
     };
 
     let (current_auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(
+        &auction_cycle_state_seeds(
             &auction_root_state_pubkey,
             &args.next_cycle_num.to_le_bytes(),
         ),
         &crate::ID,
     );
     let (next_auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(
+        &auction_cycle_state_seeds(
             &auction_root_state_pubkey,
             &(args.next_cycle_num + 1).to_le_bytes(),
         ),
@@ -64,7 +64,7 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
                 .unwrap();
             let next_edition_string = next_edition_div.to_string();
             let (child_edition_marker_pubkey, _) = Pubkey::find_program_address(
-                &get_edition_marker_seeds(&next_edition_string, &master_pdas.mint),
+                &edition_marker_seeds(&next_edition_string, &master_pdas.mint),
                 &metaplex_token_metadata::ID,
             );
 
@@ -83,9 +83,9 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
         }
         TokenType::Token => {
             let (token_mint_pubkey, _) =
-                Pubkey::find_program_address(&get_token_mint_seeds(&args.auction_id), &crate::ID);
+                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID);
             let (token_holding_pubkey, _) = Pubkey::find_program_address(
-                &get_token_holding_seeds(&token_mint_pubkey, &top_bidder),
+                &token_holding_seeds(&token_mint_pubkey, &top_bidder),
                 &crate::ID,
             );
             vec![

@@ -8,10 +8,9 @@ pub struct InitializeContractArgs {
 
 pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &crate::ID);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
 
     let accounts = vec![
         AccountMeta::new(args.contract_admin, true),

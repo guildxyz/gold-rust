@@ -59,7 +59,7 @@ async fn test_process_admin_withdraw() {
 
     // claim funds
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
     let contract_balance_before = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
 
     let claim_amount = 1_000_000;
