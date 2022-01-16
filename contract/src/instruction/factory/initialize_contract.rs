@@ -3,6 +3,7 @@ use super::*;
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct InitializeContractArgs {
     pub contract_admin_pubkey: Pubkey,
+    pub withdraw_authority: Pubkey,
 }
 
 pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
@@ -19,7 +20,9 @@ pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
         AccountMeta::new_readonly(SYS_ID, false),
     ];
 
-    let instruction = AuctionInstruction::InitializeContract;
+    let instruction = AuctionInstruction::InitializeContract {
+        withdraw_authority: args.withdraw_authority,
+    };
 
     // unwrap is fine because instruction is serializable
     let data = instruction.try_to_vec().unwrap();

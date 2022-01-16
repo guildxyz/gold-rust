@@ -29,5 +29,17 @@ pub fn process_admin_withdraw(
         return Err(AuctionContractError::WithdrawAuthorityMismatch.into());
     }
     // rent check
-    todo!();
+    let mut available_lamports = **contract_bank_account.lamports.borrow();
+    available_lamports = available_lamports
+        .checked_sub(Rent::get()?.minimum_balance(ContractBankState::MAX_SERIALIZED_LEN))
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    if amount > available_lamports {
+        return Err(AuctionContractError::InvalidClaimAmount.into());
+    }
+
+    checked_credit_account(withdraw_authority, amount)?;
+    checked_debit_account(contract_bank_account, amount)?;
+
+    Ok(())
 }
