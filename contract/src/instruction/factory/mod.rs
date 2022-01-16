@@ -1,3 +1,4 @@
+mod admin_withdraw;
 mod claim_funds;
 mod close_auction_cycle;
 mod delete_auction;
@@ -7,6 +8,7 @@ mod initialize_contract;
 mod place_bid;
 mod verify_auction;
 
+pub use admin_withdraw::*;
 pub use claim_funds::*;
 pub use close_auction_cycle::*;
 pub use delete_auction::*;

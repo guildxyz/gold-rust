@@ -1,11 +1,9 @@
 use super::*;
 
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct CloseAuctionCycleArgs {
     pub payer_pubkey: Pubkey,
     pub auction_owner_pubkey: Pubkey,
     pub top_bidder_pubkey: Option<Pubkey>,
-    #[alias([u8; 32])]
     pub auction_id: AuctionId,
     pub next_cycle_num: u64,
     pub token_type: TokenType,

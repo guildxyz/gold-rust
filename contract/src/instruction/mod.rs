@@ -48,4 +48,7 @@ pub enum AuctionInstruction {
     AdminWithdraw {
         amount: u64,
     },
+    AdminWithdrawReassign {
+        new_withdraw_authority: Pubkey,
+    },
 }

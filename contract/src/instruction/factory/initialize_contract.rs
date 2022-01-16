@@ -1,6 +1,5 @@
 use super::*;
 
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct InitializeContractArgs {
     pub contract_admin_pubkey: Pubkey,
     pub withdraw_authority: Pubkey,

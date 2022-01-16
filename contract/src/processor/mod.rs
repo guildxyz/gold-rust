@@ -87,5 +87,8 @@ pub fn process(
         AuctionInstruction::AdminWithdraw { amount } => {
             admin_withdraw::process_admin_withdraw(program_id, accounts, amount)
         }
+        AuctionInstruction::AdminWithdrawReassign { new_withdraw_authority } => {
+            admin_withdraw::process_admin_withdraw_reassign(program_id, accounts, new_withdraw_authority)
+        }
     }
 }
