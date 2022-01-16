@@ -61,7 +61,7 @@ pub fn initialize_contract(
             ContractBankState::MAX_SERIALIZED_LEN,
         )?;
         let contract_bank_state = ContractBankState {
-            contract_admin_pubkey: *contract_admin_account.key,
+            contract_admin: *contract_admin_account.key,
             withdraw_authority,
         };
         contract_bank_state.write(contract_bank_account)?;

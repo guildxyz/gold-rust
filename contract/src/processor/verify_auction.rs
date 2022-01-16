@@ -28,7 +28,7 @@ pub fn process_verify_auction(
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
-    if contract_admin_account.key != &contract_bank_state.contract_admin_pubkey {
+    if contract_admin_account.key != &contract_bank_state.contract_admin {
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 

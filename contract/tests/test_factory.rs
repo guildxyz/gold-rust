@@ -218,7 +218,7 @@ pub async fn close_cycle_transaction(
         .get_account_lamports(&payer_keypair.pubkey())
         .await;
     let close_cycle_result = testbench
-        .process_transaction(&[close_auction_cycle_ix.clone()], payer_keypair, None)
+        .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
         .await;
     let payer_balance_after = testbench
         .get_account_lamports(&payer_keypair.pubkey())
@@ -248,7 +248,7 @@ pub async fn freeze_auction_transaction(
     };
     let freeze_instruction = freeze_auction(&freeze_args);
     let freeze_result = testbench
-        .process_transaction(&[freeze_instruction.clone()], auction_owner_keypair, None)
+        .process_transaction(&[freeze_instruction], auction_owner_keypair, None)
         .await;
 
     if freeze_result.is_err() {
@@ -277,7 +277,7 @@ pub async fn verify_auction_transaction(
         .get_account_lamports(&contract_admin_keypair.pubkey())
         .await;
     let verify_result = testbench
-        .process_transaction(&[verify_instruction.clone()], contract_admin_keypair, None)
+        .process_transaction(&[verify_instruction], contract_admin_keypair, None)
         .await;
     let payer_balance_after = testbench
         .get_account_lamports(&contract_admin_keypair.pubkey())
@@ -380,7 +380,7 @@ pub async fn place_bid_transaction(
 
     let payer_balance_before = testbench.get_account_lamports(&user_keypair.pubkey()).await;
     let bid_result = testbench
-        .process_transaction(&[bid_instruction.clone()], user_keypair, None)
+        .process_transaction(&[bid_instruction], user_keypair, None)
         .await;
     let payer_balance_after = testbench.get_account_lamports(&user_keypair.pubkey()).await;
 
@@ -518,7 +518,7 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
 
     let mut testbench = Testbench::new(&[testbench_program, meta_program]).await;
     let initialize_contract_args = InitializeContractArgs {
-        contract_admin_pubkey: testbench.payer().pubkey(),
+        contract_admin: testbench.payer().pubkey(),
         withdraw_authority: testbench.payer().pubkey(),
     };
     let init_contract_ix = initialize_contract(&initialize_contract_args);

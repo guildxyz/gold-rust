@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct InitializeContractArgs {
-    pub contract_admin_pubkey: Pubkey,
+    pub contract_admin: Pubkey,
     pub withdraw_authority: Pubkey,
 }
 
@@ -13,7 +13,7 @@ pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
         Pubkey::find_program_address(&get_auction_pool_seeds(), &crate::ID);
 
     let accounts = vec![
-        AccountMeta::new(args.contract_admin_pubkey, true),
+        AccountMeta::new(args.contract_admin, true),
         AccountMeta::new(contract_bank_pubkey, false),
         AccountMeta::new(auction_pool_pubkey, false),
         AccountMeta::new_readonly(SYS_ID, false),

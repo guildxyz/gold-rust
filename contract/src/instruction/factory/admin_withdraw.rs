@@ -1,8 +1,8 @@
 use super::*;
 
 pub struct AdminWithdrawArgs {
-    withdraw_authority: Pubkey,
-    amount: u64,
+    pub withdraw_authority: Pubkey,
+    pub amount: u64,
 }
 
 pub fn admin_withdraw(args: &AdminWithdrawArgs) -> Instruction {
@@ -26,8 +26,8 @@ pub fn admin_withdraw(args: &AdminWithdrawArgs) -> Instruction {
 }
 
 pub struct AdminWithdrawReassignArgs {
-    withdraw_authority: Pubkey,
-    new_withdraw_authority: Pubkey,
+    pub withdraw_authority: Pubkey,
+    pub new_withdraw_authority: Pubkey,
 }
 
 pub fn admin_withdraw_reassign(args: &AdminWithdrawReassignArgs) -> Instruction {
