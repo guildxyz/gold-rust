@@ -27,6 +27,8 @@ use agsol_testbench::{Testbench, TestbenchProgram};
 
 #[allow(unused)]
 pub const TRANSACTION_FEE: u64 = 5000;
+#[allow(unused)]
+pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
 
 // For some reason the compiler always throws dead_code on this
 #[allow(dead_code)]
@@ -520,7 +522,7 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
     let initialize_contract_args = InitializeContractArgs {
         contract_admin: testbench.payer().pubkey(),
         withdraw_authority: testbench.payer().pubkey(),
-        initial_auction_pool_len: 100,
+        initial_auction_pool_len: INITIAL_AUCTION_POOL_LEN,
     };
     let init_contract_ix = initialize_contract(&initialize_contract_args);
     testbench
@@ -531,15 +533,4 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
     let auction_owner = TestUser::new(&mut testbench).await;
 
     (testbench, auction_owner)
-}
-
-#[allow(unused)]
-pub async fn get_account_lamports(testbench: &mut Testbench, account_pubkey: &Pubkey) -> u64 {
-    let account = testbench
-        .client()
-        .get_account(*account_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-    account.lamports
 }

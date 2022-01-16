@@ -31,6 +31,7 @@ pub enum AuctionContractError {
     ArithmeticError = 522,
     WithdrawAuthorityMismatch = 523,
     AuctionPoolFull = 524,
+    ShrinkingPoolIsNotAllowed = 525,
 }
 
 impl From<AuctionContractError> for ProgramError {

@@ -131,7 +131,6 @@ pub fn initialize_auction(
             return Err(AuctionContractError::InvalidStartTime.into());
         }
     }
-    // NOTE: can the "double unwrap" be avoided?
     let start_time = auction_start_timestamp.unwrap_or(clock.unix_timestamp);
     let end_time = start_time
         .checked_add(auction_config.cycle_period)

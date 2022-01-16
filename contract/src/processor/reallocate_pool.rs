@@ -99,8 +99,17 @@ pub fn reallocate_pool(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    // create temporary auction pool account
-    let auction_pool = AuctionPool::read(temporary_pool_account)?;
+    // check admin
+    let contract_bank_state = ContractBankState::read(contract_bank_account)?;
+    if &contract_bank_state.contract_admin != contract_admin_account.key {
+        return Err(AuctionContractError::ContractAdminMismatch.into());
+    }
+
+    // reallocate old auction pool account
+    let mut auction_pool = AuctionPool::read(temporary_pool_account)?;
+    if new_max_auction_num < auction_pool.max_len {
+        return Err(AuctionContractError::ShrinkingPoolIsNotAllowed.into());
+    }
     let account_size = AuctionPool::max_serialized_len(new_max_auction_num as usize)
         .ok_or(AuctionContractError::ArithmeticError)?;
 
@@ -113,6 +122,7 @@ pub fn reallocate_pool(
         account_size,
     )?;
 
+    auction_pool.max_len = new_max_auction_num;
     auction_pool.write(auction_pool_account)?;
     deallocate_state(temporary_pool_account, contract_admin_account)
 }

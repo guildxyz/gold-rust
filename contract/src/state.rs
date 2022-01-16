@@ -181,7 +181,7 @@ impl AuctionPool {
     pub fn max_serialized_len(n: usize) -> Option<usize> {
         let mul_result = AuctionId::MAX_SERIALIZED_LEN.checked_mul(n);
         if let Some(res) = mul_result {
-            res.checked_add(4)
+            res.checked_add(8) // 4 bytes len + 4 bytes u32
         } else {
             None
         }
@@ -327,13 +327,14 @@ mod test {
             cycle_state.try_to_vec().unwrap().len()
         );
 
-        assert_eq!(AuctionPool::max_serialized_len(100), Some(3204));
-        assert_eq!(AuctionPool::max_serialized_len(1000), Some(32004));
+        assert_eq!(AuctionPool::max_serialized_len(100), Some(3208));
+        assert_eq!(AuctionPool::max_serialized_len(1000), Some(32008));
     }
 
     #[test]
     fn auction_pool_manipulation() {
-        let mut auction_pool = AuctionPool::new(5);
+        let len = 5_u32;
+        let mut auction_pool = AuctionPool::new(len);
         auction_pool.try_insert_sorted([4_u8; 32]).unwrap();
         auction_pool.try_insert_sorted([1_u8; 32]).unwrap();
         auction_pool.try_insert_sorted([2_u8; 32]).unwrap();
@@ -361,5 +362,11 @@ mod test {
         assert_eq!(auction_pool.pool, vec![[0_u8; 32], [1_u8; 32], [3_u8; 32]]);
         // 4 + 4 + 3 * 32
         assert_eq!(auction_pool.try_to_vec().unwrap().len(), 104);
+        auction_pool.try_insert_sorted([12; 32]).unwrap();
+        auction_pool.try_insert_sorted([7; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_to_vec().unwrap().len(),
+            AuctionPool::max_serialized_len(len as usize).unwrap()
+        );
     }
 }

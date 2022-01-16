@@ -32,7 +32,7 @@ async fn assert_auction_state(
     let min_balance = testbench.rent.minimum_balance(0);
     assert_eq!(
         min_balance + bid_amount,
-        get_account_lamports(testbench, &auction_bank_pubkey).await
+        testbench.get_account_lamports(&auction_bank_pubkey).await
     );
 }
 
@@ -64,7 +64,7 @@ async fn test_process_bid() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    let initial_funds = get_account_lamports(&mut testbench, &auction_bank_pubkey).await;
+    let initial_funds = testbench.get_account_lamports(&auction_bank_pubkey).await;
     assert!(initial_funds > 0);
 
     let user_1 = TestUser::new(&mut testbench).await;
@@ -132,7 +132,9 @@ async fn test_process_bid() {
     // Assert balances
     assert_eq!(
         initial_balance - TRANSACTION_FEE,
-        get_account_lamports(&mut testbench, &user_1.keypair.pubkey()).await
+        testbench
+            .get_account_lamports(&user_1.keypair.pubkey())
+            .await
     );
 
     assert_eq!(-balance_change as u64, bid_amount_higher + TRANSACTION_FEE);

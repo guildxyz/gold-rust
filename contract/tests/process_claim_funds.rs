@@ -177,7 +177,7 @@ async fn test_process_claim_funds() {
     // Claim funds from a frozen auction
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
-    let contract_balance_before = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
+    let contract_balance_before = testbench.get_account_lamports(&contract_bank_pubkey).await;
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
         auction_id,
@@ -186,7 +186,7 @@ async fn test_process_claim_funds() {
     )
     .await
     .unwrap();
-    let contract_balance_after = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
+    let contract_balance_after = testbench.get_account_lamports(&contract_bank_pubkey).await;
 
     assert_eq!(
         claim_amount / 20 * 19 - TRANSACTION_FEE,

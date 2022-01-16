@@ -46,7 +46,7 @@ async fn test_process_freeze() {
     let initial_balance = 150_000_000;
     assert_eq!(
         initial_balance,
-        get_account_lamports(&mut testbench, &user.keypair.pubkey()).await
+        testbench.get_account_lamports(&user.keypair.pubkey()).await
     );
 
     let bid_amount = 10_000_000;
@@ -69,7 +69,7 @@ async fn test_process_freeze() {
     assert_eq!(auction_root_state.all_time_treasury, 0);
     assert_eq!(
         initial_balance - TRANSACTION_FEE,
-        get_account_lamports(&mut testbench, &user.keypair.pubkey()).await
+        testbench.get_account_lamports(&user.keypair.pubkey()).await
     );
 
     // Freezing already frozen auction
