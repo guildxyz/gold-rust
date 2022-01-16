@@ -15,6 +15,7 @@ use solana_program::pubkey::Pubkey;
 pub enum AuctionInstruction {
     InitializeContract {
         withdraw_authority: Pubkey,
+        initial_auction_pool_len: u32,
     },
     InitializeAuction {
         id: AuctionId,

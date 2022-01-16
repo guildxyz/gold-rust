@@ -20,7 +20,7 @@ pub fn process_admin_withdraw(
     }
 
     // Check pda addresses
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -61,7 +61,7 @@ pub fn process_admin_withdraw_reassign(
         return Err(AuctionContractError::InvalidAccountOwner.into());
     }
 
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 

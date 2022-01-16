@@ -32,11 +32,11 @@ pub fn process_claim_funds(
     }
 
     // Check pda addresses
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -55,7 +55,7 @@ pub fn process_claim_funds(
         .current_auction_cycle
         .to_le_bytes();
     let auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
+        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     SignerPda::new_checked(
         &auction_cycle_state_seeds,
         auction_cycle_state_account.key,
@@ -65,7 +65,7 @@ pub fn process_claim_funds(
 
     let auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 

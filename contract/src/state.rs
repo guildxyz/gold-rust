@@ -1,8 +1,8 @@
-use crate::{
-    MAX_AUCTION_NUM, MAX_BID_HISTORY_LENGTH, MAX_DESCRIPTION_LEN, MAX_SOCIALS_LEN, MAX_SOCIALS_NUM,
-};
+use crate::error::AuctionContractError;
+use crate::{MAX_BID_HISTORY_LENGTH, MAX_DESCRIPTION_LEN, MAX_SOCIALS_LEN, MAX_SOCIALS_NUM};
+
 use agsol_borsh_schema::BorshSchema;
-use agsol_common::{AccountState, MaxLenBTreeMap, MaxLenString, MaxLenVec, MaxSerializedLen};
+use agsol_common::{AccountState, MaxLenString, MaxLenVec, MaxSerializedLen};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::clock::UnixTimestamp;
 use solana_program::pubkey::Pubkey;
@@ -167,15 +167,57 @@ pub struct AuctionCycleState {
     pub bid_history: BidHistory,
 }
 
-/// Pool of auctions where the key is the [`AuctionId`] and the value is the
-/// [`AuctionRootState`] of the auction.
+/// Pool of auctions containing the [`AuctionId`] of each auction
 #[repr(C)]
-#[derive(
-    BorshSchema, BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone,
-)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, AccountState, Debug, Clone)]
 pub struct AuctionPool {
-    #[alias(BTreeMap<[u8; 32], Pubkey>)]
-    pub pool: MaxLenBTreeMap<AuctionId, Pubkey, MAX_AUCTION_NUM>,
+    pub max_len: u32,
+    #[alias(Vec<[u8; 32]>)]
+    pub pool: Vec<AuctionId>,
+}
+
+impl AuctionPool {
+    pub fn max_serialized_len(n: usize) -> Option<usize> {
+        let mul_result = AuctionId::MAX_SERIALIZED_LEN.checked_mul(n);
+        if let Some(res) = mul_result {
+            res.checked_add(4)
+        } else {
+            None
+        }
+    }
+
+    pub fn new(max_len: u32) -> Self {
+        Self {
+            max_len,
+            pool: Vec::new(),
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.pool.len() == self.max_len as usize
+    }
+
+    pub fn try_insert_sorted(&mut self, auction_id: AuctionId) -> Result<(), AuctionContractError> {
+        if self.is_full() {
+            Err(AuctionContractError::AuctionPoolFull)
+        } else {
+            let search_result = self.pool.binary_search(&auction_id);
+            match search_result {
+                Ok(_) => Err(AuctionContractError::AuctionIdNotUnique),
+                Err(index) => {
+                    // not found in vec
+                    self.pool.insert(index, auction_id);
+                    Ok(())
+                }
+            }
+        }
+    }
+    pub fn remove(&mut self, auction_id: &AuctionId) {
+        let search_result = self.pool.binary_search(auction_id);
+        if let Ok(index) = search_result {
+            self.pool.remove(index);
+        } // else there's nothing to remove
+    }
 }
 
 #[repr(C)]
@@ -189,7 +231,7 @@ pub struct ContractBankState {
 }
 
 #[cfg(test)]
-mod test_max_serialized_len {
+mod test {
     use super::*;
     use std::convert::TryInto;
 
@@ -283,5 +325,40 @@ mod test_max_serialized_len {
             AuctionCycleState::MAX_SERIALIZED_LEN,
             cycle_state.try_to_vec().unwrap().len()
         );
+
+        assert_eq!(AuctionPool::max_serialized_len(100), Some(3204));
+        assert_eq!(AuctionPool::max_serialized_len(1000), Some(32004));
+    }
+
+    #[test]
+    fn auction_pool_manipulation() {
+        let mut auction_pool = AuctionPool::new(5);
+        auction_pool.try_insert_sorted([4_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([1_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([2_u8; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_insert_sorted([1_u8; 32]),
+            Err(AuctionContractError::AuctionIdNotUnique)
+        );
+        auction_pool.try_insert_sorted([3_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([0_u8; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_insert_sorted([5_u8; 32]),
+            Err(AuctionContractError::AuctionPoolFull)
+        );
+        assert_eq!(
+            auction_pool.pool,
+            vec![[0_u8; 32], [1_u8; 32], [2_u8; 32], [3_u8; 32], [4_u8; 32]]
+        );
+        auction_pool.remove(&[12_u8; 32]);
+        assert_eq!(
+            auction_pool.pool,
+            vec![[0_u8; 32], [1_u8; 32], [2_u8; 32], [3_u8; 32], [4_u8; 32]]
+        );
+        auction_pool.remove(&[2_u8; 32]);
+        auction_pool.remove(&[4_u8; 32]);
+        assert_eq!(auction_pool.pool, vec![[0_u8; 32], [1_u8; 32], [3_u8; 32]]);
+        // 4 + 4 + 3 * 32
+        assert_eq!(auction_pool.try_to_vec().unwrap().len(), 104);
     }
 }

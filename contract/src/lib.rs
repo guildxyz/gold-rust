@@ -23,19 +23,16 @@ use metaplex_token_metadata::state::Data as MetadataStateData;
 
 solana_program::declare_id!("go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U");
 
-/// Maximum number of auctions the [`AuctionPool`](state::AuctionPool) may
-/// hold.
-const MAX_AUCTION_NUM: usize = 100;
 /// Maxumum number of [`Bids`](state::BidData) in the
 /// [`BidHistory`](state::BidHistory).
-const MAX_BID_HISTORY_LENGTH: usize = 10;
+pub const MAX_BID_HISTORY_LENGTH: usize = 10;
 /// Maximum number of characters allowed in an auction description.
-const MAX_DESCRIPTION_LEN: usize = 200;
+pub const MAX_DESCRIPTION_LEN: usize = 200;
 /// Maximum number of characters in each social url.
-const MAX_SOCIALS_LEN: usize = 100;
+pub const MAX_SOCIALS_LEN: usize = 100;
 /// Maximum number of socials the [`AuctionState`](state::AuctionRootState) may
 /// hold.
-const MAX_SOCIALS_NUM: usize = 5;
+pub const MAX_SOCIALS_NUM: usize = 5;
 /// Additional bytes allocated to the
 /// [`AuctionRootState`](state::AuctionRootState) account for future
 /// development.

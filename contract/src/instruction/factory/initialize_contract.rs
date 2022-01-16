@@ -3,6 +3,7 @@ use super::*;
 pub struct InitializeContractArgs {
     pub contract_admin: Pubkey,
     pub withdraw_authority: Pubkey,
+    pub initial_auction_pool_len: u32,
 }
 
 pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
@@ -21,6 +22,7 @@ pub fn initialize_contract(args: &InitializeContractArgs) -> Instruction {
 
     let instruction = AuctionInstruction::InitializeContract {
         withdraw_authority: args.withdraw_authority,
+        initial_auction_pool_len: args.initial_auction_pool_len,
     };
 
     // unwrap is fine because instruction is serializable

@@ -3,8 +3,8 @@ use agsol_common::SignerPdaError;
 use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 
-#[derive(Debug)]
-#[cfg_attr(feature = "test-bpf", derive(FromPrimitive, PartialEq, Eq))]
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "test-bpf", derive(FromPrimitive))]
 pub enum AuctionContractError {
     InvalidInstruction = 500,
     AuctionCycleEnded = 501,
@@ -30,6 +30,7 @@ pub enum AuctionContractError {
     InvalidAccountOwner = 521,
     ArithmeticError = 522,
     WithdrawAuthorityMismatch = 523,
+    AuctionPoolFull = 524,
 }
 
 impl From<AuctionContractError> for ProgramError {

@@ -23,7 +23,7 @@ pub fn process_verify_auction(
     }
 
     // Check pda addresses
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -32,7 +32,7 @@ pub fn process_verify_auction(
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,

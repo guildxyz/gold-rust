@@ -52,7 +52,7 @@ pub fn initialize_auction(
     assert_token_program(token_program.key)?;
 
     // Check pda addresses
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     let auction_root_state_pda = SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -62,7 +62,7 @@ pub fn initialize_auction(
 
     let cycle_num_bytes = 1_u64.to_le_bytes();
     let auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
+        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     let auction_cycle_state_pda = SignerPda::new_checked(
         &auction_cycle_state_seeds,
         auction_cycle_state_account.key,
@@ -70,29 +70,24 @@ pub fn initialize_auction(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     let auction_bank_pda =
         SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let contract_pda_seeds = get_contract_pda_seeds();
+    let contract_pda_seeds = contract_pda_seeds();
     let contract_signer_pda =
         SignerPda::new_checked(&contract_pda_seeds, contract_pda.key, program_id)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_pool_seeds = get_auction_pool_seeds();
+    let auction_pool_seeds = auction_pool_seeds();
     SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     // Register new auction into the auction pool
     let mut auction_pool = AuctionPool::read(auction_pool_account)?;
-    if auction_pool
-        .pool
-        .insert(auction_id, *auction_root_state_account.key)
-        .is_some()
-    {
-        return Err(AuctionContractError::AuctionIdNotUnique.into());
-    }
+    auction_pool.try_insert_sorted(auction_id)?;
+
     auction_pool.write(auction_pool_account)?;
 
     if !auction_root_state_account.data_is_empty() {
@@ -180,12 +175,12 @@ pub fn initialize_auction(
             // master_edition_account
             // master_metadata_account
 
-            let master_mint_seeds = get_master_mint_seeds(&auction_id);
+            let master_mint_seeds = master_mint_seeds(&auction_id);
             let master_mint_pda =
                 SignerPda::new_checked(&master_mint_seeds, master_mint_account.key, program_id)
                     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-            let master_holding_seeds = get_master_holding_seeds(&auction_id);
+            let master_holding_seeds = master_holding_seeds(&auction_id);
             let master_holding_pda = SignerPda::new_checked(
                 &master_holding_seeds,
                 master_holding_account.key,
@@ -324,7 +319,7 @@ pub fn initialize_auction(
             //   token_mint_account
 
             // Check pda addresses
-            let token_mint_seeds = get_token_mint_seeds(&auction_id);
+            let token_mint_seeds = token_mint_seeds(&auction_id);
             let token_mint_pda =
                 SignerPda::new_checked(&token_mint_seeds, token_mint_account.key, program_id)
                     .map_err(|_| AuctionContractError::InvalidSeeds)?;
