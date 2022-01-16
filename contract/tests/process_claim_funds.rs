@@ -25,8 +25,6 @@ async fn test_process_claim_funds() {
         number_of_cycles: Some(2),
     };
 
-    let payer = testbench.clone_payer();
-
     let user_1 = TestUser::new(&mut testbench).await;
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
 
@@ -177,7 +175,9 @@ async fn test_process_claim_funds() {
     assert!(auction_root_state.status.is_frozen);
 
     // Claim funds from a frozen auction
-    let contract_balance_before = get_account_lamports(&mut testbench, &payer.pubkey()).await;
+    let (contract_bank_pubkey, _) =
+        Pubkey::find_program_address(&get_contract_bank_seeds(), &CONTRACT_ID);
+    let contract_balance_before = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
         auction_id,
@@ -186,7 +186,7 @@ async fn test_process_claim_funds() {
     )
     .await
     .unwrap();
-    let contract_balance_after = get_account_lamports(&mut testbench, &payer.pubkey()).await;
+    let contract_balance_after = get_account_lamports(&mut testbench, &contract_bank_pubkey).await;
 
     assert_eq!(
         claim_amount / 20 * 19 - TRANSACTION_FEE,

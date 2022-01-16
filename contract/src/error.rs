@@ -1,7 +1,10 @@
 use agsol_common::SignerPdaError;
+#[cfg(feature = "test-bpf")]
+use num_derive::FromPrimitive;
 use solana_program::program_error::ProgramError;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "test-bpf", derive(FromPrimitive, PartialEq, Eq))]
 pub enum AuctionContractError {
     InvalidInstruction = 500,
     AuctionCycleEnded = 501,

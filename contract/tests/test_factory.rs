@@ -303,7 +303,6 @@ pub async fn claim_funds_transaction(
     let payer = testbench.clone_payer();
 
     let claim_funds_args = ClaimFundsArgs {
-        contract_admin_pubkey: payer.pubkey(),
         auction_owner_pubkey: auction_owner.pubkey(),
         auction_id,
         cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
@@ -520,6 +519,7 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
     let mut testbench = Testbench::new(&[testbench_program, meta_program]).await;
     let initialize_contract_args = InitializeContractArgs {
         contract_admin_pubkey: testbench.payer().pubkey(),
+        withdraw_authority: testbench.payer().pubkey(),
     };
     let init_contract_ix = initialize_contract(&initialize_contract_args);
     testbench
