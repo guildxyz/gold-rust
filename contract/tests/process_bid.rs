@@ -1,4 +1,4 @@
-//#![cfg(feature = "test-bpf")]
+#![cfg(feature = "test-bpf")]
 
 mod test_factory;
 use test_factory::*;
