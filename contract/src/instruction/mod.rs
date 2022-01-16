@@ -52,4 +52,8 @@ pub enum AuctionInstruction {
     AdminWithdrawReassign {
         new_withdraw_authority: Pubkey,
     },
+    DeallocatePool,
+    ReallocatePool {
+        new_max_auction_num: u32,
+    },
 }

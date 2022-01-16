@@ -6,6 +6,7 @@ mod delete_auction;
 mod freeze;
 mod initialize_auction;
 mod initialize_contract;
+mod reallocate_pool;
 mod verify_auction;
 
 use crate::error::AuctionContractError;
@@ -108,5 +109,11 @@ pub fn process(
             accounts,
             new_withdraw_authority,
         ),
+        AuctionInstruction::DeallocatePool => {
+            reallocate_pool::deallocate_pool(program_id, accounts)
+        }
+        AuctionInstruction::ReallocatePool {
+            new_max_auction_num,
+        } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
     }
 }

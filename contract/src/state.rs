@@ -171,6 +171,7 @@ pub struct AuctionCycleState {
 #[repr(C)]
 #[derive(BorshSchema, BorshDeserialize, BorshSerialize, AccountState, Debug, Clone)]
 pub struct AuctionPool {
+    /// Maximum number of auction IDs the pool may hold.
     pub max_len: u32,
     #[alias(Vec<[u8; 32]>)]
     pub pool: Vec<AuctionId>,

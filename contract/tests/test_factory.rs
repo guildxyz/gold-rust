@@ -155,10 +155,7 @@ pub async fn get_top_bid(
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(auction_cycle_state_pubkey)
         .await;
-    auction_cycle_state
-        .bid_history
-        .get_last_element()
-        .cloned()
+    auction_cycle_state.bid_history.get_last_element().cloned()
 }
 
 #[allow(unused)]
