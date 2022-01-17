@@ -4,7 +4,7 @@ mod get_top_bidder;
 mod get_treasury;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::auction_pool_seeds;
+use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
@@ -59,9 +59,16 @@ pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> 
 }
 
 #[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn wasm_auction_pool_pubkey() -> Vec<u8> {
+pub fn wasm_auction_pool_pubkey() -> Pubkey {
     let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-    auction_pool_pubkey.try_to_vec().unwrap()
+    auction_pool_pubkey
+}
+
+#[wasm_bindgen(js_name = "getAuctionRootStatePubkeyWasm")]
+pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
+    auction_root_state_pubkey
 }
 
 // NOTE special characters are chopped off to fit an u8, so it won't be
