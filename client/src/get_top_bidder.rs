@@ -1,5 +1,5 @@
 use crate::{pad_to_32_bytes, NET};
-use agsol_gold_contract::pda::{get_auction_cycle_state_seeds, get_auction_root_state_seeds};
+use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
@@ -9,7 +9,7 @@ pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error>
     let mut client = RpcClient::new(NET);
     let auction_id = pad_to_32_bytes(&auction_id)?;
     let (root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &GOLD_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
 
     let root_state: AuctionRootState = client
         .get_and_deserialize_account_data(&root_state_pubkey)
@@ -18,7 +18,7 @@ pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error>
     let current_cycle = root_state.status.current_auction_cycle;
 
     let (cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(&root_state_pubkey, &current_cycle.to_le_bytes()),
+        &auction_cycle_state_seeds(&root_state_pubkey, &current_cycle.to_le_bytes()),
         &GOLD_ID,
     );
 

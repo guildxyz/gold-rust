@@ -1,6 +1,6 @@
 use agsol_gold_client::pad_to_32_bytes;
 use agsol_gold_contract::instruction::factory::{delete_auction, DeleteAuctionArgs};
-use agsol_gold_contract::pda::get_auction_pool_seeds;
+use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
 use agsol_gold_contract::state::{AuctionPool, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
@@ -77,13 +77,7 @@ pub fn main() {
         Keypair::from_bytes(&TEST_ADMIN_SECRET).unwrap()
     };
 
-    if let Err(e) = try_main(
-        &connection,
-        &admin_keypair,
-        &GOLD_ID,
-        should_airdrop,
-        opt.auction_id,
-    ) {
+    if let Err(e) = try_main(&connection, &admin_keypair, should_airdrop, opt.auction_id) {
         error!("{}", e);
     }
 }
@@ -91,7 +85,6 @@ pub fn main() {
 fn try_main(
     connection: &RpcClient,
     admin_keypair: &Keypair,
-    program_id: &Pubkey,
     should_airdrop: bool,
     auction_id: Option<String>,
 ) -> Result<(), anyhow::Error> {
@@ -115,18 +108,16 @@ fn try_main(
         }
     }
     // READ AUCTION POOL
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), program_id);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
     let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
     let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
 
     // READ INDIVIDUAL STATES
     if let Some(id) = auction_id {
         let id_bytes = pad_to_32_bytes(&id)?;
-        // unwrap is fine here, it is only a dev tool and invalid id results in
-        // non-recoverable errors anyway
-        let state_pubkey = auction_pool.pool.get(&id_bytes).unwrap();
-        if let Err(err) = delete_frozen_auction(connection, &id_bytes, state_pubkey, admin_keypair)
+        let (state_pubkey, _) =
+            Pubkey::find_program_address(&auction_root_state_seeds(&id_bytes), &GOLD_ID);
+        if let Err(err) = delete_frozen_auction(connection, &id_bytes, &state_pubkey, admin_keypair)
         {
             error!(
                 "auction \"{}\" threw error {:?}",
@@ -135,9 +126,11 @@ fn try_main(
             );
         }
     } else {
-        for (auction_id, state_pubkey) in auction_pool.pool.contents().iter() {
+        for auction_id in auction_pool.pool.iter() {
+            let (state_pubkey, _) =
+                Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
             if let Err(err) =
-                delete_frozen_auction(connection, auction_id, state_pubkey, admin_keypair)
+                delete_frozen_auction(connection, auction_id, &state_pubkey, admin_keypair)
             {
                 error!(
                     "auction \"{}\" threw error {:?}",

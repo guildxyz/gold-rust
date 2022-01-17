@@ -4,11 +4,10 @@ use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::program_pack::Pack;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::{AuctionCycleState, AuctionPool, AuctionRootState, TokenConfig};
+use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState, TokenConfig};
 use agsol_gold_contract::unpuff_metadata;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
-use anyhow::anyhow;
 use metaplex_token_metadata::state::Metadata;
 use metaplex_token_metadata::ID as META_ID;
 use spl_token::state::Mint;
@@ -18,24 +17,15 @@ pub async fn get_auction(
     auction_id: String,
     cycle: Option<u64>,
 ) -> Result<FrontendAuction, anyhow::Error> {
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &GOLD_ID);
     let mut client = RpcClient::new(NET);
-    let auction_pool: AuctionPool = client
-        .get_and_deserialize_account_data(&auction_pool_pubkey)
-        .await?;
-
     let auction_id = pad_to_32_bytes(&auction_id)?;
 
     // read root state
-    let root_state_pubkey = if let Some(pubkey) = auction_pool.pool.get(&auction_id) {
-        pubkey
-    } else {
-        return Err(anyhow!("no auction found with this id"));
-    };
+    let (root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
 
     let root_state: AuctionRootState = client
-        .get_and_deserialize_account_data(root_state_pubkey)
+        .get_and_deserialize_account_data(&root_state_pubkey)
         .await?;
 
     // cycle num for cycle state pda
@@ -47,7 +37,7 @@ pub async fn get_auction(
 
     // read cycle state
     let (cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
+        &auction_cycle_state_seeds(&root_state_pubkey, &cycle_num.to_le_bytes()),
         &GOLD_ID,
     );
     let cycle_state: AuctionCycleState = client
@@ -59,19 +49,19 @@ pub async fn get_auction(
             let mint_pubkey = if cycle_num == root_state.status.current_auction_cycle {
                 // get master mint
                 let (master_mint_pubkey, _) =
-                    Pubkey::find_program_address(&get_master_mint_seeds(&auction_id), &GOLD_ID);
+                    Pubkey::find_program_address(&master_mint_seeds(&auction_id), &GOLD_ID);
                 master_mint_pubkey
             } else {
                 // get child mint
                 let (child_mint_pubkey, _) = Pubkey::find_program_address(
-                    &get_child_mint_seeds(&cycle_num.to_le_bytes(), &auction_id),
+                    &child_mint_seeds(&cycle_num.to_le_bytes(), &auction_id),
                     &GOLD_ID,
                 );
                 child_mint_pubkey
             };
 
             let (metadata_pubkey, _) =
-                Pubkey::find_program_address(&get_metadata_seeds(&mint_pubkey), &META_ID);
+                Pubkey::find_program_address(&metadata_seeds(&mint_pubkey), &META_ID);
             let mut metadata: Metadata = client
                 .get_and_deserialize_account_data(&metadata_pubkey)
                 .await?;

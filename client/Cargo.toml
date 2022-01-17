@@ -8,7 +8,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 agsol-gold-contract = { path = "../contract", features = ["client"] }
-agsol-common = "0.0.1"
+agsol-common = "0.1.0"
 agsol-wasm-client = { version = "0.0.1", features = ["wasm-factory"] }
 anyhow = "1"
 borsh = "0.9.0"
