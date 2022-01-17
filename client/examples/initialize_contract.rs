@@ -121,7 +121,7 @@ fn try_main(
     let initialize_contract_args = InitializeContractArgs {
         contract_admin: contract_admin_keypair.pubkey(),
         withdraw_authority: *withdraw_authority_pubkey,
-        initial_auction_pool_len: 1000,
+        initial_auction_pool_len: 300,
     };
 
     let initialize_contract_ix = initialize_contract(&initialize_contract_args);
