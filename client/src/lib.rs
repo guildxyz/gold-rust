@@ -1,7 +1,6 @@
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;
-mod get_treasury;
 
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
@@ -21,32 +20,33 @@ wasm_instruction!(initialize_auction);
 wasm_instruction!(freeze_auction);
 wasm_instruction!(place_bid);
 wasm_instruction!(claim_funds);
-wasm_instruction!(delete_auction);
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
-pub async fn get_auction_wasm(
-    auction_id: String,
-    cycle: Option<u64>,
+pub async fn get_auction_wasm(auction_id: String) -> Result<Uint8Array, JsValue> {
+    let auction = get_auction::get_auction(auction_id)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    Ok(Uint8Array::from(auction.try_to_vec().unwrap().as_slice()))
+}
+
+#[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
+pub async fn get_auction_cycle_state_wasm(
+    root_state_pubkey: Pubkey,
+    cycle_num: u64,
 ) -> Result<Uint8Array, JsValue> {
-    let frontend_auction = get_auction::get_auction(auction_id, cycle)
+    let auction_cycle_state = get_auction::get_auction_cycle_state(&root_state_pubkey, cycle_num)
         .await
         .map_err(|e| JsValue::from(e.to_string()))?;
 
     Ok(Uint8Array::from(
-        frontend_auction.try_to_vec().unwrap().as_slice(),
+        auction_cycle_state.try_to_vec().unwrap().as_slice(),
     ))
 }
 
 #[wasm_bindgen(js_name = "getTopBidderWasm")]
 pub async fn get_top_bidder_wasm(auction_id: String) -> Result<Pubkey, JsValue> {
     get_top_bidder::get_top_bidder(auction_id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
-}
-
-#[wasm_bindgen(js_name = "getTreasuryWasm")]
-pub async fn get_treasury_wasm(auction_id: String) -> Result<u64, JsValue> {
-    get_treasury::get_treasury(auction_id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))
 }
