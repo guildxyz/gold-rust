@@ -50,8 +50,8 @@ impl InitializeAuctionArgs {
             auction_name: [111; 32],
             auction_config,
             auction_description: AuctionDescription {
-                description: MaxLenString::new("Cool description".to_string()),
-                socials: vec![MaxLenString::new("https://www.gold.xyz".to_string())]
+                description: MaxLenString::try_from("Cool description").unwrap(),
+                socials: vec![MaxLenString::try_from("https://www.gold.xyz").unwrap()]
                     .try_into()
                     .unwrap(),
                 goal_treasury_amount: Some(420_000_000_000),
@@ -64,18 +64,17 @@ impl InitializeAuctionArgs {
 
 pub fn initialize_auction(args: &InitializeAuctionArgs) -> Instruction {
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(&auction_root_state_pubkey, &1_u64.to_le_bytes()),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &1_u64.to_le_bytes()),
         &crate::ID,
     );
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
 
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &crate::ID);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
 
-    let (contract_pda, _) = Pubkey::find_program_address(&get_contract_pda_seeds(), &crate::ID);
+    let (contract_pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &crate::ID);
 
     let mut accounts = vec![
         AccountMeta::new(args.auction_owner_pubkey, true),
@@ -102,7 +101,7 @@ pub fn initialize_auction(args: &InitializeAuctionArgs) -> Instruction {
         }
         CreateTokenArgs::Token { .. } => {
             let (token_mint_pubkey, _) =
-                Pubkey::find_program_address(&get_token_mint_seeds(&args.auction_id), &crate::ID);
+                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID);
             vec![AccountMeta::new(token_mint_pubkey, false)]
         }
     };

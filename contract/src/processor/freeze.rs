@@ -29,7 +29,7 @@ pub fn freeze_auction(
     }
 
     // Check pda addresses
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -43,7 +43,7 @@ pub fn freeze_auction(
         .current_auction_cycle
         .to_le_bytes();
     let auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
+        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     SignerPda::new_checked(
         &auction_cycle_state_seeds,
         auction_cycle_state_account.key,
@@ -51,13 +51,16 @@ pub fn freeze_auction(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     // Initial checks
     if auction_root_state.status.is_frozen {
-        return Ok(());
+        return Err(AuctionContractError::AuctionFrozen.into());
+    }
+    if auction_root_state.status.is_finished {
+        return Err(AuctionContractError::AuctionEnded.into());
     }
 
     if auction_owner_account.key != &auction_root_state.auction_owner {
@@ -83,7 +86,6 @@ pub fn freeze_auction(
     }
 
     auction_root_state.status.is_frozen = true;
-    auction_root_state.status.is_active = false;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())

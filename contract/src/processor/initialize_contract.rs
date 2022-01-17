@@ -1,6 +1,11 @@
 use super::*;
 
-pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+pub fn initialize_contract(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    withdraw_authority: Pubkey,
+    initial_auction_pool_len: u32,
+) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let contract_admin_account = next_account_info(account_info_iter)?;
     let contract_bank_account = next_account_info(account_info_iter)?;
@@ -23,16 +28,20 @@ pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> Pro
     assert_system_program(system_program.key)?;
 
     // Check pda addresses
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     let contract_bank_pda =
         SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
-    let auction_pool_seeds = get_auction_pool_seeds();
+    let auction_pool_seeds = auction_pool_seeds();
     let auction_pool_pda =
         SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     // Create auction pool account
+    // NOTE u32 will always fit into a usize because we are definitely not
+    // running this on u16 architecture
+    let account_size = AuctionPool::max_serialized_len(initial_auction_pool_len as usize)
+        .ok_or(AuctionContractError::ArithmeticError)?;
     if auction_pool_account.data_is_empty() {
         create_state_account(
             contract_admin_account,
@@ -40,11 +49,15 @@ pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> Pro
             auction_pool_pda.signer_seeds(),
             program_id,
             system_program,
-            AuctionPool::MAX_SERIALIZED_LEN,
+            account_size,
         )?;
     } else {
         return Err(AuctionContractError::ContractAlreadyInitialized.into());
     }
+
+    // need to write max len of the auction pool into the state
+    let auction_pool = AuctionPool::new(initial_auction_pool_len);
+    auction_pool.write(auction_pool_account)?;
 
     // Create contract bank account
     if contract_bank_account.lamports() == 0 {
@@ -57,7 +70,8 @@ pub fn initialize_contract(program_id: &Pubkey, accounts: &[AccountInfo]) -> Pro
             ContractBankState::MAX_SERIALIZED_LEN,
         )?;
         let contract_bank_state = ContractBankState {
-            contract_admin_pubkey: *contract_admin_account.key,
+            contract_admin: *contract_admin_account.key,
+            withdraw_authority,
         };
         contract_bank_state.write(contract_bank_account)?;
     }

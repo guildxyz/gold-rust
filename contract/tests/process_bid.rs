@@ -20,7 +20,7 @@ async fn assert_auction_state(
     let (_auction_root_state_pubkey, auction_cycle_state_pubkey) =
         get_state_pubkeys(testbench, auction_id).await;
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     // Assert top bidder
     if let Some(top_bid) = &get_top_bid(testbench, &auction_cycle_state_pubkey).await {
@@ -32,7 +32,7 @@ async fn assert_auction_state(
     let min_balance = testbench.rent.minimum_balance(0);
     assert_eq!(
         min_balance + bid_amount,
-        get_account_lamports(testbench, &auction_bank_pubkey).await
+        testbench.get_account_lamports(&auction_bank_pubkey).await
     );
 }
 
@@ -62,9 +62,9 @@ async fn test_process_bid() {
     let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
         get_state_pubkeys(&mut testbench, auction_id).await;
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    let initial_funds = get_account_lamports(&mut testbench, &auction_bank_pubkey).await;
+    let initial_funds = testbench.get_account_lamports(&auction_bank_pubkey).await;
     assert!(initial_funds > 0);
 
     let user_1 = TestUser::new(&mut testbench).await;
@@ -132,7 +132,9 @@ async fn test_process_bid() {
     // Assert balances
     assert_eq!(
         initial_balance - TRANSACTION_FEE,
-        get_account_lamports(&mut testbench, &user_1.keypair.pubkey()).await
+        testbench
+            .get_account_lamports(&user_1.keypair.pubkey())
+            .await
     );
 
     assert_eq!(-balance_change as u64, bid_amount_higher + TRANSACTION_FEE);
@@ -190,15 +192,11 @@ async fn test_process_bid() {
     .await;
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await;
     assert_eq!(1, auction_pool.pool.len());
-    assert_eq!(
-        auction_pool.pool.get(&auction_id).unwrap(),
-        &auction_root_state_pubkey
-    );
 }
 
 #[tokio::test]
@@ -217,7 +215,7 @@ async fn bid_to_frozen_auction() {
 
     // Test bid into frozen auction
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     initialize_new_auction(
         &mut testbench,

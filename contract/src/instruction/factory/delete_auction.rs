@@ -12,16 +12,15 @@ pub struct DeleteAuctionArgs {
 
 pub fn delete_auction(args: &DeleteAuctionArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_contract_bank_seeds(), &crate::ID);
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &crate::ID);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
 
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
 
     let mut accounts = vec![
         AccountMeta::new(args.contract_admin_pubkey, true),
@@ -35,7 +34,7 @@ pub fn delete_auction(args: &DeleteAuctionArgs) -> Instruction {
     let cycles_to_include = std::cmp::min(args.current_auction_cycle, args.num_of_cycles_to_delete);
     for i in 0..cycles_to_include {
         let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-            &get_auction_cycle_state_seeds(
+            &auction_cycle_state_seeds(
                 &auction_root_state_pubkey,
                 &(args.current_auction_cycle - i).to_le_bytes(),
             ),

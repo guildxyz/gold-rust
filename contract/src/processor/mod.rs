@@ -1,3 +1,4 @@
+mod admin_withdraw;
 mod bid;
 mod claim_funds;
 mod close_auction_cycle;
@@ -5,6 +6,8 @@ mod delete_auction;
 mod freeze;
 mod initialize_auction;
 mod initialize_contract;
+mod reallocate_pool;
+mod thaw;
 mod verify_auction;
 
 use crate::error::AuctionContractError;
@@ -34,6 +37,14 @@ use agsol_common::{AccountState, MaxSerializedLen, SignerPda};
 
 pub use close_auction_cycle::{increment_name, increment_uri};
 
+#[inline(always)]
+fn deallocate_state<'a>(from: &'a AccountInfo, to: &'a AccountInfo) -> Result<(), ProgramError> {
+    let lamports_to_claim = **from.lamports.borrow();
+    checked_debit_account(from, lamports_to_claim)?;
+    checked_credit_account(to, lamports_to_claim)?;
+    Ok(())
+}
+
 pub fn process(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -41,9 +52,15 @@ pub fn process(
 ) -> ProgramResult {
     let instruction: AuctionInstruction = try_from_slice_unchecked(instruction_data)?;
     match instruction {
-        AuctionInstruction::InitializeContract => {
-            initialize_contract::initialize_contract(program_id, accounts)
-        }
+        AuctionInstruction::InitializeContract {
+            withdraw_authority,
+            initial_auction_pool_len,
+        } => initialize_contract::initialize_contract(
+            program_id,
+            accounts,
+            withdraw_authority,
+            initial_auction_pool_len,
+        ),
         AuctionInstruction::InitializeAuction {
             id,
             auction_name,
@@ -68,6 +85,7 @@ pub fn process(
             close_auction_cycle::close_auction_cycle(program_id, accounts, id)
         }
         AuctionInstruction::Freeze { id } => freeze::freeze_auction(program_id, accounts, id),
+        AuctionInstruction::Thaw { id } => thaw::thaw_auction(program_id, accounts, id),
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
         }
@@ -83,5 +101,21 @@ pub fn process(
         AuctionInstruction::VerifyAuction { id } => {
             verify_auction::process_verify_auction(program_id, accounts, id)
         }
+        AuctionInstruction::AdminWithdraw { amount } => {
+            admin_withdraw::process_admin_withdraw(program_id, accounts, amount)
+        }
+        AuctionInstruction::AdminWithdrawReassign {
+            new_withdraw_authority,
+        } => admin_withdraw::process_admin_withdraw_reassign(
+            program_id,
+            accounts,
+            new_withdraw_authority,
+        ),
+        AuctionInstruction::DeallocatePool => {
+            reallocate_pool::deallocate_pool(program_id, accounts)
+        }
+        AuctionInstruction::ReallocatePool {
+            new_max_auction_num,
+        } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
     }
 }

@@ -1,8 +1,8 @@
-use crate::{
-    MAX_AUCTION_NUM, MAX_BID_HISTORY_LENGTH, MAX_DESCRIPTION_LEN, MAX_SOCIALS_LEN, MAX_SOCIALS_NUM,
-};
+use crate::error::AuctionContractError;
+use crate::{MAX_BID_HISTORY_LENGTH, MAX_DESCRIPTION_LEN, MAX_SOCIALS_LEN, MAX_SOCIALS_NUM};
+
 use agsol_borsh_schema::BorshSchema;
-use agsol_common::{AccountState, MaxLenBTreeMap, MaxLenString, MaxLenVec, MaxSerializedLen};
+use agsol_common::{AccountState, MaxLenString, MaxLenVec, MaxSerializedLen};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::clock::UnixTimestamp;
 use solana_program::pubkey::Pubkey;
@@ -59,10 +59,12 @@ pub struct AuctionStatus {
     /// The current auction cycle, regardless of the auction being frozen or
     /// active.
     pub current_auction_cycle: u64,
+    /// The current streak of cycles where no bids were placed.
+    pub current_idle_cycle_streak: u32,
     /// The auction might be frozen.
     pub is_frozen: bool,
     /// The auction is active until all auction cycles have passed.
-    pub is_active: bool,
+    pub is_finished: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -91,9 +93,7 @@ pub enum CreateTokenArgs {
     Token { decimals: u8, per_cycle_amount: u64 },
 }
 
-// TODO: this does not need to derive BorshSchema
-// as it is only used in the contract tests and auction bot
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     Nft,
     Token,
@@ -167,28 +167,72 @@ pub struct AuctionCycleState {
     pub bid_history: BidHistory,
 }
 
-/// Pool of auctions where the key is the [`AuctionId`] and the value is the
-/// [`AuctionRootState`] of the auction.
+/// Pool of auctions containing the [`AuctionId`] of each auction
 #[repr(C)]
-#[derive(
-    BorshSchema, BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone,
-)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, AccountState, Debug, Clone)]
 pub struct AuctionPool {
-    #[alias(BTreeMap<[u8; 32], Pubkey>)]
-    pub pool: MaxLenBTreeMap<AuctionId, Pubkey, MAX_AUCTION_NUM>,
+    /// Maximum number of auction IDs the pool may hold.
+    pub max_len: u32,
+    #[alias(Vec<[u8; 32]>)]
+    pub pool: Vec<AuctionId>,
+}
+
+impl AuctionPool {
+    pub fn max_serialized_len(n: usize) -> Option<usize> {
+        let mul_result = AuctionId::MAX_SERIALIZED_LEN.checked_mul(n);
+        if let Some(res) = mul_result {
+            res.checked_add(8) // 4 bytes len + 4 bytes u32
+        } else {
+            None
+        }
+    }
+
+    pub fn new(max_len: u32) -> Self {
+        Self {
+            max_len,
+            pool: Vec::new(),
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.pool.len() == self.max_len as usize
+    }
+
+    pub fn try_insert_sorted(&mut self, auction_id: AuctionId) -> Result<(), AuctionContractError> {
+        if self.is_full() {
+            Err(AuctionContractError::AuctionPoolFull)
+        } else {
+            let search_result = self.pool.binary_search(&auction_id);
+            match search_result {
+                Ok(_) => Err(AuctionContractError::AuctionIdNotUnique),
+                Err(index) => {
+                    // not found in vec
+                    self.pool.insert(index, auction_id);
+                    Ok(())
+                }
+            }
+        }
+    }
+    pub fn remove(&mut self, auction_id: &AuctionId) {
+        let search_result = self.pool.binary_search(auction_id);
+        if let Ok(index) = search_result {
+            self.pool.remove(index);
+        } // else there's nothing to remove
+    }
 }
 
 #[repr(C)]
-#[derive(
-    BorshSchema, BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone,
-)]
+#[derive(BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone)]
 pub struct ContractBankState {
-    /// Address of the admin who deployed the contract.
-    pub contract_admin_pubkey: Pubkey,
+    /// Address of the contract admin who may delete auctions.
+    pub contract_admin: Pubkey,
+    /// Address of the withdraw authority who may withdraw from the contract
+    /// bank.
+    pub withdraw_authority: Pubkey,
 }
 
 #[cfg(test)]
-mod test_max_serialized_len {
+mod test {
     use super::*;
     use std::convert::TryInto;
 
@@ -217,13 +261,14 @@ mod test_max_serialized_len {
         });
 
         let auction_status = AuctionStatus {
-            is_active: true,
+            is_finished: true,
             is_frozen: false,
             current_auction_cycle: 1,
+            current_idle_cycle_streak: 0,
         };
 
         let description_string: DescriptionString =
-            DescriptionString::new("X".repeat(MAX_DESCRIPTION_LEN));
+            DescriptionString::try_from("X".repeat(MAX_DESCRIPTION_LEN)).unwrap();
 
         assert_eq!(
             DescriptionString::MAX_SERIALIZED_LEN,
@@ -281,6 +326,48 @@ mod test_max_serialized_len {
         assert_eq!(
             AuctionCycleState::MAX_SERIALIZED_LEN,
             cycle_state.try_to_vec().unwrap().len()
+        );
+
+        assert_eq!(AuctionPool::max_serialized_len(100), Some(3208));
+        assert_eq!(AuctionPool::max_serialized_len(1000), Some(32008));
+    }
+
+    #[test]
+    fn auction_pool_manipulation() {
+        let len = 5_u32;
+        let mut auction_pool = AuctionPool::new(len);
+        auction_pool.try_insert_sorted([4_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([1_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([2_u8; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_insert_sorted([1_u8; 32]),
+            Err(AuctionContractError::AuctionIdNotUnique)
+        );
+        auction_pool.try_insert_sorted([3_u8; 32]).unwrap();
+        auction_pool.try_insert_sorted([0_u8; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_insert_sorted([5_u8; 32]),
+            Err(AuctionContractError::AuctionPoolFull)
+        );
+        assert_eq!(
+            auction_pool.pool,
+            vec![[0_u8; 32], [1_u8; 32], [2_u8; 32], [3_u8; 32], [4_u8; 32]]
+        );
+        auction_pool.remove(&[12_u8; 32]);
+        assert_eq!(
+            auction_pool.pool,
+            vec![[0_u8; 32], [1_u8; 32], [2_u8; 32], [3_u8; 32], [4_u8; 32]]
+        );
+        auction_pool.remove(&[2_u8; 32]);
+        auction_pool.remove(&[4_u8; 32]);
+        assert_eq!(auction_pool.pool, vec![[0_u8; 32], [1_u8; 32], [3_u8; 32]]);
+        // 4 + 4 + 3 * 32
+        assert_eq!(auction_pool.try_to_vec().unwrap().len(), 104);
+        auction_pool.try_insert_sorted([12; 32]).unwrap();
+        auction_pool.try_insert_sorted([7; 32]).unwrap();
+        assert_eq!(
+            auction_pool.try_to_vec().unwrap().len(),
+            AuctionPool::max_serialized_len(len as usize).unwrap()
         );
     }
 }

@@ -2,6 +2,8 @@ use super::*;
 
 use metaplex_token_metadata::state::Data as MetadataStateData;
 use metaplex_token_metadata::state::MasterEditionV2;
+use solana_program::clock::UnixTimestamp;
+use solana_program::sysvar::rent::Rent;
 
 use std::str::FromStr;
 
@@ -77,7 +79,7 @@ pub fn close_auction_cycle(
     assert_token_program(token_program.key)?;
 
     // Check pda addresses
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -93,7 +95,7 @@ pub fn close_auction_cycle(
         .to_le_bytes();
 
     let current_auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
+        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     SignerPda::new_checked(
         &current_auction_cycle_state_seeds,
         current_auction_cycle_state_account.key,
@@ -133,7 +135,23 @@ pub fn close_auction_cycle(
             .end_time
             .checked_add(auction_root_state.auction_config.cycle_period)
             .ok_or(AuctionContractError::ArithmeticError)?;
+
+        auction_root_state.status.current_idle_cycle_streak = auction_root_state
+            .status
+            .current_idle_cycle_streak
+            .checked_add(1)
+            .ok_or(AuctionContractError::ArithmeticError)?;
+
+        // If the auction was idle for at least a week then freeze it automatically
+        if auction_root_state.auction_config.cycle_period
+            * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
+            > crate::ALLOWED_AUCTION_IDLE_PERIOD
+        {
+            auction_root_state.status.is_frozen = true;
+        }
+
         current_auction_cycle_state.write(current_auction_cycle_state_account)?;
+        auction_root_state.write(auction_root_state_account)?;
         return Ok(());
     }
 
@@ -144,7 +162,7 @@ pub fn close_auction_cycle(
         .ok_or(AuctionContractError::ArithmeticError)?)
     .to_le_bytes();
     let next_auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &next_cycle_num_bytes);
+        auction_cycle_state_seeds(auction_root_state_account.key, &next_cycle_num_bytes);
     let next_cycle_state_pda = SignerPda::new_checked(
         &next_auction_cycle_state_seeds,
         next_auction_cycle_state_account.key,
@@ -152,11 +170,11 @@ pub fn close_auction_cycle(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let contract_pda_seeds = get_contract_pda_seeds();
+    let contract_pda_seeds = contract_pda_seeds();
     let contract_signer_pda =
         SignerPda::new_checked(&contract_pda_seeds, contract_pda.key, &crate::ID)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
@@ -211,21 +229,21 @@ pub fn close_auction_cycle(
             let next_edition = auction_root_state.status.current_auction_cycle;
             let next_edition_bytes = next_edition.to_le_bytes();
 
-            let child_mint_seeds = get_child_mint_seeds(&next_edition_bytes, &auction_id);
+            let child_mint_seeds = child_mint_seeds(&next_edition_bytes, &auction_id);
             let child_mint_pda =
                 SignerPda::new_checked(&child_mint_seeds, child_mint_account.key, program_id)
                     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-            let child_holding_seeds = get_child_holding_seeds(&next_edition_bytes, &auction_id);
+            let child_holding_seeds = child_holding_seeds(&next_edition_bytes, &auction_id);
             let child_holding_pda =
                 SignerPda::new_checked(&child_holding_seeds, child_holding_account.key, program_id)
                     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-            let master_mint_seeds = get_master_mint_seeds(&auction_id);
+            let master_mint_seeds = master_mint_seeds(&auction_id);
             SignerPda::new_checked(&master_mint_seeds, master_mint_account.key, program_id)
                 .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-            let master_holding_seeds = get_master_holding_seeds(&auction_id);
+            let master_holding_seeds = master_holding_seeds(&auction_id);
             SignerPda::new_checked(
                 &master_holding_seeds,
                 master_holding_account.key,
@@ -233,7 +251,7 @@ pub fn close_auction_cycle(
             )
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-            let master_metadata_seeds = get_metadata_seeds(master_mint_account.key);
+            let master_metadata_seeds = metadata_seeds(master_mint_account.key);
             SignerPda::new_checked(
                 &master_metadata_seeds,
                 master_metadata_account.key,
@@ -389,7 +407,7 @@ pub fn close_auction_cycle(
             assert_mint_authority(token_mint_account, contract_pda.key)?;
 
             // Check pda addresses
-            let token_mint_seeds = get_token_mint_seeds(&auction_id);
+            let token_mint_seeds = token_mint_seeds(&auction_id);
             SignerPda::new_checked(&token_mint_seeds, token_mint_account.key, program_id)
                 .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -398,7 +416,7 @@ pub fn close_auction_cycle(
             }
 
             let token_holding_seeds =
-                get_token_holding_seeds(token_mint_account.key, top_bidder_account.key);
+                token_holding_seeds(token_mint_account.key, top_bidder_account.key);
             let token_holding_pda =
                 SignerPda::new_checked(&token_holding_seeds, token_holding_account.key, program_id)
                     .map_err(|_| AuctionContractError::InvalidSeeds)?;
@@ -442,7 +460,11 @@ pub fn close_auction_cycle(
 
     // Reset auction cycle
     if is_last_auction_cycle(&auction_root_state) {
-        auction_root_state.status.is_active = false;
+        auction_root_state.status.is_finished = true;
+        auction_root_state.available_funds = auction_root_state
+            .available_funds
+            .checked_add(Rent::get()?.minimum_balance(0))
+            .ok_or(AuctionContractError::ArithmeticError)?;
     } else {
         create_state_account(
             payer_account,
@@ -470,6 +492,8 @@ pub fn close_auction_cycle(
             .checked_add(1)
             .ok_or(AuctionContractError::ArithmeticError)?;
     }
+
+    auction_root_state.status.current_idle_cycle_streak = 0;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())

@@ -20,26 +20,28 @@ pub use error::AuctionContractError;
 pub use solana_program;
 
 use metaplex_token_metadata::state::Data as MetadataStateData;
+use solana_program::clock::UnixTimestamp;
 
 solana_program::declare_id!("go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U");
 
-/// Maximum number of auctions the [`AuctionPool`](state::AuctionPool) may
-/// hold.
-const MAX_AUCTION_NUM: usize = 100;
 /// Maxumum number of [`Bids`](state::BidData) in the
 /// [`BidHistory`](state::BidHistory).
-const MAX_BID_HISTORY_LENGTH: usize = 10;
+pub const MAX_BID_HISTORY_LENGTH: usize = 10;
 /// Maximum number of characters allowed in an auction description.
-const MAX_DESCRIPTION_LEN: usize = 200;
+pub const MAX_DESCRIPTION_LEN: usize = 200;
 /// Maximum number of characters in each social url.
-const MAX_SOCIALS_LEN: usize = 100;
+pub const MAX_SOCIALS_LEN: usize = 100;
 /// Maximum number of socials the [`AuctionState`](state::AuctionRootState) may
 /// hold.
-const MAX_SOCIALS_NUM: usize = 5;
+pub const MAX_SOCIALS_NUM: usize = 5;
 /// Additional bytes allocated to the
 /// [`AuctionRootState`](state::AuctionRootState) account for future
 /// development.
 pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
+/// Allowed time period for an auction to go without a bid placed on it before
+/// it is automatically frozen at cycle closing.
+/// Currently set for a week of inactivity.
+pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
 
 /// The recommended number of state accounts that can be safely wiped via a
 /// `DeleteAuction` contract call without exceeding the allotted compute units.

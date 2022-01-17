@@ -31,7 +31,7 @@ async fn test_process_close_auction_cycle() {
     };
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let user_1 = TestUser::new(&mut testbench).await;
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
@@ -46,9 +46,6 @@ async fn test_process_close_auction_cycle() {
     .await
     .unwrap();
 
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
     let (auction_cycle_state_pubkey, auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
@@ -67,6 +64,14 @@ async fn test_process_close_auction_cycle() {
     .unwrap();
 
     assert_eq!(-balance_change as u64, TRANSACTION_FEE);
+
+    // Check if idle cycle streak has been incremented
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 1);
+
     let (same_auction_cycle_state_pubkey, same_auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
@@ -92,10 +97,6 @@ async fn test_process_close_auction_cycle() {
         testbench.get_mint_account(&child_edition.mint).await,
         Err("Account not found".to_string())
     );
-
-    let auction_cycle_state = testbench
-        .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
 
     // Check if other data are unchanged
     assert_eq!(
@@ -137,6 +138,14 @@ async fn test_process_close_auction_cycle() {
         CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER + TRANSACTION_FEE,
     );
 
+    // Check if idle cycle streak has been reset
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
+
+    // Check new cycle end time
     let new_cycle_min_end_time =
         auction_cycle_state.end_time + auction_root_state.auction_config.cycle_period;
     let (_auction_cycle_state_pubkey, auction_cycle_state) =
@@ -219,10 +228,15 @@ async fn test_ended_close_cycle_on_auction() {
         CLOSE_AUCTION_CYCLE_LAST_CYCLE + TRANSACTION_FEE,
     );
 
+    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
+        get_state_pubkeys(&mut testbench, auction_id).await;
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert!(auction_root_state.status.is_finished);
+
     // Invalid use case
     // Bidding on ended auction
-    warp_to_cycle_end(&mut testbench, auction_id).await;
-
     let bid_amount_higher = 2_000_000;
     let bid_on_ended_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user.keypair, bid_amount_higher)
@@ -230,13 +244,13 @@ async fn test_ended_close_cycle_on_auction() {
             .err()
             .unwrap();
 
-    // Invalid use case
-    // Closing cycle of ended auction
     assert_eq!(
         bid_on_ended_auction_error,
         AuctionContractError::AuctionEnded
     );
 
+    // Invalid use case
+    // Closing cycle of ended auction
     let close_cycle_on_ended_auction_error = close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -249,6 +263,30 @@ async fn test_ended_close_cycle_on_auction() {
     .unwrap();
     assert_eq!(
         close_cycle_on_ended_auction_error,
+        AuctionContractError::AuctionEnded
+    );
+
+    // Invalid use case
+    // Freezing ended auction
+    let freeze_finished_auction_error =
+        freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
+            .await
+            .err()
+            .unwrap();
+    assert_eq!(
+        freeze_finished_auction_error,
+        AuctionContractError::AuctionEnded
+    );
+
+    // Invalid use case
+    // Thaw ended auction
+    let payer = testbench.clone_payer();
+    let thaw_finished_auction_error = thaw_auction_transaction(&mut testbench, auction_id, &payer)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(
+        thaw_finished_auction_error,
         AuctionContractError::AuctionEnded
     );
 }
@@ -326,7 +364,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     initialize_new_auction(
         &mut testbench,
@@ -480,7 +518,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
 
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let create_token_args = CreateTokenArgs::Nft {
         metadata_args: CreateMetadataAccountArgs {

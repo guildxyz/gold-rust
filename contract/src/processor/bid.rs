@@ -29,7 +29,7 @@ pub fn process_bid(
     }
 
     // Check pda addresses
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -44,7 +44,7 @@ pub fn process_bid(
         .current_auction_cycle
         .to_le_bytes();
     let auction_cycle_state_seeds =
-        get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num);
+        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num);
     SignerPda::new_checked(
         &auction_cycle_state_seeds,
         auction_cycle_state_account.key,
@@ -54,7 +54,7 @@ pub fn process_bid(
 
     let mut auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -75,7 +75,7 @@ pub fn process_bid(
     check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
 
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
-    let previous_bid_amount = if let Some(ref most_recent_bid) = most_recent_bid_option {
+    let previous_bid_amount = if let Some(most_recent_bid) = most_recent_bid_option {
         if top_bidder_account.key != &most_recent_bid.bidder_pubkey {
             return Err(AuctionContractError::TopBidderAccountMismatch.into());
         }

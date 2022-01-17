@@ -11,16 +11,13 @@ pub struct FreezeAuctionArgs {
 
 pub fn freeze_auction(args: &FreezeAuctionArgs) -> Instruction {
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(
-            &auction_root_state_pubkey,
-            &args.cycle_number.to_le_bytes(),
-        ),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &args.cycle_number.to_le_bytes()),
         &crate::ID,
     );
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
 
     let top_bidder = if let Some(bidder) = args.top_bidder_pubkey {
         bidder

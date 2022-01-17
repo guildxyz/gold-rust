@@ -17,7 +17,7 @@ use solana_program::pubkey::Pubkey;
 use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
-const AUCTION_CREATION_COST: u64 = 24_067_680 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_095_520 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
@@ -43,9 +43,9 @@ async fn test_process_initialize_auction() {
 
     // check mint account
     let (master_mint_pubkey, _) =
-        Pubkey::find_program_address(&get_master_mint_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&master_mint_seeds(&auction_id), &CONTRACT_ID);
     let (master_edition_pubkey, _) = Pubkey::find_program_address(
-        &get_edition_seeds(&master_mint_pubkey),
+        &edition_seeds(&master_mint_pubkey),
         &metaplex_token_metadata::ID,
     );
 
@@ -65,7 +65,7 @@ async fn test_process_initialize_auction() {
 
     // check holding account
     let (master_holding_pubkey, _) =
-        Pubkey::find_program_address(&get_master_holding_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&master_holding_seeds(&auction_id), &CONTRACT_ID);
     let master_holding_data: TokenAccount = testbench
         .client()
         .get_packed_account_data(master_holding_pubkey)
@@ -76,7 +76,7 @@ async fn test_process_initialize_auction() {
 
     // check metadata
     let (master_metadata_pubkey, _) =
-        Pubkey::find_program_address(&get_metadata_seeds(&master_mint_pubkey), &META_ID);
+        Pubkey::find_program_address(&metadata_seeds(&master_mint_pubkey), &META_ID);
     let mut master_metadata = testbench
         .get_and_deserialize_account_data::<metaplex_token_metadata::state::Metadata>(
             &master_metadata_pubkey,
@@ -87,10 +87,10 @@ async fn test_process_initialize_auction() {
 
     // check state account
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let cycle_number_bytes = 1_u64.to_le_bytes();
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(&auction_root_state_pubkey, &cycle_number_bytes),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &cycle_number_bytes),
         &CONTRACT_ID,
     );
 
@@ -117,18 +117,17 @@ async fn test_process_initialize_auction() {
         auction_root_state.auction_config.encore_period,
         auction_config.encore_period
     );
+    assert_eq!(auction_root_state.status.current_auction_cycle, 1);
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
 
     let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &CONTRACT_ID);
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await;
     assert_eq!(1, auction_pool.pool.len());
-    assert_eq!(
-        auction_pool.pool.get(&[123_u8; 32]).unwrap(),
-        &auction_root_state_pubkey
-    );
+    assert_eq!(auction_pool.pool[0], [123_u8; 32]);
 
     // Invalid use case
     // Create auction with the same id

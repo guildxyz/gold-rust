@@ -34,7 +34,7 @@ pub fn process_delete_auction(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let auction_root_state_seeds = get_auction_root_state_seeds(&auction_id);
+    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
         &auction_root_state_seeds,
         auction_root_state_account.key,
@@ -42,7 +42,7 @@ pub fn process_delete_auction(
     )
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
-    let auction_pool_seeds = get_auction_pool_seeds();
+    let auction_pool_seeds = auction_pool_seeds();
     SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -52,7 +52,7 @@ pub fn process_delete_auction(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    if auction_root_state.status.is_active && !auction_root_state.status.is_frozen {
+    if !auction_root_state.status.is_finished && !auction_root_state.status.is_frozen {
         return Err(AuctionContractError::AuctionIsActive.into());
     }
 
@@ -64,16 +64,16 @@ pub fn process_delete_auction(
     // The auction cycle states to remove in reverse chronological order
     let auction_cycle_states = next_account_infos(account_info_iter, removable_cycle_states_num)?; // 7+
 
-    let contract_bank_seeds = get_contract_bank_seeds();
+    let contract_bank_seeds = contract_bank_seeds();
     SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
-    if contract_admin_account.key != &contract_bank_state.contract_admin_pubkey {
+    if contract_admin_account.key != &contract_bank_state.contract_admin {
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 
-    let auction_bank_seeds = get_auction_bank_seeds(&auction_id);
+    let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
@@ -87,7 +87,7 @@ pub fn process_delete_auction(
         // Check auction cycle state account address
         let cycle_num_bytes = cycle_num.to_le_bytes();
         let auction_cycle_state_seeds =
-            get_auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
+            auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
         SignerPda::new_checked(
             &auction_cycle_state_seeds,
             auction_cycle_state_account.key,
@@ -121,16 +121,6 @@ pub fn process_delete_auction(
     deallocate_state(auction_root_state_account, auction_owner_account)?;
 
     let mut auction_pool = AuctionPool::read(auction_pool_account)?;
-    auction_pool.pool.remove(&auction_id);
-    auction_pool.write(auction_pool_account)?;
-
-    Ok(())
-}
-
-#[inline(always)]
-fn deallocate_state<'a>(from: &'a AccountInfo, to: &'a AccountInfo) -> Result<(), ProgramError> {
-    let lamports_to_claim = **from.lamports.borrow();
-    checked_debit_account(from, lamports_to_claim)?;
-    checked_credit_account(to, lamports_to_claim)?;
-    Ok(())
+    auction_pool.remove(&auction_id);
+    auction_pool.write(auction_pool_account)
 }

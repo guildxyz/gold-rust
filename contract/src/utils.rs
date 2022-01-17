@@ -121,7 +121,7 @@ pub fn check_status(
     if root_state.status.is_frozen {
         return Err(AuctionContractError::AuctionFrozen);
     }
-    if !root_state.status.is_active {
+    if root_state.status.is_finished {
         return Err(AuctionContractError::AuctionEnded);
     }
     match interaction_type {

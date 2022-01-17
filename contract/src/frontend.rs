@@ -1,4 +1,4 @@
-use crate::state::{AuctionCycleState, AuctionRootState};
+use crate::state::AuctionRootState;
 use agsol_borsh_schema::BorshSchema;
 use agsol_common::{MaxLenString, MaxSerializedLen};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -25,7 +25,7 @@ pub enum FrontendTokenConfig {
 
 #[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct FrontendAuction {
+    pub root_state_pubkey: Pubkey,
     pub root_state: AuctionRootState,
-    pub cycle_state: AuctionCycleState,
     pub token_config: FrontendTokenConfig,
 }

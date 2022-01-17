@@ -12,14 +12,11 @@ pub struct PlaceBidArgs {
 
 pub fn place_bid(args: &PlaceBidArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_bank_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_root_state_seeds(&args.auction_id), &crate::ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(
-            &auction_root_state_pubkey,
-            &args.cycle_number.to_le_bytes(),
-        ),
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &args.cycle_number.to_le_bytes()),
         &crate::ID,
     );
 

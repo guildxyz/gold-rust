@@ -26,4 +26,3 @@ pub struct CreateMetadataAccountArgs {
     /// Whether you want your metadata to be updateable in the future.
     pub is_mutable: bool,
 }
-

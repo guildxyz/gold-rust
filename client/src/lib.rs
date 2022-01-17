@@ -1,10 +1,9 @@
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;
-mod get_treasury;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::get_auction_pool_seeds;
+use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
@@ -15,39 +14,39 @@ use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
 // TODO client net from env-var
-const NET: Net = Net::Devnet;
+const NET: Net = Net::Testnet;
 
 wasm_instruction!(initialize_auction);
 wasm_instruction!(freeze_auction);
 wasm_instruction!(place_bid);
 wasm_instruction!(claim_funds);
-wasm_instruction!(delete_auction);
-wasm_instruction!(initialize_contract);
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
-pub async fn get_auction_wasm(
-    auction_id: String,
-    cycle: Option<u64>,
+pub async fn get_auction_wasm(auction_id: String) -> Result<Uint8Array, JsValue> {
+    let auction = get_auction::get_auction(auction_id)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    Ok(Uint8Array::from(auction.try_to_vec().unwrap().as_slice()))
+}
+
+#[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
+pub async fn get_auction_cycle_state_wasm(
+    root_state_pubkey: Pubkey,
+    cycle_num: u64,
 ) -> Result<Uint8Array, JsValue> {
-    let frontend_auction = get_auction::get_auction(auction_id, cycle)
+    let auction_cycle_state = get_auction::get_auction_cycle_state(&root_state_pubkey, cycle_num)
         .await
         .map_err(|e| JsValue::from(e.to_string()))?;
 
     Ok(Uint8Array::from(
-        frontend_auction.try_to_vec().unwrap().as_slice(),
+        auction_cycle_state.try_to_vec().unwrap().as_slice(),
     ))
 }
 
 #[wasm_bindgen(js_name = "getTopBidderWasm")]
 pub async fn get_top_bidder_wasm(auction_id: String) -> Result<Pubkey, JsValue> {
     get_top_bidder::get_top_bidder(auction_id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
-}
-
-#[wasm_bindgen(js_name = "getTreasuryWasm")]
-pub async fn get_treasury_wasm(auction_id: String) -> Result<u64, JsValue> {
-    get_treasury::get_treasury(auction_id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))
 }
@@ -60,10 +59,16 @@ pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> 
 }
 
 #[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn wasm_auction_pool_pubkey() -> Vec<u8> {
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), &GOLD_ID);
-    auction_pool_pubkey.try_to_vec().unwrap()
+pub fn wasm_auction_pool_pubkey() -> Pubkey {
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+    auction_pool_pubkey
+}
+
+#[wasm_bindgen(js_name = "getAuctionRootStatePubkeyWasm")]
+pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
+    auction_root_state_pubkey
 }
 
 // NOTE special characters are chopped off to fit an u8, so it won't be
