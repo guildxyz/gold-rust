@@ -51,13 +51,13 @@ pub fn initialize_contract(
             system_program,
             account_size,
         )?;
+
+        // need to write max len of the auction pool into the state
+        let auction_pool = AuctionPool::new(initial_auction_pool_len);
+        auction_pool.write(auction_pool_account)?;
     } else {
         return Err(AuctionContractError::ContractAlreadyInitialized.into());
     }
-
-    // need to write max len of the auction pool into the state
-    let auction_pool = AuctionPool::new(initial_auction_pool_len);
-    auction_pool.write(auction_pool_account)?;
 
     // Create contract bank account
     if contract_bank_account.lamports() == 0 {
