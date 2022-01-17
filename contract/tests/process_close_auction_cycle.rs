@@ -46,9 +46,6 @@ async fn test_process_close_auction_cycle() {
     .await
     .unwrap();
 
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
     let (auction_cycle_state_pubkey, auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
@@ -67,6 +64,14 @@ async fn test_process_close_auction_cycle() {
     .unwrap();
 
     assert_eq!(-balance_change as u64, TRANSACTION_FEE);
+
+    // Check if idle cycle streak has been incremented
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 1);
+
     let (same_auction_cycle_state_pubkey, same_auction_cycle_state) =
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey).await;
 
@@ -92,10 +97,6 @@ async fn test_process_close_auction_cycle() {
         testbench.get_mint_account(&child_edition.mint).await,
         Err("Account not found".to_string())
     );
-
-    let auction_cycle_state = testbench
-        .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
 
     // Check if other data are unchanged
     assert_eq!(
@@ -137,6 +138,14 @@ async fn test_process_close_auction_cycle() {
         CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER + TRANSACTION_FEE,
     );
 
+    // Check if idle cycle streak has been reset
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
+
+    // Check new cycle end time
     let new_cycle_min_end_time =
         auction_cycle_state.end_time + auction_root_state.auction_config.cycle_period;
     let (_auction_cycle_state_pubkey, auction_cycle_state) =

@@ -20,7 +20,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
-agsol-common = "0.0.1"
+agsol-common = "0.1.0"
 env_logger = "0.9.0"
 log = "0.4"
 solana-client = "1.9.0"

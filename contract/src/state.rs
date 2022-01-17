@@ -59,10 +59,12 @@ pub struct AuctionStatus {
     /// The current auction cycle, regardless of the auction being frozen or
     /// active.
     pub current_auction_cycle: u64,
+    /// The current streak of cycles where no bids were placed.
+    pub current_idle_cycle_streak: u32,
     /// The auction might be frozen.
     pub is_frozen: bool,
     /// The auction is active until all auction cycles have passed.
-    pub is_active: bool,
+    pub is_finished: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -261,13 +263,14 @@ mod test {
         });
 
         let auction_status = AuctionStatus {
-            is_active: true,
+            is_finished: true,
             is_frozen: false,
             current_auction_cycle: 1,
+            current_idle_cycle_streak: 0,
         };
 
         let description_string: DescriptionString =
-            DescriptionString::new("X".repeat(MAX_DESCRIPTION_LEN));
+            DescriptionString::try_from("X".repeat(MAX_DESCRIPTION_LEN)).unwrap();
 
         assert_eq!(
             DescriptionString::MAX_SERIALIZED_LEN,

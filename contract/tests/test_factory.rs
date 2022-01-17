@@ -261,6 +261,31 @@ pub async fn freeze_auction_transaction(
 }
 
 #[allow(unused)]
+pub async fn thaw_auction_transaction(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+    contract_admin_keypair: &Keypair,
+) -> Result<(), AuctionContractError> {
+    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
+        get_state_pubkeys(testbench, auction_id).await;
+
+    let thaw_args = ThawAuctionArgs {
+        contract_admin_pubkey: contract_admin_keypair.pubkey(),
+        auction_id,
+    };
+    let thaw_instruction = thaw_auction(&thaw_args);
+    let thaw_result = testbench
+        .process_transaction(&[thaw_instruction], contract_admin_keypair, None)
+        .await;
+
+    if thaw_result.is_err() {
+        return Err(to_auction_error(thaw_result.err().unwrap()));
+    }
+
+    Ok(())
+}
+
+#[allow(unused)]
 pub async fn verify_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -407,8 +432,8 @@ pub async fn initialize_new_auction_custom(
         auction_config: *auction_config,
         auction_name: auction_id,
         auction_description: AuctionDescription {
-            description: MaxLenString::new("Cool description".to_string()),
-            socials: vec![MaxLenString::new("https://www.gold.xyz".to_string())]
+            description: MaxLenString::try_from("Cool description".to_string()).unwrap(),
+            socials: vec![MaxLenString::try_from("https://www.gold.xyz".to_string()).unwrap()]
                 .try_into()
                 .unwrap(),
             goal_treasury_amount: Some(420_000_000_000),

@@ -17,7 +17,7 @@ use solana_program::pubkey::Pubkey;
 use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
-const AUCTION_CREATION_COST: u64 = 24_067_680 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_095_520 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
@@ -117,6 +117,8 @@ async fn test_process_initialize_auction() {
         auction_root_state.auction_config.encore_period,
         auction_config.encore_period
     );
+    assert_eq!(auction_root_state.status.current_auction_cycle, 1);
+    assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
 
     let (auction_pool_pubkey, _) =

@@ -50,8 +50,8 @@ impl InitializeAuctionArgs {
             auction_name: [111; 32],
             auction_config,
             auction_description: AuctionDescription {
-                description: MaxLenString::new("Cool description".to_string()),
-                socials: vec![MaxLenString::new("https://www.gold.xyz".to_string())]
+                description: MaxLenString::try_from("Cool description".to_string()).unwrap(),
+                socials: vec![MaxLenString::try_from("https://www.gold.xyz".to_string()).unwrap()]
                     .try_into()
                     .unwrap(),
                 goal_treasury_amount: Some(420_000_000_000),

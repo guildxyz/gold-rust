@@ -351,7 +351,8 @@ pub fn initialize_auction(
         token_config,
         status: AuctionStatus {
             current_auction_cycle: 1,
-            is_active: true,
+            current_idle_cycle_streak: 0,
+            is_finished: false,
             is_frozen: false,
         },
         all_time_treasury: 0,

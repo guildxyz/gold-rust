@@ -28,6 +28,9 @@ pub enum AuctionInstruction {
     Freeze {
         id: AuctionId,
     },
+    Thaw {
+        id: AuctionId,
+    },
     CloseAuctionCycle {
         id: AuctionId,
     },

@@ -57,7 +57,10 @@ pub fn freeze_auction(
 
     // Initial checks
     if auction_root_state.status.is_frozen {
-        return Ok(());
+        return Err(AuctionContractError::AuctionFrozen.into());
+    }
+    if auction_root_state.status.is_finished {
+        return Err(AuctionContractError::AuctionEnded.into());
     }
 
     if auction_owner_account.key != &auction_root_state.auction_owner {
@@ -83,7 +86,6 @@ pub fn freeze_auction(
     }
 
     auction_root_state.status.is_frozen = true;
-    auction_root_state.status.is_active = false;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())

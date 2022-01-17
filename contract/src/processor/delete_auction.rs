@@ -52,7 +52,7 @@ pub fn process_delete_auction(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    if auction_root_state.status.is_active && !auction_root_state.status.is_frozen {
+    if !auction_root_state.status.is_finished && !auction_root_state.status.is_frozen {
         return Err(AuctionContractError::AuctionIsActive.into());
     }
 

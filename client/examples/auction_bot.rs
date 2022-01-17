@@ -146,7 +146,7 @@ fn close_cycle(
     let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
     let current_cycle_bytes = auction_state.status.current_auction_cycle.to_le_bytes();
     // IF FROZEN OR INACTIVE, CONTINUE ITERATION
-    if auction_state.status.is_frozen || !auction_state.status.is_active {
+    if auction_state.status.is_frozen || !auction_state.status.is_finished {
         return Ok(());
     }
 

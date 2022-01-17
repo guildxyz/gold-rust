@@ -72,7 +72,7 @@ pub fn process_claim_funds(
     let mut lamports_to_claim = **auction_bank_account.lamports.borrow();
 
     // If the auction is not active, the bank account does not need to persist anymore
-    if auction_root_state.status.is_active {
+    if auction_root_state.status.is_finished {
         lamports_to_claim = lamports_to_claim
             .checked_sub(Rent::get()?.minimum_balance(0))
             .ok_or(AuctionContractError::ArithmeticError)?;

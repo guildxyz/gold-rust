@@ -7,6 +7,7 @@ mod freeze;
 mod initialize_auction;
 mod initialize_contract;
 mod reallocate_pool;
+mod thaw;
 mod verify_auction;
 
 use crate::error::AuctionContractError;
@@ -84,6 +85,7 @@ pub fn process(
             close_auction_cycle::close_auction_cycle(program_id, accounts, id)
         }
         AuctionInstruction::Freeze { id } => freeze::freeze_auction(program_id, accounts, id),
+        AuctionInstruction::Thaw { id } => thaw::thaw_auction(program_id, accounts, id),
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
         }

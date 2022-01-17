@@ -133,7 +133,23 @@ pub fn close_auction_cycle(
             .end_time
             .checked_add(auction_root_state.auction_config.cycle_period)
             .ok_or(AuctionContractError::ArithmeticError)?;
+
+        auction_root_state.status.current_idle_cycle_streak = auction_root_state
+            .status
+            .current_idle_cycle_streak
+            .checked_add(1)
+            .ok_or(AuctionContractError::ArithmeticError)?;
+
+        // If the auction was idle for at least a week then freeze it automatically
+        if auction_root_state.auction_config.cycle_period
+            * i64::from(auction_root_state.status.current_idle_cycle_streak)
+            > crate::ALLOWED_AUCTION_IDLE_PERIOD
+        {
+            auction_root_state.status.is_frozen = true;
+        }
+
         current_auction_cycle_state.write(current_auction_cycle_state_account)?;
+        auction_root_state.write(auction_root_state_account)?;
         return Ok(());
     }
 
@@ -442,7 +458,7 @@ pub fn close_auction_cycle(
 
     // Reset auction cycle
     if is_last_auction_cycle(&auction_root_state) {
-        auction_root_state.status.is_active = false;
+        auction_root_state.status.is_finished = true;
     } else {
         create_state_account(
             payer_account,
@@ -470,6 +486,8 @@ pub fn close_auction_cycle(
             .checked_add(1)
             .ok_or(AuctionContractError::ArithmeticError)?;
     }
+
+    auction_root_state.status.current_idle_cycle_streak = 0;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())

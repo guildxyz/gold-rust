@@ -157,7 +157,7 @@ async fn test_delete_inactive_auction() {
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
 
-    assert!(!auction_root_state.status.is_active);
+    assert!(auction_root_state.status.is_finished);
 
     // Delete auction
     let auction_pool = testbench
@@ -231,7 +231,7 @@ async fn test_delete_just_long_enough_auction() {
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
 
-    assert!(!auction_root_state.status.is_active);
+    assert!(auction_root_state.status.is_finished);
 
     // Delete auction
     let auction_pool = testbench
@@ -307,7 +307,7 @@ async fn test_delete_long_auction() {
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
 
-    assert!(!auction_root_state.status.is_active);
+    assert!(auction_root_state.status.is_finished);
 
     // Delete auction
     let auction_pool = testbench
