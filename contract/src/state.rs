@@ -91,9 +91,7 @@ pub enum CreateTokenArgs {
     Token { decimals: u8, per_cycle_amount: u64 },
 }
 
-// TODO: this does not need to derive BorshSchema
-// as it is only used in the contract tests and auction bot
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     Nft,
     Token,
