@@ -267,7 +267,7 @@ mod test {
         };
 
         let description_string: DescriptionString =
-            DescriptionString::new("X".repeat(MAX_DESCRIPTION_LEN));
+            DescriptionString::try_from("X".repeat(MAX_DESCRIPTION_LEN)).unwrap();
 
         assert_eq!(
             DescriptionString::MAX_SERIALIZED_LEN,

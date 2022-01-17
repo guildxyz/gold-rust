@@ -407,8 +407,8 @@ pub async fn initialize_new_auction_custom(
         auction_config: *auction_config,
         auction_name: auction_id,
         auction_description: AuctionDescription {
-            description: MaxLenString::new("Cool description".to_string()),
-            socials: vec![MaxLenString::new("https://www.gold.xyz".to_string())]
+            description: MaxLenString::try_from("Cool description").unwrap(),
+            socials: vec![MaxLenString::try_from("https://www.gold.xyz").unwrap()]
                 .try_into()
                 .unwrap(),
             goal_treasury_amount: Some(420_000_000_000),
