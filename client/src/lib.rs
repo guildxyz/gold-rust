@@ -15,7 +15,7 @@ use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
 // TODO client net from env-var
-const NET: Net = Net::Devnet;
+const NET: Net = Net::Testnet;
 
 wasm_instruction!(initialize_auction);
 wasm_instruction!(freeze_auction);
