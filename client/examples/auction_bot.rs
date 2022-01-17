@@ -1,5 +1,7 @@
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
-use agsol_gold_contract::pda::{get_auction_cycle_state_seeds, get_auction_pool_seeds};
+use agsol_gold_contract::pda::{
+    auction_cycle_state_seeds, auction_pool_seeds, auction_root_state_seeds,
+};
 use agsol_gold_contract::state::{
     AuctionCycleState, AuctionPool, AuctionRootState, TokenConfig, TokenType,
 };
@@ -72,7 +74,7 @@ pub fn main() {
     };
 
     loop {
-        if let Err(e) = try_main(&connection, &bot_keypair, &GOLD_ID, should_airdrop) {
+        if let Err(e) = try_main(&connection, &bot_keypair, should_airdrop) {
             error!("{}", e);
         }
     }
@@ -81,7 +83,6 @@ pub fn main() {
 fn try_main(
     connection: &RpcClient,
     bot_keypair: &Keypair,
-    program_id: &Pubkey,
     should_airdrop: bool,
 ) -> Result<(), anyhow::Error> {
     // AIRDROP IF NECESSARY
@@ -109,17 +110,17 @@ fn try_main(
     info!("time: {} [s]", block_time);
     std::thread::sleep(std::time::Duration::from_millis(SLEEP_DURATION));
     // READ AUCTION POOL
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&get_auction_pool_seeds(), program_id);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
     let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
     let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
     // READ INDIVIDUAL STATES
-    for (auction_id, state_pubkey) in auction_pool.pool.contents().iter() {
+    for auction_id in auction_pool.pool.iter() {
+        let (state_pubkey, _) =
+            Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
         if let Err(err) = close_cycle(
             connection,
             auction_id,
-            state_pubkey,
-            program_id,
+            &state_pubkey,
             bot_keypair,
             block_time,
         ) {
@@ -138,7 +139,6 @@ fn close_cycle(
     connection: &RpcClient,
     auction_id: &[u8; 32],
     state_pubkey: &Pubkey,
-    program_id: &Pubkey,
     bot_keypair: &Keypair,
     block_time: UnixTimestamp,
 ) -> Result<(), anyhow::Error> {
@@ -151,8 +151,8 @@ fn close_cycle(
     }
 
     let (cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &get_auction_cycle_state_seeds(state_pubkey, &current_cycle_bytes),
-        program_id,
+        &auction_cycle_state_seeds(state_pubkey, &current_cycle_bytes),
+        &GOLD_ID,
     );
     let current_cycle_data = connection.get_account_data(&cycle_state_pubkey)?;
     let auction_cycle_state: AuctionCycleState = try_from_slice_unchecked(&current_cycle_data)?;
@@ -170,10 +170,9 @@ fn close_cycle(
     let top_bidder = if auction_cycle_state.bid_history.is_empty() {
         None
     } else {
-        let bid_history_len = auction_cycle_state.bid_history.len();
         auction_cycle_state
             .bid_history
-            .get(bid_history_len - 1)
+            .get_last_element()
             .map(|x| x.bidder_pubkey)
     };
     let close_auction_cycle_args = CloseAuctionCycleArgs {
