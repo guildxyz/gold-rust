@@ -20,6 +20,7 @@ pub use error::AuctionContractError;
 pub use solana_program;
 
 use metaplex_token_metadata::state::Data as MetadataStateData;
+use solana_program::clock::UnixTimestamp;
 
 solana_program::declare_id!("go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U");
 
@@ -40,7 +41,7 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 /// Allowed time period for an auction to go without a bid placed on it before
 /// it is automatically frozen at cycle closing.
 /// Currently set for a week of inactivity.
-pub const ALLOWED_AUCTION_IDLE_PERIOD: i64 = 604_800;
+pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
 
 /// The recommended number of state accounts that can be safely wiped via a
 /// `DeleteAuction` contract call without exceeding the allotted compute units.
