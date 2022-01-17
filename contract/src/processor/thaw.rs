@@ -42,11 +42,11 @@ pub fn thaw_auction(
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 
-    if !auction_root_state.status.is_frozen {
-        return Ok(());
-    }
     if auction_root_state.status.is_finished {
         return Err(AuctionContractError::AuctionEnded.into());
+    }
+    if !auction_root_state.status.is_frozen {
+        return Ok(());
     }
 
     // Thaw logic

@@ -228,10 +228,15 @@ async fn test_ended_close_cycle_on_auction() {
         CLOSE_AUCTION_CYCLE_LAST_CYCLE + TRANSACTION_FEE,
     );
 
+    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
+        get_state_pubkeys(&mut testbench, auction_id).await;
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert!(auction_root_state.status.is_finished);
+
     // Invalid use case
     // Bidding on ended auction
-    warp_to_cycle_end(&mut testbench, auction_id).await;
-
     let bid_amount_higher = 2_000_000;
     let bid_on_ended_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user.keypair, bid_amount_higher)
@@ -239,13 +244,13 @@ async fn test_ended_close_cycle_on_auction() {
             .err()
             .unwrap();
 
-    // Invalid use case
-    // Closing cycle of ended auction
     assert_eq!(
         bid_on_ended_auction_error,
         AuctionContractError::AuctionEnded
     );
 
+    // Invalid use case
+    // Closing cycle of ended auction
     let close_cycle_on_ended_auction_error = close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -258,6 +263,30 @@ async fn test_ended_close_cycle_on_auction() {
     .unwrap();
     assert_eq!(
         close_cycle_on_ended_auction_error,
+        AuctionContractError::AuctionEnded
+    );
+
+    // Invalid use case
+    // Freezing ended auction
+    let freeze_finished_auction_error =
+        freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
+            .await
+            .err()
+            .unwrap();
+    assert_eq!(
+        freeze_finished_auction_error,
+        AuctionContractError::AuctionEnded
+    );
+
+    // Invalid use case
+    // Thaw ended auction
+    let payer = testbench.clone_payer();
+    let thaw_finished_auction_error = thaw_auction_transaction(&mut testbench, auction_id, &payer)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(
+        thaw_finished_auction_error,
         AuctionContractError::AuctionEnded
     );
 }
