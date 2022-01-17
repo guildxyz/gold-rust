@@ -122,6 +122,23 @@ async fn test_process_reallocate_pool() {
         admin_balance_after_deallocate - admin_balance_after_reallocate,
         TRANSACTION_FEE + new_pool_rent - old_pool_rent
     );
+    let result = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await;
+    assert!(result.is_ok());
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await;
+    assert_eq!(
+        auction_pool.pool.len(),
+        INITIAL_AUCTION_POOL_LEN as usize + 1
+    );
+    assert_eq!(auction_pool.max_len, new_max_len);
 
     // try to deallocate/reallocate without admin authority
     let deallocate_instruction = deallocate_pool(&auction_owner.keypair.pubkey());
@@ -163,7 +180,10 @@ async fn test_process_reallocate_pool() {
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await;
-    assert_eq!(auction_pool.pool.len(), INITIAL_AUCTION_POOL_LEN as usize);
+    assert_eq!(
+        auction_pool.pool.len(),
+        INITIAL_AUCTION_POOL_LEN as usize + 1
+    );
     assert_eq!(auction_pool.max_len, new_max_len);
 
     // try to simply reallocate without deallocating first
