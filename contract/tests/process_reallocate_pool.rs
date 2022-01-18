@@ -2,7 +2,9 @@
 mod test_factory;
 use test_factory::*;
 
-use agsol_gold_contract::instruction::factory::{deallocate_pool, reallocate_pool};
+use agsol_gold_contract::instruction::factory::{
+    deallocate_pool, initialize_contract, reallocate_pool, InitializeContractArgs,
+};
 use agsol_gold_contract::pda::{auction_pool_seeds, temporary_pool_seeds};
 use agsol_gold_contract::state::{AuctionConfig, AuctionPool, TokenType};
 use agsol_gold_contract::AuctionContractError;
@@ -88,6 +90,23 @@ async fn test_process_reallocate_pool() {
     assert_eq!(
         admin_balance_before - admin_balance_after_deallocate,
         TRANSACTION_FEE
+    );
+
+    // try to initialize contract while the auction pool is deallocated
+    let args = InitializeContractArgs {
+        contract_admin: auction_owner.keypair.pubkey(),
+        withdraw_authority: auction_owner.keypair.pubkey(),
+        initial_auction_pool_len: 0,
+    };
+    let init_instruction = initialize_contract(&args);
+    let error = testbench
+        .process_transaction(&[init_instruction], &auction_owner.keypair, None)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(
+        to_auction_error(error),
+        AuctionContractError::ContractAlreadyInitialized
     );
 
     // NOTE this panics (which is correct, because we don't find the account anymore)

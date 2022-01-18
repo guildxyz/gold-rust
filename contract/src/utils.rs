@@ -126,7 +126,9 @@ pub fn check_status(
     }
     match interaction_type {
         AuctionInteraction::Bid => {
-            if current_timestamp >= cycle_state.end_time {
+            if current_timestamp >= cycle_state.end_time
+                || current_timestamp < root_state.start_time
+            {
                 return Err(AuctionContractError::AuctionCycleEnded);
             }
         }
