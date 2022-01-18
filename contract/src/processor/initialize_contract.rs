@@ -37,43 +37,43 @@ pub fn initialize_contract(
         SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
             .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
+    // if contract bank account exists, then we have
+    if contract_bank_account.lamports() != 0 {
+        return Err(AuctionContractError::ContractAlreadyInitialized.into());
+    }
+
     // Create auction pool account
     // NOTE u32 will always fit into a usize because we are definitely not
     // running this on u16 architecture
     let account_size = AuctionPool::max_serialized_len(initial_auction_pool_len as usize)
         .ok_or(AuctionContractError::ArithmeticError)?;
-    if auction_pool_account.data_is_empty() {
-        create_state_account(
-            contract_admin_account,
-            auction_pool_account,
-            auction_pool_pda.signer_seeds(),
-            program_id,
-            system_program,
-            account_size,
-        )?;
-    } else {
-        return Err(AuctionContractError::ContractAlreadyInitialized.into());
-    }
+
+    // create auction pool account
+    create_state_account(
+        contract_admin_account,
+        auction_pool_account,
+        auction_pool_pda.signer_seeds(),
+        program_id,
+        system_program,
+        account_size,
+    )?;
 
     // need to write max len of the auction pool into the state
     let auction_pool = AuctionPool::new(initial_auction_pool_len);
     auction_pool.write(auction_pool_account)?;
 
-    // Create contract bank account
-    if contract_bank_account.lamports() == 0 {
-        create_state_account(
-            contract_admin_account,
-            contract_bank_account,
-            contract_bank_pda.signer_seeds(),
-            program_id,
-            system_program,
-            ContractBankState::MAX_SERIALIZED_LEN,
-        )?;
-        let contract_bank_state = ContractBankState {
-            contract_admin: *contract_admin_account.key,
-            withdraw_authority,
-        };
-        contract_bank_state.write(contract_bank_account)?;
-    }
-    Ok(())
+    // create contract bank account
+    create_state_account(
+        contract_admin_account,
+        contract_bank_account,
+        contract_bank_pda.signer_seeds(),
+        program_id,
+        system_program,
+        ContractBankState::MAX_SERIALIZED_LEN,
+    )?;
+    let contract_bank_state = ContractBankState {
+        contract_admin: *contract_admin_account.key,
+        withdraw_authority,
+    };
+    contract_bank_state.write(contract_bank_account)
 }
