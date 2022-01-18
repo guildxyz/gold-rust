@@ -62,7 +62,7 @@ pub fn initialize_contract(
     let auction_pool = AuctionPool::new(initial_auction_pool_len);
     auction_pool.write(auction_pool_account)?;
 
-    // Create contract bank account
+    // create contract bank account
     create_state_account(
         contract_admin_account,
         contract_bank_account,

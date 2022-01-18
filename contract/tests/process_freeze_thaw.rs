@@ -119,9 +119,6 @@ async fn test_process_freeze_thaw() {
         AuctionContractError::AuctionOwnerMismatch
     );
 
-    dbg!(&auction_owner.keypair.pubkey());
-    dbg!(&payer.pubkey());
-
     let thaw_incorrect_signature_error =
         thaw_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
             .await

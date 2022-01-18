@@ -2,6 +2,8 @@ use super::*;
 
 use metaplex_token_metadata::state::Data as MetadataStateData;
 use metaplex_token_metadata::state::MasterEditionV2;
+use solana_program::clock::UnixTimestamp;
+use solana_program::sysvar::rent::Rent;
 
 use std::str::FromStr;
 
@@ -142,7 +144,7 @@ pub fn close_auction_cycle(
 
         // If the auction was idle for at least a week then freeze it automatically
         if auction_root_state.auction_config.cycle_period
-            * i64::from(auction_root_state.status.current_idle_cycle_streak)
+            * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
             > crate::ALLOWED_AUCTION_IDLE_PERIOD
         {
             auction_root_state.status.is_frozen = true;
@@ -459,6 +461,10 @@ pub fn close_auction_cycle(
     // Reset auction cycle
     if is_last_auction_cycle(&auction_root_state) {
         auction_root_state.status.is_finished = true;
+        auction_root_state.available_funds = auction_root_state
+            .available_funds
+            .checked_add(Rent::get()?.minimum_balance(0))
+            .ok_or(AuctionContractError::ArithmeticError)?;
     } else {
         create_state_account(
             payer_account,

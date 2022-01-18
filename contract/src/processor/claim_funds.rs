@@ -71,18 +71,20 @@ pub fn process_claim_funds(
 
     let mut lamports_to_claim = **auction_bank_account.lamports.borrow();
 
-    // If the auction is not active, the bank account does not need to persist anymore
-    if auction_root_state.status.is_finished {
+    // If the auction is not active, the bank account does not need to persist
+    // anymore. Otherwise (i.e. !is_finished), leave the rent
+    let rent = Rent::get()?.minimum_balance(0);
+    if !auction_root_state.status.is_finished {
         lamports_to_claim = lamports_to_claim
-            .checked_sub(Rent::get()?.minimum_balance(0))
+            .checked_sub(rent)
             .ok_or(AuctionContractError::ArithmeticError)?;
-    }
-
-    // Current bid cannot be claimed until the end of the auction cycle
-    if let Some(most_recent_bid) = auction_cycle_state.bid_history.get_last_element() {
-        lamports_to_claim = lamports_to_claim
-            .checked_sub(most_recent_bid.bid_amount)
-            .ok_or(AuctionContractError::ArithmeticError)?;
+        // Current bid cannot be claimed until the end of the auction cycle, unless
+        // it's the last one
+        if let Some(most_recent_bid) = auction_cycle_state.bid_history.get_last_element() {
+            lamports_to_claim = lamports_to_claim
+                .checked_sub(most_recent_bid.bid_amount)
+                .ok_or(AuctionContractError::ArithmeticError)?;
+        }
     }
 
     if amount > lamports_to_claim {
