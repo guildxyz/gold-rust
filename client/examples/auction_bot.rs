@@ -1,3 +1,5 @@
+use agsol_gold_client::{AuctionBotOpt, MIN_BALANCE, parse_keypair, request_airdrop, TEST_BOT_SECRET};
+
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
 use agsol_gold_contract::pda::{
     auction_cycle_state_seeds, auction_pool_seeds, auction_root_state_seeds,
@@ -6,72 +8,35 @@ use agsol_gold_contract::state::{
     AuctionCycleState, AuctionPool, AuctionRootState, TokenConfig, TokenType,
 };
 use agsol_gold_contract::ID as GOLD_ID;
+
 use log::{error, info, warn};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signer::keypair::{read_keypair_file, Keypair};
+use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
-#[rustfmt::skip]
-const TEST_BOT_SECRET: [u8; 64] = [
-  145, 203,  89,  29, 222, 184, 219, 205,   5,  91, 167,
-   87,  77, 216,  87,  50, 224, 181,  43,  89, 184,  19,
-  156, 223, 138, 207,  68,  76, 146, 103,  25, 215,  50,
-  110, 172, 245, 231, 233,  15, 190, 123, 231,  13,  53,
-  181, 240, 122, 168,  89, 178, 129,  58, 109, 184, 163,
-   97, 191,  19, 114, 229, 113, 224,  40,  20
-];
-
-const MIN_BALANCE: u64 = 1_000_000_000; // lamports
 const SLEEP_DURATION: u64 = 5000; // milliseconds
-
-// default option is deploying on the testnet
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Choose a Solana cluster to connect to (default = testnet)")]
-struct Opt {
-    #[structopt(
-        long,
-        short = "-d",
-        help("Sets connection url to devnet"),
-        conflicts_with("mainnet")
-    )]
-    devnet: bool,
-    #[structopt(
-        long,
-        short = "-m",
-        help("Sets connection url to mainnet"),
-        requires("keypair")
-    )]
-    mainnet: bool,
-    #[structopt(long, help("The auction bot's keypair file"))]
-    keypair: Option<PathBuf>,
-}
 
 pub fn main() {
     env_logger::init();
-    let opt = Opt::from_args();
-    let (net, should_airdrop) = if opt.mainnet {
-        ("mainnet-beta", false)
+    let opt = AuctionBotOpt::from_args();
+    let (connection_url, should_airdrop) = if opt.mainnet {
+        ("https://api.mainnet-beta.solana.com".to_owned(), false)
     } else if opt.devnet {
-        ("devnet", true)
+        ("https://api.devnet.solana.com".to_owned(), true)
+    } else if opt.localnet {
+        ("http://localhost:8899".to_owned(), true)
     } else {
-        ("testnet", true)
+        ("https://api.testnet.solana.com".to_owned(), true)
     };
-    let connection_url = format!("https://api.{}.solana.com", net);
     let connection = RpcClient::new_with_commitment(connection_url, CommitmentConfig::confirmed());
-    // unwraps below are fine because we are working with pre-tested consts
-    // or panicking during initializiation is acceptable in this case
-    let bot_keypair = if let Some(keypair_path) = opt.keypair {
-        read_keypair_file(keypair_path).unwrap()
-    } else {
-        Keypair::from_bytes(&TEST_BOT_SECRET).unwrap()
-    };
+
+    let bot_keypair = parse_keypair(opt.keypair, &TEST_BOT_SECRET);
 
     loop {
         if let Err(e) = try_main(&connection, &bot_keypair, should_airdrop) {
@@ -93,15 +58,7 @@ fn try_main(
             bot_balance, MIN_BALANCE
         );
         if should_airdrop {
-            let airdrop_signature =
-                connection.request_airdrop(&bot_keypair.pubkey(), MIN_BALANCE)?;
-            let mut i = 0;
-            while !connection.confirm_transaction(&airdrop_signature)? {
-                i += 1;
-                if i >= 100 {
-                    break;
-                }
-            }
+            request_airdrop(connection, bot_keypair)?;
         }
     }
     // GET CURRENT BLOCKCHAIN TIME

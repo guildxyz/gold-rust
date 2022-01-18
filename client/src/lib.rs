@@ -1,6 +1,11 @@
+mod cli_opts;
+mod example_utils;
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;
+
+pub use cli_opts::*;
+pub use example_utils::*;
 
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
