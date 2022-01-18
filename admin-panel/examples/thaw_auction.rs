@@ -1,9 +1,13 @@
-use agsol_gold_contract::instruction::factory::{deallocate_pool, reallocate_pool};
-use agsol_gold_contract::pda::auction_pool_seeds;
-use agsol_gold_contract::state::AuctionPool;
-use agsol_gold_contract::ID as GOLD_ID;
+use agsol_gold_admin_panel::{
+    parse_keypair, request_airdrop, ThawAuctionOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
+};
 
-use agsol_gold_client::{MIN_BALANCE, parse_keypair, ReallocatePoolOpt, request_airdrop, TEST_ADMIN_SECRET};
+use agsol_gold_client::pad_to_32_bytes;
+
+use agsol_gold_contract::instruction::factory::{thaw_auction, ThawAuctionArgs};
+use agsol_gold_contract::pda::auction_root_state_seeds;
+use agsol_gold_contract::state::AuctionRootState;
+use agsol_gold_contract::ID as GOLD_ID;
 
 use log::{error, info, warn};
 use solana_client::rpc_client::RpcClient;
@@ -19,8 +23,8 @@ use anyhow::anyhow;
 
 pub fn main() {
     env_logger::init();
-    let opt = ReallocatePoolOpt::from_args();
-    
+    let opt = ThawAuctionOpt::from_args();
+
     let (connection_url, should_airdrop) = if opt.mainnet {
         ("https://api.mainnet-beta.solana.com".to_owned(), false)
     } else if opt.devnet {
@@ -33,9 +37,9 @@ pub fn main() {
 
     let connection = RpcClient::new_with_commitment(connection_url, CommitmentConfig::confirmed());
 
-    let admin_keypair = parse_keypair(opt.contract_admin_keypair, &TEST_ADMIN_SECRET);
+    let admin_keypair = parse_keypair(opt.keypair, &TEST_ADMIN_SECRET);
 
-    if let Err(e) = try_main(&connection, &admin_keypair, should_airdrop, opt.size) {
+    if let Err(e) = try_main(&connection, &admin_keypair, should_airdrop, opt.auction_id) {
         error!("{}", e);
     }
 }
@@ -44,7 +48,7 @@ fn try_main(
     connection: &RpcClient,
     admin_keypair: &Keypair,
     should_airdrop: bool,
-    size: u32,
+    auction_id: String,
 ) -> Result<(), anyhow::Error> {
     // AIRDROP IF NECESSARY
     let admin_balance = connection.get_balance(&admin_keypair.pubkey())?;
@@ -58,16 +62,23 @@ fn try_main(
         }
     }
 
-    if let Err(err) = check_pool_size(connection, size) {
-        error!("error while reallocating auction pool: {}", err);
+    let id_bytes = pad_to_32_bytes(&auction_id)?;
+
+    if let Err(err) = check_auction_state(connection, &id_bytes) {
+        error!("error while thawing auction \"{}\": {}", auction_id, err);
     }
 
-    let deallocate_ix = deallocate_pool(&admin_keypair.pubkey());
+    let thaw_args = ThawAuctionArgs {
+        contract_admin_pubkey: admin_keypair.pubkey(),
+        auction_id: id_bytes,
+    };
+
+    let thaw_ix = thaw_auction(&thaw_args);
 
     let latest_blockhash = connection.get_latest_blockhash()?;
 
     let transaction = Transaction::new_signed_with_payer(
-        &[deallocate_ix],
+        &[thaw_ix],
         Some(&admin_keypair.pubkey()),
         &[admin_keypair],
         latest_blockhash,
@@ -75,38 +86,26 @@ fn try_main(
 
     let signature = connection.send_and_confirm_transaction(&transaction)?;
     info!(
-        "Auction pool deallocated successfully    signature: {:?}",
-        signature
-    );
-
-    let reallocate_ix = reallocate_pool(&admin_keypair.pubkey(), size);
-
-    let latest_blockhash = connection.get_latest_blockhash()?;
-
-    let transaction = Transaction::new_signed_with_payer(
-        &[reallocate_ix],
-        Some(&admin_keypair.pubkey()),
-        &[admin_keypair],
-        latest_blockhash,
-    );
-
-    let signature = connection.send_and_confirm_transaction(&transaction)?;
-    info!(
-        "Auction pool reallocated successfully    signature: {:?}",
-        signature
+        "Auction \"{}\" thawed successfully    signature: {:?}",
+        auction_id, signature
     );
 
     Ok(())
 }
 
-fn check_pool_size(connection: &RpcClient, size: u32) -> Result<(), anyhow::Error> {
-    let (pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<(), anyhow::Error> {
+    let (state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(id_bytes), &GOLD_ID);
 
-    let pool_state_data = connection.get_account_data(&pool_pubkey)?;
-    let pool_state: AuctionPool = try_from_slice_unchecked(&pool_state_data)?;
+    let auction_state_data = connection.get_account_data(&state_pubkey)?;
+    let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
 
-    if pool_state.max_len >= size {
-        return Err(anyhow!("provided size smaller than current size"));
+    if auction_state.status.is_finished {
+        return Err(anyhow!("auction has finished"));
+    }
+
+    if !auction_state.status.is_frozen {
+        return Err(anyhow!("auction is not frozen"));
     }
 
     Ok(())

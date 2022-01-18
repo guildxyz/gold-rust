@@ -1,4 +1,6 @@
-use agsol_gold_client::{AuctionBotOpt, MIN_BALANCE, parse_keypair, request_airdrop, TEST_BOT_SECRET};
+use agsol_gold_admin_panel::{
+    parse_keypair, request_airdrop, AuctionBotOpt, MIN_BALANCE, TEST_BOT_SECRET,
+};
 
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
 use agsol_gold_contract::pda::{

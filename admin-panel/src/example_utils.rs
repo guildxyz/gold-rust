@@ -24,7 +24,6 @@ pub const TEST_BOT_SECRET: [u8; 64] = [
    97, 191,  19, 114, 229, 113, 224,  40,  20
 ];
 
-
 // unwraps below are fine because we are working with pre-tested consts
 // or panicking during initializiation is acceptable in this case
 pub fn parse_keypair(keypair: Option<PathBuf>, default: &[u8]) -> Keypair {

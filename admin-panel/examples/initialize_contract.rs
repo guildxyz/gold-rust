@@ -1,8 +1,10 @@
+use agsol_gold_admin_panel::{
+    parse_keypair, request_airdrop, InitializeContractOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
+};
+
 use agsol_gold_contract::instruction::factory::{initialize_contract, InitializeContractArgs};
 use agsol_gold_contract::pda::auction_pool_seeds;
 use agsol_gold_contract::ID as GOLD_ID;
-
-use agsol_gold_client::{InitializeContractOpt, MIN_BALANCE, parse_keypair, request_airdrop, TEST_ADMIN_SECRET};
 
 use log::{error, info, warn};
 use solana_client::rpc_client::RpcClient;
@@ -18,7 +20,7 @@ use anyhow::anyhow;
 pub fn main() {
     env_logger::init();
     let opt = InitializeContractOpt::from_args();
-    
+
     let (connection_url, should_airdrop) = if opt.mainnet {
         ("https://api.mainnet-beta.solana.com".to_owned(), false)
     } else if opt.devnet {

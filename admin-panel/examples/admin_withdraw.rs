@@ -1,6 +1,8 @@
-use agsol_gold_contract::instruction::factory::{admin_withdraw, AdminWithdrawArgs};
+use agsol_gold_admin_panel::{
+    parse_keypair, request_airdrop, AdminWithdrawOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
+};
 
-use agsol_gold_client::{AdminWithdrawOpt, MIN_BALANCE, parse_keypair, request_airdrop, TEST_ADMIN_SECRET};
+use agsol_gold_contract::instruction::factory::{admin_withdraw, AdminWithdrawArgs};
 
 use log::{error, info, warn};
 use solana_client::rpc_client::RpcClient;
@@ -13,7 +15,7 @@ use structopt::StructOpt;
 pub fn main() {
     env_logger::init();
     let opt = AdminWithdrawOpt::from_args();
-    
+
     let (connection_url, should_airdrop) = if opt.mainnet {
         ("https://api.mainnet-beta.solana.com".to_owned(), false)
     } else if opt.devnet {
@@ -25,8 +27,9 @@ pub fn main() {
     };
 
     let connection = RpcClient::new_with_commitment(connection_url, CommitmentConfig::confirmed());
-    
-    let withdraw_authority_keypair = parse_keypair(opt.withdraw_authority_keypair, &TEST_ADMIN_SECRET);
+
+    let withdraw_authority_keypair =
+        parse_keypair(opt.withdraw_authority_keypair, &TEST_ADMIN_SECRET);
 
     if let Err(e) = try_main(
         &connection,
