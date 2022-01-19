@@ -36,14 +36,6 @@ use agsol_common::{AccountState, MaxSerializedLen, SignerPda};
 
 pub use close_auction_cycle::{increment_name, increment_uri};
 
-#[inline(always)]
-fn deallocate_state<'a>(from: &'a AccountInfo, to: &'a AccountInfo) -> Result<(), ProgramError> {
-    let lamports_to_claim = **from.lamports.borrow();
-    checked_debit_account(from, lamports_to_claim)?;
-    checked_credit_account(to, lamports_to_claim)?;
-    Ok(())
-}
-
 pub fn process(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -103,9 +95,6 @@ pub fn process(
             accounts,
             new_withdraw_authority,
         ),
-        AuctionInstruction::DeallocatePool => {
-            reallocate_pool::deallocate_pool(program_id, accounts)
-        }
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
