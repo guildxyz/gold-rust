@@ -32,6 +32,7 @@ pub enum AuctionContractError {
     WithdrawAuthorityMismatch = 523,
     AuctionPoolFull = 524,
     ShrinkingPoolIsNotAllowed = 525,
+    InvalidMinimumBidAmount = 526,
 }
 
 impl From<AuctionContractError> for ProgramError {

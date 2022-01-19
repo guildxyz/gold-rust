@@ -28,8 +28,9 @@ pub enum AuctionInstruction {
     Freeze {
         id: AuctionId,
     },
-    Thaw {
+    FilterAuction {
         id: AuctionId,
+        filter: bool,
     },
     CloseAuctionCycle {
         id: AuctionId,
@@ -41,10 +42,6 @@ pub enum AuctionInstruction {
     ClaimFunds {
         id: AuctionId,
         amount: u64,
-    },
-    DeleteAuction {
-        id: AuctionId,
-        num_of_cycles_to_delete: u64,
     },
     VerifyAuction {
         id: AuctionId,

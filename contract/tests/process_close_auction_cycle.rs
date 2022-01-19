@@ -26,7 +26,7 @@ async fn test_process_close_auction_cycle() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
     };
 
@@ -113,7 +113,7 @@ async fn test_process_close_auction_cycle() {
 
     // Test some bids were taken
     // Place bid
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -186,7 +186,7 @@ async fn test_ended_close_cycle_on_auction() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
     };
 
@@ -205,7 +205,7 @@ async fn test_ended_close_cycle_on_auction() {
 
     // Place bid
     let user_1 = TestUser::new(&mut testbench).await;
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -237,7 +237,7 @@ async fn test_ended_close_cycle_on_auction() {
 
     // Invalid use case
     // Bidding on ended auction
-    let bid_amount_higher = 2_000_000;
+    let bid_amount_higher = 80_000_000;
     let bid_on_ended_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user.keypair, bid_amount_higher)
             .await
@@ -277,18 +277,6 @@ async fn test_ended_close_cycle_on_auction() {
         freeze_finished_auction_error,
         AuctionContractError::AuctionEnded
     );
-
-    // Invalid use case
-    // Thaw ended auction
-    let payer = testbench.clone_payer();
-    let thaw_finished_auction_error = thaw_auction_transaction(&mut testbench, auction_id, &payer)
-        .await
-        .err()
-        .unwrap();
-    assert_eq!(
-        thaw_finished_auction_error,
-        AuctionContractError::AuctionEnded
-    );
 }
 
 #[tokio::test]
@@ -299,7 +287,7 @@ async fn test_close_cycle_on_frozen_auction() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
     };
 
@@ -357,7 +345,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
     };
 
@@ -379,7 +367,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     let user_1 = TestUser::new(&mut testbench).await;
 
     // Place bid on first cycle
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -423,7 +411,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     );
 
     // Place bid on second cycle
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -463,7 +451,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     );
 
     // Place bid on last cycle
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -511,7 +499,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
     };
 
@@ -546,7 +534,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     // bid to first cycle
     let user_1 = TestUser::new(&mut testbench).await;
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -588,7 +576,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     );
 
     // bid to second cycle
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
@@ -626,7 +614,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     );
 
     // bid to the last cycle
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();

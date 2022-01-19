@@ -19,7 +19,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use structopt::StructOpt;
 
-use anyhow::anyhow;
+use anyhow::ensure;
 
 pub fn main() {
     env_logger::init();
@@ -62,9 +62,7 @@ fn try_main(
 
     let id_bytes = pad_to_32_bytes(&auction_id)?;
 
-    if let Err(err) = check_auction_state(connection, &id_bytes) {
-        error!("error while verifying auction \"{}\": {}", auction_id, err);
-    }
+    check_auction_state(connection, &id_bytes)?;
 
     let verify_args = VerifyAuctionArgs {
         contract_admin_pubkey: admin_keypair.pubkey(),
@@ -98,9 +96,10 @@ fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<(), an
     let auction_state_data = connection.get_account_data(&state_pubkey)?;
     let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
 
-    if auction_state.is_verified {
-        return Err(anyhow!("auction is already verified"));
-    }
+    ensure!(
+        !auction_state.status.is_verified,
+        "auction is already verified"
+    );
 
     Ok(())
 }

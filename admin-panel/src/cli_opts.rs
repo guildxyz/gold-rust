@@ -73,7 +73,7 @@ pub struct AuctionBotOpt {
 #[allow(unused)]
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Choose a Solana cluster to connect to (default = testnet)")]
-pub struct DeleteAuctionsOpt {
+pub struct FilterAuctionOpt {
     #[structopt(
         long,
         short = "-l",
@@ -99,12 +99,8 @@ pub struct DeleteAuctionsOpt {
     pub mainnet: bool,
     #[structopt(long, help("The contract admin's keypair file"))]
     pub keypair: Option<PathBuf>,
-    #[structopt(
-        long,
-        short = "-id",
-        help("The id of the auction to delete. If no id is provided, deletes ALL frozen auctions")
-    )]
-    pub auction_id: Option<String>,
+    #[structopt(long, short = "-id", help("The id of the auction to filter."))]
+    pub auction_id: String,
 }
 
 #[allow(unused)]
@@ -229,39 +225,6 @@ pub struct ReassignWithdrawOpt {
         help("The new withdraw authority's keypair")
     )]
     pub new_withdraw_authority_keypair: PathBuf,
-}
-
-#[allow(unused)]
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Choose a Solana cluster to connect to (default = testnet)")]
-pub struct ThawAuctionOpt {
-    #[structopt(
-        long,
-        short = "-l",
-        help("Sets connection url to localhost"),
-        conflicts_with("mainnet"),
-        conflicts_with("devnet")
-    )]
-    pub localnet: bool,
-    #[structopt(
-        long,
-        short = "-d",
-        help("Sets connection url to devnet"),
-        conflicts_with("mainnet"),
-        conflicts_with("localnet")
-    )]
-    pub devnet: bool,
-    #[structopt(
-        long,
-        short = "-m",
-        help("Sets connection url to mainnet"),
-        requires("keypair")
-    )]
-    pub mainnet: bool,
-    #[structopt(long, help("The contract admin's keypair file (default = test admin)"))]
-    pub keypair: Option<PathBuf>,
-    #[structopt(long, short = "-id", help("The id of the auction to thaw"))]
-    pub auction_id: String,
 }
 
 #[allow(unused)]

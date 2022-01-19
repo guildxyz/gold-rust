@@ -2,12 +2,11 @@ mod admin_withdraw;
 mod bid;
 mod claim_funds;
 mod close_auction_cycle;
-mod delete_auction;
+mod filter_auction;
 mod freeze;
 mod initialize_auction;
 mod initialize_contract;
 mod reallocate_pool;
-mod thaw;
 mod verify_auction;
 
 use crate::error::AuctionContractError;
@@ -20,7 +19,7 @@ use crate::utils::*;
 use metaplex_token_metadata::instruction as meta_instruction;
 use metaplex_token_metadata::ID as META_ID;
 
-use solana_program::account_info::{next_account_info, next_account_infos, AccountInfo};
+use solana_program::account_info::{next_account_info, AccountInfo};
 use solana_program::borsh::try_from_slice_unchecked;
 use solana_program::clock::Clock;
 use solana_program::entrypoint::ProgramResult;
@@ -85,19 +84,12 @@ pub fn process(
             close_auction_cycle::close_auction_cycle(program_id, accounts, id)
         }
         AuctionInstruction::Freeze { id } => freeze::freeze_auction(program_id, accounts, id),
-        AuctionInstruction::Thaw { id } => thaw::thaw_auction(program_id, accounts, id),
+        AuctionInstruction::FilterAuction { id, filter } => {
+            filter_auction::filter_auction(program_id, accounts, id, filter)
+        }
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
         }
-        AuctionInstruction::DeleteAuction {
-            id,
-            num_of_cycles_to_delete,
-        } => delete_auction::process_delete_auction(
-            program_id,
-            accounts,
-            id,
-            num_of_cycles_to_delete,
-        ),
         AuctionInstruction::VerifyAuction { id } => {
             verify_auction::process_verify_auction(program_id, accounts, id)
         }

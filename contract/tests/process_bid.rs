@@ -43,7 +43,7 @@ async fn test_process_bid() {
     let auction_config = AuctionConfig {
         cycle_period: 100,
         encore_period: 30,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
     let auction_id = [2; 32];
@@ -76,7 +76,7 @@ async fn test_process_bid() {
     // Invalid use case
     // Test bid lower than minimum_bid
     let lower_than_minimum_bid_error =
-        place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, 1000)
+        place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, 10_000_000)
             .await
             .err()
             .unwrap();
@@ -87,7 +87,7 @@ async fn test_process_bid() {
     );
 
     // Test first bid
-    let bid_amount = 1_000_000;
+    let bid_amount = 50_000_000;
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
             .await
@@ -111,7 +111,7 @@ async fn test_process_bid() {
     assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 
     // Test higher than current bid
-    let bid_amount_higher = 2_000_000;
+    let bid_amount_higher = 100_000_000;
     let balance_change = place_bid_transaction(
         &mut testbench,
         auction_id,
@@ -147,7 +147,7 @@ async fn test_process_bid() {
 
     // Invalid use case
     // Test bid lower than current bid
-    let bid_amount_lower = 100_000;
+    let bid_amount_lower = 90_000_000;
     let lower_bid_error = place_bid_transaction(
         &mut testbench,
         auction_id,
@@ -171,9 +171,9 @@ async fn test_process_bid() {
     // Test bid into expired auction
     warp_to_cycle_end(&mut testbench, auction_id).await;
 
-    let bid_amount = 10_000_000;
+    let bid_amount = 120_000_000;
     let bid_to_expired_auction_error =
-        place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, bid_amount)
+        place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
             .await
             .err()
             .unwrap();
@@ -209,7 +209,7 @@ async fn bid_to_frozen_auction() {
     let auction_config = AuctionConfig {
         cycle_period: 100,
         encore_period: 30,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
 
@@ -240,7 +240,7 @@ async fn bid_to_frozen_auction() {
         .await;
     assert!(auction_root_state.status.is_frozen);
 
-    let bid_amount = 1_000_000;
+    let bid_amount = 100_000_000;
     let bid_to_frozen_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, bid_amount)
             .await
@@ -275,7 +275,7 @@ async fn test_encore_bid() {
     let auction_config = AuctionConfig {
         cycle_period: 1000,
         encore_period: 200,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
 
@@ -313,7 +313,7 @@ async fn test_encore_bid() {
     assert!(testbench.block_time().await < auction_cycle_state.end_time);
     let end_time_before = auction_cycle_state.end_time;
 
-    let bid_amount = 2_000_000;
+    let bid_amount = 100_000_000;
     let block_time_before = testbench.block_time().await;
     place_bid_transaction(&mut testbench, auction_id, &user.keypair, bid_amount)
         .await

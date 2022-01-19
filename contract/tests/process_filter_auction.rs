@@ -8,10 +8,8 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 
-const TRANSACTION_FEE: u64 = 5000;
-
 #[tokio::test]
-async fn test_process_verify_auction() {
+async fn test_process_filter_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
 
     let auction_id = [2; 32];
@@ -38,28 +36,40 @@ async fn test_process_verify_auction() {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(!auction_root_state.status.is_verified);
+    assert!(!auction_root_state.status.is_filtered);
 
-    // Verifying auction
+    // filter auction
     let payer = testbench.clone_payer();
-    let balance_change = verify_auction_transaction(&mut testbench, auction_id, &payer)
+    filter_auction_transaction(&mut testbench, auction_id, true, &payer)
         .await
         .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(auction_root_state.status.is_verified);
+    assert!(auction_root_state.status.is_filtered);
 
-    assert_eq!(-balance_change as u64, TRANSACTION_FEE);
-
-    // Verifying already Verified auction
-    // NOTE: has no effect
-    verify_auction_transaction(&mut testbench, auction_id, &payer)
+    // unfilter
+    filter_auction_transaction(&mut testbench, auction_id, false, &payer)
         .await
         .unwrap();
+
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
-    assert!(auction_root_state.status.is_verified);
+    assert!(!auction_root_state.status.is_filtered);
+
+    freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
+        .await
+        .unwrap();
+
+    // filter frozen transaction
+    filter_auction_transaction(&mut testbench, auction_id, true, &payer)
+        .await
+        .unwrap();
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await;
+    assert!(auction_root_state.status.is_filtered);
 }

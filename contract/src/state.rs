@@ -65,6 +65,13 @@ pub struct AuctionStatus {
     pub is_frozen: bool,
     /// The auction is active until all auction cycles have passed.
     pub is_finished: bool,
+    /// The auction might be filtered by the admin.
+    ///
+    /// It is just a flag for our frontend to not show potentially
+    /// sensitive/harmful content.
+    pub is_filtered: bool,
+    /// The auction can be verified by the contract owners.
+    pub is_verified: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -150,8 +157,6 @@ pub struct AuctionRootState {
     pub available_funds: u64,
     /// Start timestamp of the auction (in seconds)
     pub start_time: UnixTimestamp,
-    /// The auction can be verified by the contract owners.
-    pub is_verified: bool,
 }
 
 /// State respective to a given auction cycle.
@@ -224,7 +229,7 @@ impl AuctionPool {
 #[repr(C)]
 #[derive(BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone)]
 pub struct ContractBankState {
-    /// Address of the contract admin who may delete auctions.
+    /// Address of the contract admin.
     pub contract_admin: Pubkey,
     /// Address of the withdraw authority who may withdraw from the contract
     /// bank.
@@ -261,8 +266,10 @@ mod test {
         });
 
         let auction_status = AuctionStatus {
-            is_finished: true,
+            is_finished: false,
             is_frozen: false,
+            is_filtered: false,
+            is_verified: false,
             current_auction_cycle: 1,
             current_idle_cycle_streak: 0,
         };
@@ -310,7 +317,6 @@ mod test {
             all_time_treasury: 0,
             available_funds: 0,
             start_time: 0,
-            is_verified: false,
         };
 
         assert_eq!(

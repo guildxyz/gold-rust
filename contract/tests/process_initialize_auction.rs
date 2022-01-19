@@ -17,18 +17,40 @@ use solana_program::pubkey::Pubkey;
 use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
-const AUCTION_CREATION_COST: u64 = 24_095_520 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
     let auction_id = [123_u8; 32];
-    let auction_config = AuctionConfig {
+
+    // Invalid use case
+    // Initialize auction with invalid minimum_bid_amount
+    // minimum_bid_amount < UNIVERSAL_BID_FLOOR
+    let mut auction_config = AuctionConfig {
         cycle_period: 86400,
         encore_period: 300,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 10_000_000,
         number_of_cycles: Some(10),
     };
+    let invalid_min_bid_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        invalid_min_bid_error,
+        AuctionContractError::InvalidMinimumBidAmount
+    );
+
+    auction_config.minimum_bid_amount = 50_000_000;
+
     let balance_change = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,

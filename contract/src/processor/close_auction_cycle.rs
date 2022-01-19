@@ -58,6 +58,11 @@ pub fn close_auction_cycle(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
+    // Check cross-program invocation addresses
+    assert_rent_program(rent_program.key)?;
+    assert_system_program(system_program.key)?;
+    assert_token_program(token_program.key)?;
+
     // Check account ownership
     // User accounts:
     //   payer_account
@@ -66,26 +71,14 @@ pub fn close_auction_cycle(
     //   contract_pda
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
-    if auction_bank_account.owner != program_id
-        || auction_root_state_account.owner != program_id
-        || current_auction_cycle_state_account.owner != program_id
-    {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
 
-    // Check cross-program invocation addresses
-    assert_rent_program(rent_program.key)?;
-    assert_system_program(system_program.key)?;
-    assert_token_program(token_program.key)?;
-
-    // Check pda addresses
-    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
-    SignerPda::new_checked(
-        &auction_root_state_seeds,
-        auction_root_state_account.key,
+    // check root and cycle states
+    SignerPda::check_owner(
+        &auction_root_state_seeds(&auction_id),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
 
@@ -94,14 +87,12 @@ pub fn close_auction_cycle(
         .current_auction_cycle
         .to_le_bytes();
 
-    let current_auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
-    SignerPda::new_checked(
-        &current_auction_cycle_state_seeds,
-        current_auction_cycle_state_account.key,
+    SignerPda::check_owner(
+        &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        current_auction_cycle_state_account,
+    )?;
 
     let mut current_auction_cycle_state =
         AuctionCycleState::read(current_auction_cycle_state_account)?;
@@ -118,6 +109,13 @@ pub fn close_auction_cycle(
         &current_auction_cycle_state,
         current_timestamp,
         AuctionInteraction::CloseCycle,
+    )?;
+    // check auction_bank
+    SignerPda::check_owner(
+        &auction_bank_seeds(&auction_id),
+        program_id,
+        program_id,
+        auction_bank_account,
     )?;
 
     // If there were no bids, just reset auction cycle
@@ -142,12 +140,12 @@ pub fn close_auction_cycle(
             .checked_add(1)
             .ok_or(AuctionContractError::ArithmeticError)?;
 
-        // If the auction was idle for at least a week then freeze it automatically
+        // If the auction was idle for at least a week then filter it automatically
         if auction_root_state.auction_config.cycle_period
             * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
             > crate::ALLOWED_AUCTION_IDLE_PERIOD
         {
-            auction_root_state.status.is_frozen = true;
+            auction_root_state.status.is_filtered = true;
         }
 
         current_auction_cycle_state.write(current_auction_cycle_state_account)?;
@@ -165,19 +163,13 @@ pub fn close_auction_cycle(
         auction_cycle_state_seeds(auction_root_state_account.key, &next_cycle_num_bytes);
     let next_cycle_state_pda = SignerPda::new_checked(
         &next_auction_cycle_state_seeds,
-        next_auction_cycle_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    let auction_bank_seeds = auction_bank_seeds(&auction_id);
-    SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        next_auction_cycle_state_account,
+    )?;
 
     let contract_pda_seeds = contract_pda_seeds();
     let contract_signer_pda =
-        SignerPda::new_checked(&contract_pda_seeds, contract_pda.key, &crate::ID)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        SignerPda::new_checked(&contract_pda_seeds, program_id, contract_pda)?;
 
     match auction_root_state.token_config {
         TokenConfig::Nft(ref nft_data) => {
@@ -206,11 +198,7 @@ pub fn close_auction_cycle(
             {
                 return Err(AuctionContractError::InvalidAccountOwner.into());
             }
-            if *master_edition_account.owner != META_ID || *master_metadata_account.owner != META_ID
-            {
-                return Err(AuctionContractError::InvalidAccountOwner.into());
-            }
-            if *master_mint_account.owner != TOKEN_ID || *master_holding_account.owner != TOKEN_ID {
+            if *master_edition_account.owner != META_ID {
                 return Err(AuctionContractError::InvalidAccountOwner.into());
             }
             assert_token_account_owner(master_holding_account, contract_pda.key)?;
@@ -231,33 +219,32 @@ pub fn close_auction_cycle(
 
             let child_mint_seeds = child_mint_seeds(&next_edition_bytes, &auction_id);
             let child_mint_pda =
-                SignerPda::new_checked(&child_mint_seeds, child_mint_account.key, program_id)
-                    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                SignerPda::new_checked(&child_mint_seeds, program_id, child_mint_account)?;
 
             let child_holding_seeds = child_holding_seeds(&next_edition_bytes, &auction_id);
             let child_holding_pda =
-                SignerPda::new_checked(&child_holding_seeds, child_holding_account.key, program_id)
-                    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                SignerPda::new_checked(&child_holding_seeds, program_id, child_holding_account)?;
 
-            let master_mint_seeds = master_mint_seeds(&auction_id);
-            SignerPda::new_checked(&master_mint_seeds, master_mint_account.key, program_id)
-                .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-            let master_holding_seeds = master_holding_seeds(&auction_id);
-            SignerPda::new_checked(
-                &master_holding_seeds,
-                master_holding_account.key,
+            SignerPda::check_owner(
+                &master_mint_seeds(&auction_id),
                 program_id,
-            )
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                &TOKEN_ID,
+                master_mint_account,
+            )?;
 
-            let master_metadata_seeds = metadata_seeds(master_mint_account.key);
-            SignerPda::new_checked(
-                &master_metadata_seeds,
-                master_metadata_account.key,
+            SignerPda::check_owner(
+                &master_holding_seeds(&auction_id),
+                program_id,
+                &TOKEN_ID,
+                master_holding_account,
+            )?;
+
+            SignerPda::check_owner(
+                &metadata_seeds(master_mint_account.key),
                 &META_ID,
-            )
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                &META_ID,
+                master_metadata_account,
+            )?;
 
             // check nft validity
             if &nft_data.master_edition != master_edition_account.key {
@@ -391,7 +378,6 @@ pub fn close_auction_cycle(
                 )?;
             }
         }
-
         TokenConfig::Token(ref token_data) => {
             // Token mint account
             let token_mint_account = next_account_info(account_info_iter)?;
@@ -401,15 +387,15 @@ pub fn close_auction_cycle(
             // Check account ownership
             // Accounts created in this instruction:
             //   token_holding_account
-            if *token_mint_account.owner != TOKEN_ID {
-                return Err(AuctionContractError::InvalidAccountOwner.into());
-            }
             assert_mint_authority(token_mint_account, contract_pda.key)?;
 
             // Check pda addresses
-            let token_mint_seeds = token_mint_seeds(&auction_id);
-            SignerPda::new_checked(&token_mint_seeds, token_mint_account.key, program_id)
-                .map_err(|_| AuctionContractError::InvalidSeeds)?;
+            SignerPda::check_owner(
+                &token_mint_seeds(&auction_id),
+                program_id,
+                &TOKEN_ID,
+                token_mint_account,
+            )?;
 
             if token_mint_account.key != &token_data.mint {
                 return Err(AuctionContractError::InvalidSeeds.into());
@@ -418,8 +404,7 @@ pub fn close_auction_cycle(
             let token_holding_seeds =
                 token_holding_seeds(token_mint_account.key, top_bidder_account.key);
             let token_holding_pda =
-                SignerPda::new_checked(&token_holding_seeds, token_holding_account.key, program_id)
-                    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                SignerPda::new_checked(&token_holding_seeds, program_id, token_holding_account)?;
 
             // create token holding account (if needed)
             if token_holding_account.data_is_empty() {

@@ -15,7 +15,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use structopt::StructOpt;
 
-use anyhow::anyhow;
+use anyhow::ensure;
 
 pub fn main() {
     env_logger::init();
@@ -70,9 +70,7 @@ fn try_main(
         }
     }
 
-    if let Err(err) = check_contract_state(connection) {
-        error!("error while initializing contract: {}", err);
-    }
+    check_contract_state(connection)?;
 
     let initialize_contract_args = InitializeContractArgs {
         contract_admin: contract_admin_keypair.pubkey(),
@@ -99,9 +97,10 @@ fn try_main(
 
 fn check_contract_state(connection: &RpcClient) -> Result<(), anyhow::Error> {
     let (pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-    if connection.get_account_data(&pool_pubkey).is_ok() {
-        return Err(anyhow!("auction pool already exists."));
-    }
+    ensure!(
+        connection.get_account_data(&pool_pubkey).is_err(),
+        "auction pool already exists."
+    );
 
     Ok(())
 }
