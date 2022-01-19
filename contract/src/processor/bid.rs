@@ -14,24 +14,21 @@ pub fn process_bid(
     let top_bidder_account = next_account_info(account_info_iter)?; // 5
     let system_program = next_account_info(account_info_iter)?; // 6
 
+    // Check if user is signer
+    if !user_main_account.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
     // Check cross-program invocation addresses
     assert_system_program(system_program.key)?;
-
-    // Check account ownership
-    // User accounts:
-    //   user_main_account
-    //   top_bidder_account
-    if auction_bank_account.owner != program_id
-        || auction_root_state_account.owner != program_id
+    // Check root and cycle states
+    if auction_root_state_account.owner != program_id
         || auction_cycle_state_account.owner != program_id
     {
         return Err(AuctionContractError::InvalidAccountOwner.into());
     }
 
-    // Check pda addresses
-    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
-        &auction_root_state_seeds,
+        &auction_root_state_seeds(&auction_id),
         auction_root_state_account.key,
         program_id,
     )
@@ -43,10 +40,9 @@ pub fn process_bid(
         .status
         .current_auction_cycle
         .to_le_bytes();
-    let auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num);
+
     SignerPda::new_checked(
-        &auction_cycle_state_seeds,
+        &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num),
         auction_cycle_state_account.key,
         program_id,
     )
@@ -54,16 +50,7 @@ pub fn process_bid(
 
     let mut auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
-    let auction_bank_seeds = auction_bank_seeds(&auction_id);
-    SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    // Check if user is signer
-    if !user_main_account.is_signer {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-
-    // Check and update auction status
+    // Check status and bid amount
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
     check_status(
@@ -73,6 +60,17 @@ pub fn process_bid(
         AuctionInteraction::Bid,
     )?;
     check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
+
+    // check auction bank
+    if auction_bank_account.owner != program_id {
+        return Err(AuctionContractError::InvalidAccountOwner.into());
+    }
+    SignerPda::new_checked(
+        &auction_bank_seeds(&auction_id),
+        auction_bank_account.key,
+        program_id,
+    )
+    .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
     let previous_bid_amount = if let Some(most_recent_bid) = most_recent_bid_option {

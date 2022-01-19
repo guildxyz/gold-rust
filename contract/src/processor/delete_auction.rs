@@ -21,8 +21,7 @@ pub fn process_delete_auction(
     // User accounts:
     //   contract_admin_account
     //   auction_owner_account
-    if auction_bank_account.owner != program_id
-        || auction_root_state_account.owner != program_id
+        if auction_root_state_account.owner != program_id
         || auction_pool_account.owner != program_id
         || contract_bank_account.owner != program_id
     {
@@ -73,6 +72,9 @@ pub fn process_delete_auction(
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 
+    if auction_bank_account.owner != program_id {
+        return Err(AuctionContractError::InvalidAccountOwner.into());
+    }
     let auction_bank_seeds = auction_bank_seeds(&auction_id);
     SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
         .map_err(|_| AuctionContractError::InvalidSeeds)?;

@@ -58,6 +58,11 @@ pub fn close_auction_cycle(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
+    // Check cross-program invocation addresses
+    assert_rent_program(rent_program.key)?;
+    assert_system_program(system_program.key)?;
+    assert_token_program(token_program.key)?;
+
     // Check account ownership
     // User accounts:
     //   payer_account
@@ -66,22 +71,16 @@ pub fn close_auction_cycle(
     //   contract_pda
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
-    if auction_bank_account.owner != program_id
-        || auction_root_state_account.owner != program_id
+    
+    // check root and cycle states
+    if auction_root_state_account.owner != program_id
         || current_auction_cycle_state_account.owner != program_id
     {
         return Err(AuctionContractError::InvalidAccountOwner.into());
     }
 
-    // Check cross-program invocation addresses
-    assert_rent_program(rent_program.key)?;
-    assert_system_program(system_program.key)?;
-    assert_token_program(token_program.key)?;
-
-    // Check pda addresses
-    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     SignerPda::new_checked(
-        &auction_root_state_seeds,
+        &auction_root_state_seeds(&auction_id),
         auction_root_state_account.key,
         program_id,
     )
@@ -94,10 +93,8 @@ pub fn close_auction_cycle(
         .current_auction_cycle
         .to_le_bytes();
 
-    let current_auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     SignerPda::new_checked(
-        &current_auction_cycle_state_seeds,
+        &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes),
         current_auction_cycle_state_account.key,
         program_id,
     )
@@ -118,7 +115,17 @@ pub fn close_auction_cycle(
         &current_auction_cycle_state,
         current_timestamp,
         AuctionInteraction::CloseCycle,
-    )?;
+    )?; 
+    // check auction_bank
+    if auction_bank_account.owner != program_id {
+        return Err(AuctionContractError::InvalidAccountOwner.into());
+    }
+    SignerPda::new_checked(
+        &auction_bank_seeds(&auction_id),
+        auction_bank_account.key,
+        program_id,
+    )
+    .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     // If there were no bids, just reset auction cycle
     let most_recent_bid_option = current_auction_cycle_state.bid_history.get_last_element();

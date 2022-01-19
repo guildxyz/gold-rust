@@ -19,6 +19,9 @@ pub fn freeze_auction(args: &FreezeAuctionArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
 
+    let (contract_bank_pubkey, _) =
+        Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
+
     let top_bidder = if let Some(bidder) = args.top_bidder_pubkey {
         bidder
     } else {
@@ -31,6 +34,7 @@ pub fn freeze_auction(args: &FreezeAuctionArgs) -> Instruction {
         AccountMeta::new(auction_cycle_state_pubkey, false),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(top_bidder, false),
+        AccountMeta::new(contract_bank_pubkey, false),
     ];
 
     let instruction = AuctionInstruction::Freeze {

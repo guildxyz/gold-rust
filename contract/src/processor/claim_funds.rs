@@ -50,6 +50,10 @@ pub fn process_claim_funds(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
+    if auction_root_state.status.is_frozen {
+        return Err(AuctionContractError::AuctionFrozen.into());
+    }
+
     let cycle_num_bytes = auction_root_state
         .status
         .current_auction_cycle
@@ -91,6 +95,28 @@ pub fn process_claim_funds(
         return Err(AuctionContractError::InvalidClaimAmount.into());
     }
 
+    claim_lamports(
+        amount,
+        auction_owner_account,
+        auction_bank_account,
+        contract_bank_account,
+    )?;
+
+    // Update available funds in the root state
+    auction_root_state.available_funds = auction_root_state
+        .available_funds
+        .checked_sub(amount)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    auction_root_state.write(auction_root_state_account)
+}
+
+pub fn claim_lamports(
+    amount: u64,
+    auction_owner_account: &AccountInfo<'_>,
+    auction_bank_account: &AccountInfo<'_>,
+    contract_bank_account: &AccountInfo<'_>,
+) -> Result<(), AuctionContractError> {
     // This may not be precise because of integer rounding but it is more simple
     // Error is at most 19 lamports which is negligible
     let lamport_divided = amount / 20;
@@ -105,15 +131,5 @@ pub fn process_claim_funds(
     checked_debit_account(
         auction_bank_account,
         auction_owner_share + contract_bank_share,
-    )?;
-
-    // Update available funds in the root state
-    auction_root_state.available_funds = auction_root_state
-        .available_funds
-        .checked_sub(amount)
-        .ok_or(AuctionContractError::ArithmeticError)?;
-
-    auction_root_state.write(auction_root_state_account)?;
-
-    Ok(())
+    )
 }
