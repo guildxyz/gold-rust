@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-agsol-common = "0.1.0"
+agsol-common = "0.2.0"
 agsol-gold-contract = { path = "../contract", features = ["client"] }
 agsol-wasm-client = { version = "0.0.1", features = ["wasm-factory"] }
 anyhow = "1"
