@@ -11,10 +11,6 @@ pub fn auction_pool_seeds<'a>() -> [&'a [u8]; 1] {
     [b"gold_auction_pool"]
 }
 
-pub fn temporary_pool_seeds<'a>() -> [&'a [u8]; 1] {
-    [b"gold_temporary_pool"]
-}
-
 pub fn auction_bank_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
     [b"gold_auction_bank", auction_id]
 }

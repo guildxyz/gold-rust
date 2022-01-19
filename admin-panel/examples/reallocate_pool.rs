@@ -2,7 +2,7 @@ use agsol_gold_admin_panel::{
     parse_keypair, request_airdrop, ReallocatePoolOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
 };
 
-use agsol_gold_contract::instruction::factory::{deallocate_pool, reallocate_pool};
+use agsol_gold_contract::instruction::factory::reallocate_pool;
 use agsol_gold_contract::pda::auction_pool_seeds;
 use agsol_gold_contract::state::AuctionPool;
 use agsol_gold_contract::ID as GOLD_ID;
@@ -61,23 +61,6 @@ fn try_main(
     }
 
     check_pool_size(connection, size)?;
-
-    let deallocate_ix = deallocate_pool(&admin_keypair.pubkey());
-
-    let latest_blockhash = connection.get_latest_blockhash()?;
-
-    let transaction = Transaction::new_signed_with_payer(
-        &[deallocate_ix],
-        Some(&admin_keypair.pubkey()),
-        &[admin_keypair],
-        latest_blockhash,
-    );
-
-    let signature = connection.send_and_confirm_transaction(&transaction)?;
-    info!(
-        "Auction pool deallocated successfully    signature: {:?}",
-        signature
-    );
 
     let reallocate_ix = reallocate_pool(&admin_keypair.pubkey(), size);
 
