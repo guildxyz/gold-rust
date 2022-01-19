@@ -43,47 +43,42 @@ pub fn initialize_auction(
     //   auction_root_state_account
     //   auction_cycle_state_account
     //   auction_bank_account
-    if auction_pool_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
     // Check cross-program invocation addresses
     assert_rent_program(rent_program.key)?;
     assert_system_program(system_program.key)?;
     assert_token_program(token_program.key)?;
 
     // Check pda addresses
+    SignerPda::check_owner(
+        &auction_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    )?;
+
     let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
     let auction_root_state_pda = SignerPda::new_checked(
         &auction_root_state_seeds,
-        auction_root_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        auction_root_state_account,
+    )?;
 
     let cycle_num_bytes = 1_u64.to_le_bytes();
     let auction_cycle_state_seeds =
         auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
     let auction_cycle_state_pda = SignerPda::new_checked(
         &auction_cycle_state_seeds,
-        auction_cycle_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        auction_cycle_state_account,
+    )?;
 
     let auction_bank_seeds = auction_bank_seeds(&auction_id);
     let auction_bank_pda =
-        SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        SignerPda::new_checked(&auction_bank_seeds, program_id, auction_bank_account)?;
 
     let contract_pda_seeds = contract_pda_seeds();
     let contract_signer_pda =
-        SignerPda::new_checked(&contract_pda_seeds, contract_pda.key, program_id)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    let auction_pool_seeds = auction_pool_seeds();
-    SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        SignerPda::new_checked(&contract_pda_seeds, program_id, contract_pda)?;
 
     // Register new auction into the auction pool
     let mut auction_pool = AuctionPool::read(auction_pool_account)?;
@@ -182,16 +177,11 @@ pub fn initialize_auction(
 
             let master_mint_seeds = master_mint_seeds(&auction_id);
             let master_mint_pda =
-                SignerPda::new_checked(&master_mint_seeds, master_mint_account.key, program_id)
-                    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                SignerPda::new_checked(&master_mint_seeds, program_id, master_mint_account)?;
 
             let master_holding_seeds = master_holding_seeds(&auction_id);
-            let master_holding_pda = SignerPda::new_checked(
-                &master_holding_seeds,
-                master_holding_account.key,
-                program_id,
-            )
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+            let master_holding_pda =
+                SignerPda::new_checked(&master_holding_seeds, program_id, master_holding_account)?;
 
             if !master_metadata_account.data_is_empty() {
                 return Err(AuctionContractError::AuctionAlreadyInitialized.into());
@@ -326,8 +316,7 @@ pub fn initialize_auction(
             // Check pda addresses
             let token_mint_seeds = token_mint_seeds(&auction_id);
             let token_mint_pda =
-                SignerPda::new_checked(&token_mint_seeds, token_mint_account.key, program_id)
-                    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+                SignerPda::new_checked(&token_mint_seeds, program_id, token_mint_account)?;
 
             // Create ERC20 mint
             create_mint_account(

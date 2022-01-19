@@ -15,14 +15,12 @@ pub fn process_admin_withdraw(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    if contract_bank_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
-    // Check pda addresses
-    let contract_bank_seeds = contract_bank_seeds();
-    SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    SignerPda::check_owner(
+        &contract_bank_seeds(),
+        program_id,
+        program_id,
+        contract_bank_account,
+    )?;
 
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
     if &contract_bank_state.withdraw_authority != withdraw_authority.key {
@@ -57,13 +55,12 @@ pub fn process_admin_withdraw_reassign(
         msg!("withdraw authority signature is missing");
         return Err(ProgramError::MissingRequiredSignature);
     }
-    if contract_bank_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
-    let contract_bank_seeds = contract_bank_seeds();
-    SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    SignerPda::check_owner(
+        &contract_bank_seeds(),
+        program_id,
+        program_id,
+        contract_bank_account,
+    )?;
 
     let mut contract_bank_state = ContractBankState::read(contract_bank_account)?;
     if &contract_bank_state.withdraw_authority != withdraw_authority.key {

@@ -20,32 +20,25 @@ pub fn freeze_auction(
     }
 
     // Check root and cycle state owners and pdas
-    if auction_root_state_account.owner != program_id
-        || auction_cycle_state_account.owner != program_id
-    {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
-        auction_root_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
     let cycle_num_bytes = auction_root_state
         .status
         .current_auction_cycle
         .to_le_bytes();
-    let auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
-    SignerPda::new_checked(
-        &auction_cycle_state_seeds,
-        auction_cycle_state_account.key,
+
+    SignerPda::check_owner(
+        &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_cycle_state_account,
+    )?;
 
     // Initial state checks
     if auction_owner_account.key != &auction_root_state.auction_owner {
@@ -58,19 +51,19 @@ pub fn freeze_auction(
         return Err(AuctionContractError::AuctionEnded.into());
     }
     // check auction and contract bank accounts
-    if auction_bank_account.owner != program_id || contract_bank_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-    let auction_bank_seeds = auction_bank_seeds(&auction_id);
-    SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    SignerPda::new_checked(
-        &contract_bank_seeds(),
-        contract_bank_account.key,
+    SignerPda::check_owner(
+        &auction_bank_seeds(&auction_id),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_bank_account,
+    )?;
+
+    SignerPda::check_owner(
+        &contract_bank_seeds(),
+        program_id,
+        program_id,
+        contract_bank_account,
+    )?;
 
     // Freeze logic
     let auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;

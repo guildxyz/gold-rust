@@ -15,30 +15,25 @@ pub fn process_verify_auction(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Check account ownership
-    // User accounts:
-    //   contract_admin_account
-    if contract_bank_account.owner != program_id || auction_root_state_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
     // Check pda addresses
-    let contract_bank_seeds = contract_bank_seeds();
-    SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    SignerPda::check_owner(
+        &contract_bank_seeds(),
+        program_id,
+        program_id,
+        contract_bank_account,
+    )?;
 
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
     if contract_admin_account.key != &contract_bank_state.contract_admin {
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
 
-    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
-    SignerPda::new_checked(
-        &auction_root_state_seeds,
-        auction_root_state_account.key,
+    SignerPda::check_owner(
+        &auction_root_state_seeds(&auction_id),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
     auction_root_state.status.is_verified = true;

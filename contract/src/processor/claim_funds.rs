@@ -19,30 +19,20 @@ pub fn process_claim_funds(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Check account ownership
-    // User accounts:
-    //   auction_owner_account
-    //   contract_admin_account
-    if auction_bank_account.owner != program_id
-        || auction_root_state_account.owner != program_id
-        || auction_cycle_state_account.owner != program_id
-        || contract_bank_account.owner != program_id
-    {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
     // Check pda addresses
-    let contract_bank_seeds = contract_bank_seeds();
-    SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    let auction_root_state_seeds = auction_root_state_seeds(&auction_id);
-    SignerPda::new_checked(
-        &auction_root_state_seeds,
-        auction_root_state_account.key,
+    SignerPda::check_owner(
+        &contract_bank_seeds(),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        contract_bank_account,
+    )?;
+
+    SignerPda::check_owner(
+        &auction_root_state_seeds(&auction_id),
+        program_id,
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
 
@@ -58,20 +48,22 @@ pub fn process_claim_funds(
         .status
         .current_auction_cycle
         .to_le_bytes();
-    let auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes);
-    SignerPda::new_checked(
-        &auction_cycle_state_seeds,
-        auction_cycle_state_account.key,
+
+    SignerPda::check_owner(
+        &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num_bytes),
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_cycle_state_account,
+    )?;
 
     let auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
-    let auction_bank_seeds = auction_bank_seeds(&auction_id);
-    SignerPda::new_checked(&auction_bank_seeds, auction_bank_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    SignerPda::check_owner(
+        &auction_bank_seeds(&auction_id),
+        program_id,
+        program_id,
+        auction_bank_account,
+    )?;
 
     let mut lamports_to_claim = **auction_bank_account.lamports.borrow();
 

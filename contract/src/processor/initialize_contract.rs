@@ -30,12 +30,10 @@ pub fn initialize_contract(
     // Check pda addresses
     let contract_bank_seeds = contract_bank_seeds();
     let contract_bank_pda =
-        SignerPda::new_checked(&contract_bank_seeds, contract_bank_account.key, program_id)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        SignerPda::new_checked(&contract_bank_seeds, program_id, contract_bank_account)?;
     let auction_pool_seeds = auction_pool_seeds();
     let auction_pool_pda =
-        SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        SignerPda::new_checked(&auction_pool_seeds, program_id, auction_pool_account)?;
 
     // if contract bank account exists, then we have
     if contract_bank_account.lamports() != 0 {

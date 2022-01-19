@@ -21,18 +21,12 @@ pub fn process_bid(
     // Check cross-program invocation addresses
     assert_system_program(system_program.key)?;
     // Check root and cycle states
-    if auction_root_state_account.owner != program_id
-        || auction_cycle_state_account.owner != program_id
-    {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
-        auction_root_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
 
@@ -41,12 +35,12 @@ pub fn process_bid(
         .current_auction_cycle
         .to_le_bytes();
 
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &auction_cycle_state_seeds(auction_root_state_account.key, &cycle_num),
-        auction_cycle_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_cycle_state_account,
+    )?;
 
     let mut auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
@@ -62,15 +56,12 @@ pub fn process_bid(
     check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
 
     // check auction bank
-    if auction_bank_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &auction_bank_seeds(&auction_id),
-        auction_bank_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_bank_account,
+    )?;
 
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
     let previous_bid_amount = if let Some(most_recent_bid) = most_recent_bid_option {

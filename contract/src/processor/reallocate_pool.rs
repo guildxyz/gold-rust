@@ -17,23 +17,23 @@ pub fn deallocate_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> Program
     assert_system_program(system_program.key)?;
 
     // check pda addresses
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &contract_bank_seeds(),
-        contract_bank_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        contract_bank_account,
+    )?;
 
-    SignerPda::new_checked(&auction_pool_seeds(), auction_pool_account.key, program_id)
-        .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    SignerPda::check_owner(
+        &auction_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    )?;
 
     let temporary_pool_seeds = temporary_pool_seeds();
-    let temporary_pool_pda = SignerPda::new_checked(
-        &temporary_pool_seeds,
-        temporary_pool_account.key,
-        program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+    let temporary_pool_pda =
+        SignerPda::new_checked(&temporary_pool_seeds, program_id, temporary_pool_account)?;
 
     // check admin
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
@@ -80,30 +80,29 @@ pub fn reallocate_pool(
     assert_system_program(system_program.key)?;
 
     // check pda addresses
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &contract_bank_seeds(),
-        contract_bank_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    let auction_pool_seeds = auction_pool_seeds();
-    let auction_pool_pda =
-        SignerPda::new_checked(&auction_pool_seeds, auction_pool_account.key, program_id)
-            .map_err(|_| AuctionContractError::InvalidSeeds)?;
-
-    SignerPda::new_checked(
-        &temporary_pool_seeds(),
-        temporary_pool_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        contract_bank_account,
+    )?;
 
     // check admin
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
     if &contract_bank_state.contract_admin != contract_admin_account.key {
         return Err(AuctionContractError::ContractAdminMismatch.into());
     }
+
+    SignerPda::check_owner(
+        &temporary_pool_seeds(),
+        program_id,
+        program_id,
+        temporary_pool_account,
+    )?;
+
+    let auction_pool_seeds = auction_pool_seeds();
+    let auction_pool_pda =
+        SignerPda::new_checked(&auction_pool_seeds, program_id, auction_pool_account)?;
 
     // reallocate old auction pool account
     let mut auction_pool = AuctionPool::read(temporary_pool_account)?;

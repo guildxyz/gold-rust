@@ -19,25 +19,22 @@ pub fn filter_auction(
     // Check account ownership
     // User accounts:
     //   contract_admin_account
-    if contract_bank_account.owner != program_id || auction_root_state_account.owner != program_id {
-        return Err(AuctionContractError::InvalidAccountOwner.into());
-    }
 
     // Check pda addresses
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
-        auction_root_state_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        auction_root_state_account,
+    )?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
-    SignerPda::new_checked(
+    SignerPda::check_owner(
         &contract_bank_seeds(),
-        contract_bank_account.key,
         program_id,
-    )
-    .map_err(|_| AuctionContractError::InvalidSeeds)?;
+        program_id,
+        contract_bank_account,
+    )?;
 
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;
     if contract_admin_account.key != &contract_bank_state.contract_admin {
