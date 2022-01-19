@@ -42,10 +42,6 @@ pub enum AuctionInstruction {
         id: AuctionId,
         amount: u64,
     },
-    DeleteAuction {
-        id: AuctionId,
-        num_of_cycles_to_delete: u64,
-    },
     VerifyAuction {
         id: AuctionId,
     },

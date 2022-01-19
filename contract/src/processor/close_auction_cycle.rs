@@ -71,7 +71,7 @@ pub fn close_auction_cycle(
     //   contract_pda
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
-    
+
     // check root and cycle states
     if auction_root_state_account.owner != program_id
         || current_auction_cycle_state_account.owner != program_id
@@ -115,7 +115,7 @@ pub fn close_auction_cycle(
         &current_auction_cycle_state,
         current_timestamp,
         AuctionInteraction::CloseCycle,
-    )?; 
+    )?;
     // check auction_bank
     if auction_bank_account.owner != program_id {
         return Err(AuctionContractError::InvalidAccountOwner.into());

@@ -43,10 +43,6 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 /// Currently set for a week of inactivity.
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
 
-/// The recommended number of state accounts that can be safely wiped via a
-/// `DeleteAuction` contract call without exceeding the allotted compute units.
-pub const RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL: u64 = 30;
-
 pub fn unpuff_metadata(metadata_state_data: &mut MetadataStateData) {
     metadata_state_data.name.retain(|c| c != '\u{0}');
     metadata_state_data.uri.retain(|c| c != '\u{0}');
