@@ -19,7 +19,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use structopt::StructOpt;
 
-use anyhow::anyhow;
+use anyhow::ensure;
 
 pub fn main() {
     env_logger::init();
@@ -62,17 +62,9 @@ fn try_main(
 
     let id_bytes = pad_to_32_bytes(&auction_id)?;
 
-    let auction_filter_result = check_auction_state(connection, &id_bytes);
-    if let Err(ref err) = auction_filter_result {
-        error!("error while filtering auction \"{}\": {}", auction_id, err);
-    }
+    let auction_filter_flag = check_auction_state(connection, &id_bytes)?;
 
-    // unwrap is fine here since the error case is handled beforehand
-    let filter_ix = filter_auction(
-        admin_keypair.pubkey(),
-        id_bytes,
-        !auction_filter_result.unwrap(),
-    );
+    let filter_ix = filter_auction(admin_keypair.pubkey(), id_bytes, !auction_filter_flag);
 
     let latest_blockhash = connection.get_latest_blockhash()?;
 
@@ -96,14 +88,12 @@ fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<bool, 
     let (state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(id_bytes), &GOLD_ID);
 
-    let state_data_result = connection.get_account_data(&state_pubkey);
+    let state_data = connection.get_account_data(&state_pubkey);
 
-    if state_data_result.is_err() {
-        return Err(anyhow!("auction does not exist."));
-    }
+    ensure!(state_data.is_ok(), "auction does not exist");
 
     // unwrap is fine here since the error case is handled beforehand
-    let root_state: AuctionRootState = try_from_slice_unchecked(&state_data_result.unwrap())?;
+    let root_state: AuctionRootState = try_from_slice_unchecked(&state_data.unwrap())?;
 
     Ok(root_state.status.is_filtered)
 }

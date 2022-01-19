@@ -17,7 +17,7 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use structopt::StructOpt;
 
-use anyhow::anyhow;
+use anyhow::ensure;
 
 pub fn main() {
     env_logger::init();
@@ -60,9 +60,7 @@ fn try_main(
         }
     }
 
-    if let Err(err) = check_pool_size(connection, size) {
-        error!("error while reallocating auction pool: {}", err);
-    }
+    check_pool_size(connection, size)?;
 
     let deallocate_ix = deallocate_pool(&admin_keypair.pubkey());
 
@@ -107,9 +105,9 @@ fn check_pool_size(connection: &RpcClient, size: u32) -> Result<(), anyhow::Erro
     let pool_state_data = connection.get_account_data(&pool_pubkey)?;
     let pool_state: AuctionPool = try_from_slice_unchecked(&pool_state_data)?;
 
-    if pool_state.max_len >= size {
-        return Err(anyhow!("provided size smaller than current size"));
-    }
-
+    ensure!(
+        pool_state.max_len < size,
+        "provided size smaller than current size"
+    );
     Ok(())
 }

@@ -42,7 +42,7 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 /// it is automatically frozen at cycle closing.
 /// Currently set for a week of inactivity.
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
-/// Minimum bid amount on any auction cycle.
+/// Minimum bid amount on any auction cycle in Lamports.
 pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
 
 pub fn unpuff_metadata(metadata_state_data: &mut MetadataStateData) {
