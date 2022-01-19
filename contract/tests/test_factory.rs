@@ -1,4 +1,5 @@
 #![cfg(feature = "test-bpf")]
+#![allow(dead_code)]
 
 use num_traits::FromPrimitive;
 use std::convert::TryInto;
@@ -24,13 +25,10 @@ use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
 use agsol_testbench::{Testbench, TestbenchProgram};
 
-#[allow(unused)]
 pub const TRANSACTION_FEE: u64 = 5000;
-#[allow(unused)]
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
 
 // For some reason the compiler always throws dead_code on this
-#[allow(dead_code)]
 pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
     match program_err {
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
@@ -40,7 +38,6 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
     }
 }
 
-#[allow(unused)]
 pub struct TestContractConfig {
     pub auction_owner: TestUser,
     pub auction_id: [u8; 32],
@@ -72,7 +69,6 @@ impl TestUser {
     }
 }
 
-#[allow(unused)]
 pub async fn warp_to_cycle_end(testbench: &mut Testbench, auction_id: [u8; 32]) {
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
         get_state_pubkeys(testbench, auction_id).await;
@@ -94,7 +90,6 @@ pub async fn warp_to_cycle_end(testbench: &mut Testbench, auction_id: [u8; 32]) 
     assert!(auction_cycle_state.end_time < current_time);
 }
 
-#[allow(unused)]
 pub async fn get_next_child_edition(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -109,7 +104,6 @@ pub async fn get_next_child_edition(
     master_edition_data.supply + 1
 }
 
-#[allow(unused)]
 pub async fn get_nft_data(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -123,7 +117,6 @@ pub async fn get_nft_data(
     }
 }
 
-#[allow(unused)]
 pub async fn get_token_data(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -137,7 +130,6 @@ pub async fn get_token_data(
     }
 }
 
-#[allow(unused)]
 pub async fn get_current_cycle_number(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -148,7 +140,6 @@ pub async fn get_current_cycle_number(
     auction_root_state.status.current_auction_cycle
 }
 
-#[allow(unused)]
 pub async fn get_top_bid(
     testbench: &mut Testbench,
     auction_cycle_state_pubkey: &Pubkey,
@@ -159,7 +150,6 @@ pub async fn get_top_bid(
     auction_cycle_state.bid_history.get_last_element().cloned()
 }
 
-#[allow(unused)]
 pub async fn get_top_bidder_pubkey(
     testbench: &mut Testbench,
     auction_cycle_state_pubkey: &Pubkey,
@@ -173,7 +163,6 @@ pub async fn get_top_bidder_pubkey(
         .map(|bid_data| bid_data.bidder_pubkey)
 }
 
-#[allow(unused)]
 pub async fn get_state_pubkeys(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -191,7 +180,6 @@ pub async fn get_state_pubkeys(
     (auction_root_state_pubkey, auction_cycle_state_pubkey)
 }
 
-#[allow(unused)]
 pub async fn close_cycle_transaction(
     testbench: &mut Testbench,
     payer_keypair: &Keypair,
@@ -220,19 +208,15 @@ pub async fn close_cycle_transaction(
         .await;
     let close_cycle_result = testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
-        .await;
+        .await
+        .map_err(|e| to_auction_error(e))?;
     let payer_balance_after = testbench
         .get_account_lamports(&payer_keypair.pubkey())
         .await;
 
-    if close_cycle_result.is_err() {
-        return Err(to_auction_error(close_cycle_result.err().unwrap()));
-    }
-
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
 }
 
-#[allow(unused)]
 pub async fn freeze_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -248,19 +232,13 @@ pub async fn freeze_auction_transaction(
         cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
     };
     let freeze_instruction = freeze_auction(&freeze_args);
-    let freeze_result = testbench
+    testbench
         .process_transaction(&[freeze_instruction], auction_owner_keypair, None)
-        .await;
-
-    if freeze_result.is_err() {
-        return Err(to_auction_error(freeze_result.err().unwrap()));
-    }
-
-    Ok(())
+        .await
+        .map_err(|e| to_auction_error(e))
 }
 
-#[allow(unused)]
-pub async fn thaw_auction_transaction(
+pub async fn filter_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
     contract_admin_keypair: &Keypair,
@@ -268,23 +246,13 @@ pub async fn thaw_auction_transaction(
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
         get_state_pubkeys(testbench, auction_id).await;
 
-    let thaw_args = ThawAuctionArgs {
-        contract_admin_pubkey: contract_admin_keypair.pubkey(),
-        auction_id,
-    };
-    let thaw_instruction = thaw_auction(&thaw_args);
-    let thaw_result = testbench
-        .process_transaction(&[thaw_instruction], contract_admin_keypair, None)
-        .await;
-
-    if thaw_result.is_err() {
-        return Err(to_auction_error(thaw_result.err().unwrap()));
-    }
-
-    Ok(())
+    let filter_instruction = filter_auction(contract_admin_keypair.pubkey(), auction_id);
+    testbench
+        .process_transaction(&[filter_instruction], contract_admin_keypair, None)
+        .await
+        .map_err(|e| to_auction_error(e))
 }
 
-#[allow(unused)]
 pub async fn verify_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -304,19 +272,15 @@ pub async fn verify_auction_transaction(
         .await;
     let verify_result = testbench
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
-        .await;
+        .await
+        .map_err(|e| to_auction_error(e))?;
     let payer_balance_after = testbench
         .get_account_lamports(&contract_admin_keypair.pubkey())
         .await;
 
-    if verify_result.is_err() {
-        return Err(to_auction_error(verify_result.err().unwrap()));
-    }
-
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
 }
 
-#[allow(unused)]
 pub async fn claim_funds_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -342,19 +306,15 @@ pub async fn claim_funds_transaction(
         .await;
     let claim_result = testbench
         .process_transaction(&[claim_funds_ix], auction_owner, None)
-        .await;
+        .await
+        .map_err(|e| to_auction_error(e))?;
     let payer_balance_after = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;
 
-    if claim_result.is_err() {
-        return Err(to_auction_error(claim_result.err().unwrap()));
-    }
-
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
 }
 
-#[allow(unused)]
 pub async fn place_bid_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
@@ -376,17 +336,13 @@ pub async fn place_bid_transaction(
     let payer_balance_before = testbench.get_account_lamports(&user_keypair.pubkey()).await;
     let bid_result = testbench
         .process_transaction(&[bid_instruction], user_keypair, None)
-        .await;
+        .await
+        .map_err(|e| to_auction_error(e))?;
     let payer_balance_after = testbench.get_account_lamports(&user_keypair.pubkey()).await;
-
-    if bid_result.is_err() {
-        return Err(to_auction_error(bid_result.err().unwrap()));
-    }
 
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
 }
 
-#[allow(unused)]
 pub async fn initialize_new_auction_custom(
     testbench: &mut Testbench,
     auction_owner: &Keypair,
@@ -416,7 +372,6 @@ pub async fn initialize_new_auction_custom(
         .await
 }
 
-#[allow(unused)]
 pub async fn initialize_new_auction(
     testbench: &mut Testbench,
     auction_owner: &Keypair,
@@ -437,19 +392,15 @@ pub async fn initialize_new_auction(
         .await;
     let initialize_auction_result = testbench
         .process_transaction(&[instruction], auction_owner, None)
-        .await;
+        .await
+        .map_err(|e| to_auction_error(e))?;
     let payer_balance_after = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;
 
-    if initialize_auction_result.is_err() {
-        return Err(to_auction_error(initialize_auction_result.err().unwrap()));
-    }
-
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
 }
 
-#[allow(unused)]
 pub async fn get_auction_cycle_pubkey(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -470,7 +421,6 @@ pub async fn get_auction_cycle_pubkey(
     auction_cycle_state_pubkey
 }
 
-#[allow(unused)]
 pub async fn is_existing_account(testbench: &mut Testbench, account_pubkey: &Pubkey) -> bool {
     testbench
         .client()
@@ -480,7 +430,6 @@ pub async fn is_existing_account(testbench: &mut Testbench, account_pubkey: &Pub
         .is_some()
 }
 
-#[allow(unused)]
 pub async fn get_auction_cycle_state(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
@@ -494,7 +443,6 @@ pub async fn get_auction_cycle_state(
     (auction_cycle_state_pubkey, auction_cycle_state)
 }
 
-#[allow(unused)]
 pub async fn testbench_setup() -> (Testbench, TestUser) {
     let program_id = agsol_gold_contract::id();
     let testbench_program = TestbenchProgram {

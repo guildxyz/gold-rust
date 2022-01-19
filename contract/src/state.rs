@@ -65,6 +65,11 @@ pub struct AuctionStatus {
     pub is_frozen: bool,
     /// The auction is active until all auction cycles have passed.
     pub is_finished: bool,
+    /// The auction might be filtered by the admin.
+    ///
+    /// It is just a flag for our frontend tho not show potentially
+    /// sensitive/harmful content.
+    pub is_filtered: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -263,6 +268,7 @@ mod test {
         let auction_status = AuctionStatus {
             is_finished: true,
             is_frozen: false,
+            is_filtered: false,
             current_auction_cycle: 1,
             current_idle_cycle_streak: 0,
         };

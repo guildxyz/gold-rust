@@ -354,6 +354,7 @@ pub fn initialize_auction(
             current_idle_cycle_streak: 0,
             is_finished: false,
             is_frozen: false,
+            is_filtered: false,
         },
         all_time_treasury: 0,
         available_funds: 0,

@@ -277,18 +277,6 @@ async fn test_ended_close_cycle_on_auction() {
         freeze_finished_auction_error,
         AuctionContractError::AuctionEnded
     );
-
-    // Invalid use case
-    // Thaw ended auction
-    let payer = testbench.clone_payer();
-    let thaw_finished_auction_error = thaw_auction_transaction(&mut testbench, auction_id, &payer)
-        .await
-        .err()
-        .unwrap();
-    assert_eq!(
-        thaw_finished_auction_error,
-        AuctionContractError::AuctionEnded
-    );
 }
 
 #[tokio::test]

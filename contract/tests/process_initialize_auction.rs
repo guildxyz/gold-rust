@@ -17,7 +17,7 @@ use solana_program::pubkey::Pubkey;
 use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
-const AUCTION_CREATION_COST: u64 = 24_095_520 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {

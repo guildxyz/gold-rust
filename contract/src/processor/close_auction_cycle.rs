@@ -149,12 +149,12 @@ pub fn close_auction_cycle(
             .checked_add(1)
             .ok_or(AuctionContractError::ArithmeticError)?;
 
-        // If the auction was idle for at least a week then freeze it automatically
+        // If the auction was idle for at least a week then filter it automatically
         if auction_root_state.auction_config.cycle_period
             * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
             > crate::ALLOWED_AUCTION_IDLE_PERIOD
         {
-            auction_root_state.status.is_frozen = true;
+            auction_root_state.status.is_filtered = true;
         }
 
         current_auction_cycle_state.write(current_auction_cycle_state_account)?;
