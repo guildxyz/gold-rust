@@ -30,9 +30,7 @@ pub enum AuctionInstruction {
     },
     FilterAuction {
         id: AuctionId,
-    },
-    UnFilterAuction {
-        id: AuctionId,
+        filter: bool,
     },
     CloseAuctionCycle {
         id: AuctionId,

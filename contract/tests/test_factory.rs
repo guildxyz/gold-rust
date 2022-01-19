@@ -70,13 +70,9 @@ impl TestUser {
 }
 
 pub async fn warp_to_cycle_end(testbench: &mut Testbench, auction_id: [u8; 32]) {
-    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
+    let (_, auction_cycle_state_pubkey) = get_state_pubkeys(testbench, auction_id).await;
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await;
 
     let current_time = testbench.block_time().await;
@@ -192,7 +188,7 @@ pub async fn close_cycle_transaction(
 
     let next_cycle_num = get_current_cycle_number(testbench, &auction_root_state_pubkey).await;
 
-    let mut close_auction_cycle_args = CloseAuctionCycleArgs {
+    let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: payer_keypair.pubkey(),
         auction_owner_pubkey: *auction_owner_pubkey,
         top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await,
@@ -206,7 +202,7 @@ pub async fn close_cycle_transaction(
     let payer_balance_before = testbench
         .get_account_lamports(&payer_keypair.pubkey())
         .await;
-    let close_cycle_result = testbench
+    testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
         .await
         .map_err(|e| to_auction_error(e))?;
@@ -241,12 +237,10 @@ pub async fn freeze_auction_transaction(
 pub async fn filter_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
+    filter: bool,
     contract_admin_keypair: &Keypair,
 ) -> Result<(), AuctionContractError> {
-    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
-
-    let filter_instruction = filter_auction(contract_admin_keypair.pubkey(), auction_id);
+    let filter_instruction = filter_auction(contract_admin_keypair.pubkey(), auction_id, filter);
     testbench
         .process_transaction(&[filter_instruction], contract_admin_keypair, None)
         .await
@@ -258,9 +252,6 @@ pub async fn verify_auction_transaction(
     auction_id: [u8; 32],
     contract_admin_keypair: &Keypair,
 ) -> Result<i64, AuctionContractError> {
-    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
-
     let verify_args = VerifyAuctionArgs {
         contract_admin_pubkey: contract_admin_keypair.pubkey(),
         auction_id,
@@ -270,7 +261,7 @@ pub async fn verify_auction_transaction(
     let payer_balance_before = testbench
         .get_account_lamports(&contract_admin_keypair.pubkey())
         .await;
-    let verify_result = testbench
+    testbench
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
         .await
         .map_err(|e| to_auction_error(e))?;
@@ -290,8 +281,6 @@ pub async fn claim_funds_transaction(
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
-    let payer = testbench.clone_payer();
-
     let claim_funds_args = ClaimFundsArgs {
         auction_owner_pubkey: auction_owner.pubkey(),
         auction_id,
@@ -304,7 +293,7 @@ pub async fn claim_funds_transaction(
     let payer_balance_before = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;
-    let claim_result = testbench
+    testbench
         .process_transaction(&[claim_funds_ix], auction_owner, None)
         .await
         .map_err(|e| to_auction_error(e))?;
@@ -324,7 +313,7 @@ pub async fn place_bid_transaction(
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
         get_state_pubkeys(testbench, auction_id).await;
 
-    let mut place_bid_args = PlaceBidArgs {
+    let place_bid_args = PlaceBidArgs {
         user_main_pubkey: user_keypair.pubkey(),
         auction_id,
         cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
@@ -334,7 +323,7 @@ pub async fn place_bid_transaction(
     let bid_instruction = place_bid(&place_bid_args);
 
     let payer_balance_before = testbench.get_account_lamports(&user_keypair.pubkey()).await;
-    let bid_result = testbench
+    testbench
         .process_transaction(&[bid_instruction], user_keypair, None)
         .await
         .map_err(|e| to_auction_error(e))?;
@@ -390,7 +379,7 @@ pub async fn initialize_new_auction(
     let payer_balance_before = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;
-    let initialize_auction_result = testbench
+    testbench
         .process_transaction(&[instruction], auction_owner, None)
         .await
         .map_err(|e| to_auction_error(e))?;

@@ -84,11 +84,8 @@ pub fn process(
             close_auction_cycle::close_auction_cycle(program_id, accounts, id)
         }
         AuctionInstruction::Freeze { id } => freeze::freeze_auction(program_id, accounts, id),
-        AuctionInstruction::FilterAuction { id } => {
-            filter_auction::filter_auction(program_id, accounts, id)
-        }
-        AuctionInstruction::UnFilterAuction { id } => {
-            filter_auction::unfilter_auction(program_id, accounts, id)
+        AuctionInstruction::FilterAuction { id, filter } => {
+            filter_auction::filter_auction(program_id, accounts, id, filter)
         }
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
