@@ -23,7 +23,7 @@ async fn test_process_reallocate_pool() {
     assert_eq!(auction_pool.max_len, INITIAL_AUCTION_POOL_LEN);
     assert!(auction_pool.pool.is_empty());
 
-    let mut auction_id = [1; 32];
+    let mut auction_id;
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
@@ -33,7 +33,8 @@ async fn test_process_reallocate_pool() {
 
     let payer = testbench.clone_payer();
 
-    for _ in 0..INITIAL_AUCTION_POOL_LEN {
+    for i in 0..INITIAL_AUCTION_POOL_LEN {
+        auction_id = [i as u8; 32];
         initialize_new_auction(
             &mut testbench,
             &auction_owner.keypair,
@@ -43,7 +44,6 @@ async fn test_process_reallocate_pool() {
         )
         .await
         .unwrap();
-        auction_id[0] += 1;
     }
 
     let auction_pool = testbench
@@ -52,6 +52,7 @@ async fn test_process_reallocate_pool() {
 
     assert_eq!(auction_pool.pool.len(), INITIAL_AUCTION_POOL_LEN as usize);
 
+    auction_id = [INITIAL_AUCTION_POOL_LEN as u8; 32];
     // try to initialize an auction with a full pool
     let result = initialize_new_auction(
         &mut testbench,
@@ -108,6 +109,7 @@ async fn test_process_reallocate_pool() {
         INITIAL_AUCTION_POOL_LEN as usize + 1
     );
     assert_eq!(auction_pool.max_len, new_max_len);
+    assert_eq!(auction_pool.pool, vec![[0; 32], [1; 32], [2; 32], [3; 32]]);
 
     // try to deallocate/reallocate without admin authority
     let reallocate_instruction = reallocate_pool(&auction_owner.keypair.pubkey(), 0);

@@ -9,6 +9,7 @@ pub fn reallocate_pool(contract_admin_pubkey: &Pubkey, new_max_auction_num: u32)
         AccountMeta::new(*contract_admin_pubkey, true),
         AccountMeta::new_readonly(contract_bank_pubkey, false),
         AccountMeta::new(auction_pool_pubkey, false),
+        AccountMeta::new_readonly(SYS_ID, false),
     ];
 
     let instruction = AuctionInstruction::ReallocatePool {

@@ -10,11 +10,15 @@ pub fn reallocate_pool(
     let contract_admin_account = next_account_info(account_info_iter)?;
     let contract_bank_account = next_account_info(account_info_iter)?;
     let auction_pool_account = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     if !contract_admin_account.is_signer {
         msg!("admin signature is missing");
         return Err(ProgramError::MissingRequiredSignature);
     }
+
+    // Check cross-program invocation addresses
+    assert_system_program(system_program.key)?;
 
     // check pda addresses
     SignerPda::check_owner(
@@ -53,12 +57,26 @@ pub fn reallocate_pool(
     auction_pool.max_len = new_max_auction_num;
     auction_pool.write(auction_pool_account)?;
 
-    // reallocate auction pool
-    auction_pool_account.realloc(new_account_size, false)?;
-    // send rent difference to auction pool
-    let rent_difference = new_rent.checked_sub(old_rent)
+    // send rent difference for auction pool to be rent exempt
+    let rent_difference = new_rent
+        .checked_sub(old_rent)
         .ok_or(AuctionContractError::ArithmeticError)?;
-    checked_debit_account(contract_admin_account, rent_difference)?;
-    checked_credit_account(auction_pool_account, rent_difference)?;
-    Ok(())
+
+    let transfer_ix = system_instruction::transfer(
+        contract_admin_account.key,
+        auction_pool_account.key,
+        rent_difference,
+    );
+
+    invoke(
+        &transfer_ix,
+        &[
+            contract_admin_account.to_owned(),
+            auction_pool_account.to_owned(),
+            system_program.to_owned(),
+        ],
+    )?;
+
+    // reallocate auction pool
+    auction_pool_account.realloc(new_account_size, false)
 }
