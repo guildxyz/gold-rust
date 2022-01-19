@@ -41,7 +41,7 @@ pub fn process_verify_auction(
     .map_err(|_| AuctionContractError::InvalidSeeds)?;
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
-    auction_root_state.is_verified = true;
+    auction_root_state.status.is_verified = true;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())

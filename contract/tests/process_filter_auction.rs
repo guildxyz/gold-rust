@@ -16,7 +16,7 @@ async fn test_process_filter_auction() {
     let auction_config = AuctionConfig {
         cycle_period: 100,
         encore_period: 30,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
 

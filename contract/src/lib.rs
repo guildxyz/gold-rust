@@ -24,10 +24,10 @@ use solana_program::clock::UnixTimestamp;
 
 solana_program::declare_id!("go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U");
 
-/// Maxumum number of [`Bids`](state::BidData) in the
+/// Maximum number of [`Bids`](state::BidData) in the
 /// [`BidHistory`](state::BidHistory).
 pub const MAX_BID_HISTORY_LENGTH: usize = 10;
-/// Maximum number of characters allowed in an auction description.
+/// Maximum number of characters in an auction description.
 pub const MAX_DESCRIPTION_LEN: usize = 200;
 /// Maximum number of characters in each social url.
 pub const MAX_SOCIALS_LEN: usize = 100;
@@ -42,6 +42,8 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 /// it is automatically frozen at cycle closing.
 /// Currently set for a week of inactivity.
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
+/// Minimum bid amount on any auction cycle.
+pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
 
 pub fn unpuff_metadata(metadata_state_data: &mut MetadataStateData) {
     metadata_state_data.name.retain(|c| c != '\u{0}');

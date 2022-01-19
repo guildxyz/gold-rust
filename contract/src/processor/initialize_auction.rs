@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::UNIVERSAL_BID_FLOOR;
 use solana_program::clock::UnixTimestamp;
 
 #[allow(clippy::too_many_arguments)]
@@ -123,6 +124,11 @@ pub fn initialize_auction(
         system_program,
         0,
     )?;
+
+    // Check if provided minimum_bid_amount is higher than the universal bid floor
+    if auction_config.minimum_bid_amount < UNIVERSAL_BID_FLOOR {
+        return Err(AuctionContractError::InvalidMinimumBidAmount.into());
+    }
 
     // Check auction start time (if provided)
     let clock = Clock::get()?;
@@ -355,11 +361,11 @@ pub fn initialize_auction(
             is_finished: false,
             is_frozen: false,
             is_filtered: false,
+            is_verified: false,
         },
         all_time_treasury: 0,
         available_funds: 0,
         start_time,
-        is_verified: false,
     };
     root_state.write(auction_root_state_account)?;
 

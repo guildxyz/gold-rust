@@ -67,9 +67,11 @@ pub struct AuctionStatus {
     pub is_finished: bool,
     /// The auction might be filtered by the admin.
     ///
-    /// It is just a flag for our frontend tho not show potentially
+    /// It is just a flag for our frontend to not show potentially
     /// sensitive/harmful content.
     pub is_filtered: bool,
+    /// The auction can be verified by the contract owners.
+    pub is_verified: bool,
 }
 
 /// Data of an incoming bid to the contract.
@@ -155,8 +157,6 @@ pub struct AuctionRootState {
     pub available_funds: u64,
     /// Start timestamp of the auction (in seconds)
     pub start_time: UnixTimestamp,
-    /// The auction can be verified by the contract owners.
-    pub is_verified: bool,
 }
 
 /// State respective to a given auction cycle.
@@ -266,9 +266,10 @@ mod test {
         });
 
         let auction_status = AuctionStatus {
-            is_finished: true,
+            is_finished: false,
             is_frozen: false,
             is_filtered: false,
+            is_verified: false,
             current_auction_cycle: 1,
             current_idle_cycle_streak: 0,
         };
@@ -316,7 +317,6 @@ mod test {
             all_time_treasury: 0,
             available_funds: 0,
             start_time: 0,
-            is_verified: false,
         };
 
         assert_eq!(

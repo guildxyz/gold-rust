@@ -19,7 +19,7 @@ async fn test_process_admin_withdraw() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
     };
 
@@ -38,7 +38,7 @@ async fn test_process_admin_withdraw() {
     .await
     .unwrap();
     // Place bid
-    let bid_amount = 10_000_000;
+    let bid_amount = 100_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();

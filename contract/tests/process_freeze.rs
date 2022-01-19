@@ -20,7 +20,7 @@ async fn test_process_freeze() {
     let auction_config = AuctionConfig {
         cycle_period: 100,
         encore_period: 30,
-        minimum_bid_amount: 10_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
 
@@ -51,7 +51,7 @@ async fn test_process_freeze() {
     let bidder = TestUser::new(&mut testbench).await;
 
     // Bid to auction once
-    let first_bid = 10_000_000;
+    let first_bid = 50_000_000;
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &bidder.keypair, first_bid)
             .await
@@ -80,7 +80,7 @@ async fn test_process_freeze() {
     assert_eq!(auction_root_state.all_time_treasury, first_bid);
 
     // bid to second cycle
-    let second_bid = 5_000_000;
+    let second_bid = 50_000_000;
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &bidder.keypair, second_bid)
             .await

@@ -21,7 +21,7 @@ async fn test_process_claim_funds() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(2),
     };
 
@@ -62,7 +62,7 @@ async fn test_process_claim_funds() {
     );
 
     // Test single bid
-    let bid_amount = 10_000_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();

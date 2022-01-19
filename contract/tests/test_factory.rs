@@ -55,7 +55,7 @@ impl TestUser {
         let instruction = system_instruction::transfer(
             &testbench.payer().pubkey(),
             &keypair.pubkey(),
-            150_000_000,
+            500_000_000,
         );
 
         let payer = testbench.clone_payer();
@@ -205,7 +205,7 @@ pub async fn close_cycle_transaction(
     testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
         .await
-        .map_err(|e| to_auction_error(e))?;
+        .map_err(to_auction_error)?;
     let payer_balance_after = testbench
         .get_account_lamports(&payer_keypair.pubkey())
         .await;
@@ -231,7 +231,7 @@ pub async fn freeze_auction_transaction(
     testbench
         .process_transaction(&[freeze_instruction], auction_owner_keypair, None)
         .await
-        .map_err(|e| to_auction_error(e))
+        .map_err(to_auction_error)
 }
 
 pub async fn filter_auction_transaction(
@@ -244,7 +244,7 @@ pub async fn filter_auction_transaction(
     testbench
         .process_transaction(&[filter_instruction], contract_admin_keypair, None)
         .await
-        .map_err(|e| to_auction_error(e))
+        .map_err(to_auction_error)
 }
 
 pub async fn verify_auction_transaction(
@@ -264,7 +264,7 @@ pub async fn verify_auction_transaction(
     testbench
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
         .await
-        .map_err(|e| to_auction_error(e))?;
+        .map_err(to_auction_error)?;
     let payer_balance_after = testbench
         .get_account_lamports(&contract_admin_keypair.pubkey())
         .await;
@@ -296,7 +296,7 @@ pub async fn claim_funds_transaction(
     testbench
         .process_transaction(&[claim_funds_ix], auction_owner, None)
         .await
-        .map_err(|e| to_auction_error(e))?;
+        .map_err(to_auction_error)?;
     let payer_balance_after = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;
@@ -326,7 +326,7 @@ pub async fn place_bid_transaction(
     testbench
         .process_transaction(&[bid_instruction], user_keypair, None)
         .await
-        .map_err(|e| to_auction_error(e))?;
+        .map_err(to_auction_error)?;
     let payer_balance_after = testbench.get_account_lamports(&user_keypair.pubkey()).await;
 
     Ok(payer_balance_after as i64 - payer_balance_before as i64)
@@ -382,7 +382,7 @@ pub async fn initialize_new_auction(
     testbench
         .process_transaction(&[instruction], auction_owner, None)
         .await
-        .map_err(|e| to_auction_error(e))?;
+        .map_err(to_auction_error)?;
     let payer_balance_after = testbench
         .get_account_lamports(&auction_owner.pubkey())
         .await;

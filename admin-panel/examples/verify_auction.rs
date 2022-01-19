@@ -98,7 +98,7 @@ fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<(), an
     let auction_state_data = connection.get_account_data(&state_pubkey)?;
     let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
 
-    if auction_state.is_verified {
+    if auction_state.status.is_verified {
         return Err(anyhow!("auction is already verified"));
     }
 

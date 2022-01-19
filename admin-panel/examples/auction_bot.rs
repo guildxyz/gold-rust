@@ -104,8 +104,11 @@ fn close_cycle(
     let auction_state_data = connection.get_account_data(state_pubkey)?;
     let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
     let current_cycle_bytes = auction_state.status.current_auction_cycle.to_le_bytes();
-    // IF FROZEN OR INACTIVE, CONTINUE ITERATION
-    if auction_state.status.is_frozen || auction_state.status.is_finished {
+    // IF FROZEN OR INACTIVE OR FILTERED, CONTINUE ITERATION
+    if auction_state.status.is_frozen
+        || auction_state.status.is_finished
+        || auction_state.status.is_filtered
+    {
         return Ok(());
     }
 

@@ -32,7 +32,7 @@ async fn test_process_reallocate_pool() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
     };
 

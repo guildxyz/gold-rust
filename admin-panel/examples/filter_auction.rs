@@ -1,10 +1,10 @@
 use agsol_gold_admin_panel::{
-    parse_keypair, request_airdrop, ThawAuctionOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
+    parse_keypair, request_airdrop, FilterAuctionOpt, MIN_BALANCE, TEST_ADMIN_SECRET,
 };
 
 use agsol_gold_client::pad_to_32_bytes;
 
-use agsol_gold_contract::instruction::factory::{thaw_auction, ThawAuctionArgs};
+use agsol_gold_contract::instruction::factory::filter_auction;
 use agsol_gold_contract::pda::auction_root_state_seeds;
 use agsol_gold_contract::state::AuctionRootState;
 use agsol_gold_contract::ID as GOLD_ID;
@@ -23,8 +23,7 @@ use anyhow::anyhow;
 
 pub fn main() {
     env_logger::init();
-    let opt = ThawAuctionOpt::from_args();
-
+    let opt = FilterAuctionOpt::from_args();
     let (connection_url, should_airdrop) = if opt.mainnet {
         ("https://api.mainnet-beta.solana.com".to_owned(), false)
     } else if opt.devnet {
@@ -34,7 +33,6 @@ pub fn main() {
     } else {
         ("https://api.testnet.solana.com".to_owned(), true)
     };
-
     let connection = RpcClient::new_with_commitment(connection_url, CommitmentConfig::confirmed());
 
     let admin_keypair = parse_keypair(opt.keypair, &TEST_ADMIN_SECRET);
@@ -64,21 +62,22 @@ fn try_main(
 
     let id_bytes = pad_to_32_bytes(&auction_id)?;
 
-    if let Err(err) = check_auction_state(connection, &id_bytes) {
-        error!("error while thawing auction \"{}\": {}", auction_id, err);
+    let auction_filter_result = check_auction_state(connection, &id_bytes);
+    if let Err(ref err) = auction_filter_result {
+        error!("error while filtering auction \"{}\": {}", auction_id, err);
     }
 
-    let thaw_args = ThawAuctionArgs {
-        contract_admin_pubkey: admin_keypair.pubkey(),
-        auction_id: id_bytes,
-    };
-
-    let thaw_ix = thaw_auction(&thaw_args);
+    // unwrap is fine here since the error case is handled beforehand
+    let filter_ix = filter_auction(
+        admin_keypair.pubkey(),
+        id_bytes,
+        !auction_filter_result.unwrap(),
+    );
 
     let latest_blockhash = connection.get_latest_blockhash()?;
 
     let transaction = Transaction::new_signed_with_payer(
-        &[thaw_ix],
+        &[filter_ix],
         Some(&admin_keypair.pubkey()),
         &[admin_keypair],
         latest_blockhash,
@@ -86,27 +85,25 @@ fn try_main(
 
     let signature = connection.send_and_confirm_transaction(&transaction)?;
     info!(
-        "Auction \"{}\" thawed successfully    signature: {:?}",
+        "Auction {} successfully filtered    signature: {:?}",
         auction_id, signature
     );
 
     Ok(())
 }
 
-fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<(), anyhow::Error> {
+fn check_auction_state(connection: &RpcClient, id_bytes: &[u8]) -> Result<bool, anyhow::Error> {
     let (state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(id_bytes), &GOLD_ID);
 
-    let auction_state_data = connection.get_account_data(&state_pubkey)?;
-    let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
+    let state_data_result = connection.get_account_data(&state_pubkey);
 
-    if auction_state.status.is_finished {
-        return Err(anyhow!("auction has finished"));
+    if state_data_result.is_err() {
+        return Err(anyhow!("auction does not exist."));
     }
 
-    if !auction_state.status.is_frozen {
-        return Err(anyhow!("auction is not frozen"));
-    }
+    // unwrap is fine here since the error case is handled beforehand
+    let root_state: AuctionRootState = try_from_slice_unchecked(&state_data_result.unwrap())?;
 
-    Ok(())
+    Ok(root_state.status.is_filtered)
 }

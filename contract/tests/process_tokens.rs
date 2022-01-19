@@ -20,7 +20,7 @@ async fn test_process_tokens() {
     let auction_config = AuctionConfig {
         cycle_period: 20,
         encore_period: 1,
-        minimum_bid_amount: 100_000, // lamports
+        minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
     };
 
@@ -87,7 +87,7 @@ async fn test_process_tokens() {
     // Test after a bid was taken
     let user_1 = TestUser::new(&mut testbench).await;
 
-    let bid_amount = 100_000;
+    let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
         .unwrap();
