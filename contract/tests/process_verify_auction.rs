@@ -12,7 +12,7 @@ const TRANSACTION_FEE: u64 = 5000;
 
 #[tokio::test]
 async fn test_process_verify_auction() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [2; 32];
     let auction_config = AuctionConfig {
@@ -30,6 +30,7 @@ async fn test_process_verify_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     // check state account
@@ -37,18 +38,21 @@ async fn test_process_verify_auction() {
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(!auction_root_state.status.is_verified);
 
     // Verifying auction
     let payer = testbench.clone_payer();
     let balance_change = verify_auction_transaction(&mut testbench, auction_id, &payer)
         .await
+        .unwrap()
         .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(auction_root_state.status.is_verified);
 
     assert_eq!(-balance_change as u64, TRANSACTION_FEE);
@@ -57,9 +61,11 @@ async fn test_process_verify_auction() {
     // NOTE: has no effect
     verify_auction_transaction(&mut testbench, auction_id, &payer)
         .await
+        .unwrap()
         .unwrap();
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(auction_root_state.status.is_verified);
 }

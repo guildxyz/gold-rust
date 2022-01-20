@@ -10,11 +10,11 @@ use solana_sdk::signer::Signer;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::ID as CONTRACT_ID;
-use agsol_testbench::tokio;
+use agsol_testbench::{tokio, TestbenchError};
 
 #[tokio::test]
 async fn test_process_tokens() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
@@ -24,7 +24,11 @@ async fn test_process_tokens() {
         number_of_cycles: Some(1000),
     };
 
-    let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
 
     initialize_new_auction(
         &mut testbench,
@@ -34,6 +38,7 @@ async fn test_process_tokens() {
         TokenType::Token,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let (token_mint_pubkey, _) =
@@ -57,7 +62,7 @@ async fn test_process_tokens() {
     assert_eq!(token_mint.freeze_authority, COption::None,);
 
     // Test no bids were taken
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     close_cycle_transaction(
         &mut testbench,
@@ -67,6 +72,7 @@ async fn test_process_tokens() {
         TokenType::Token,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let token_mint = testbench
@@ -80,20 +86,25 @@ async fn test_process_tokens() {
         &CONTRACT_ID,
     );
     assert_eq!(
-        testbench.get_token_account(&token_holding_pubkey).await,
-        Err("Account not found".to_string())
+        testbench
+            .get_token_account(&token_holding_pubkey)
+            .await
+            .err()
+            .unwrap(),
+        TestbenchError::AccountNotFound
     );
 
     // Test after a bid was taken
-    let user_1 = TestUser::new(&mut testbench).await;
+    let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
+        .unwrap()
         .unwrap();
 
     // Closing cycle after bid
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     close_cycle_transaction(
         &mut testbench,
@@ -103,6 +114,7 @@ async fn test_process_tokens() {
         TokenType::Token,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let token_mint = testbench

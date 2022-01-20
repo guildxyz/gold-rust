@@ -23,12 +23,13 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
-use agsol_testbench::{Testbench, TestbenchProgram};
+use agsol_testbench::{
+    Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult,
+};
 
 pub const TRANSACTION_FEE: u64 = 5000;
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
 
-// For some reason the compiler always throws dead_code on this
 pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
     match program_err {
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
@@ -37,6 +38,15 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
         _ => unimplemented!(),
     }
 }
+/*
+pub fn to_auction_error<T>(testbench_result: Result<T, TransactionError>) -> AuctionContractError {
+    let program_err = testbench_result.unwrap().err().unwrap();
+    to_auction_error_intermediary(program_err)
+}
+*/
+
+type TestbenchResultOption<T> = TestbenchResult<Option<T>>;
+type AuctionTransactionResult = TestbenchResult<Result<i64, AuctionContractError>>;
 
 pub struct TestContractConfig {
     pub auction_owner: TestUser,
@@ -48,7 +58,7 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(testbench: &mut Testbench) -> Self {
+    pub async fn new(testbench: &mut Testbench) -> TestbenchTransactionResult<Self> {
         let keypair = Keypair::new();
 
         // send lamports to user
@@ -63,117 +73,123 @@ impl TestUser {
         testbench
             .process_transaction(&[instruction], &payer, None)
             .await
-            .unwrap();
-
-        Self { keypair }
+            .map(|transaction_result| transaction_result.map(|_| Self { keypair }))
     }
 }
 
-pub async fn warp_to_cycle_end(testbench: &mut Testbench, auction_id: [u8; 32]) {
-    let (_, auction_cycle_state_pubkey) = get_state_pubkeys(testbench, auction_id).await;
+pub async fn warp_to_cycle_end(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+) -> TestbenchResult<()> {
+    let (_, auction_cycle_state_pubkey) = get_state_pubkeys(testbench, auction_id).await?;
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
+        .await?;
 
-    let current_time = testbench.block_time().await;
+    let current_time = testbench.block_time().await?;
     let warp_duration = auction_cycle_state.end_time - current_time + 1;
 
     if warp_duration > 1 {
-        testbench.warp_n_seconds(warp_duration).await;
+        testbench.warp_n_seconds(warp_duration).await?;
     }
 
-    let current_time = testbench.block_time().await;
+    let current_time = testbench.block_time().await?;
     assert!(auction_cycle_state.end_time < current_time);
+
+    Ok(())
 }
 
 pub async fn get_next_child_edition(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> u64 {
-    let nft_data = get_nft_data(testbench, auction_root_state_pubkey)
-        .await
-        .unwrap();
+) -> TestbenchResultOption<u64> {
+    let nft_data = get_nft_data(testbench, auction_root_state_pubkey).await?;
 
-    let master_edition_data = testbench
-        .get_and_deserialize_account_data::<MasterEditionV2>(&nft_data.master_edition)
-        .await;
-    master_edition_data.supply + 1
+    match nft_data {
+        Some(data) => {
+            let master_edition_data = testbench
+                .get_and_deserialize_account_data::<MasterEditionV2>(&data.master_edition)
+                .await?;
+            Ok(Some(master_edition_data.supply + 1))
+        }
+        None => Ok(None),
+    }
 }
 
 pub async fn get_nft_data(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> Option<NftData> {
+) -> TestbenchResultOption<NftData> {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(auction_root_state_pubkey)
-        .await;
+        .await?;
     match auction_root_state.token_config {
-        TokenConfig::Token(_) => None,
-        TokenConfig::Nft(nft_data) => Some(nft_data),
+        TokenConfig::Token(_) => Ok(None),
+        TokenConfig::Nft(nft_data) => Ok(Some(nft_data)),
     }
 }
 
 pub async fn get_token_data(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> Option<TokenData> {
+) -> TestbenchResultOption<TokenData> {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(auction_root_state_pubkey)
-        .await;
+        .await?;
     match auction_root_state.token_config {
-        TokenConfig::Token(token_data) => Some(token_data),
-        TokenConfig::Nft(_) => None,
+        TokenConfig::Token(token_data) => Ok(Some(token_data)),
+        TokenConfig::Nft(_) => Ok(None),
     }
 }
 
 pub async fn get_current_cycle_number(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> u64 {
+) -> TestbenchResult<u64> {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(auction_root_state_pubkey)
-        .await;
-    auction_root_state.status.current_auction_cycle
+        .await?;
+    Ok(auction_root_state.status.current_auction_cycle)
 }
 
 pub async fn get_top_bid(
     testbench: &mut Testbench,
     auction_cycle_state_pubkey: &Pubkey,
-) -> Option<BidData> {
+) -> TestbenchResultOption<BidData> {
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(auction_cycle_state_pubkey)
-        .await;
-    auction_cycle_state.bid_history.get_last_element().cloned()
+        .await?;
+    Ok(auction_cycle_state.bid_history.get_last_element().cloned())
 }
 
 pub async fn get_top_bidder_pubkey(
     testbench: &mut Testbench,
     auction_cycle_state_pubkey: &Pubkey,
-) -> Option<Pubkey> {
+) -> TestbenchResultOption<Pubkey> {
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(auction_cycle_state_pubkey)
-        .await;
-    auction_cycle_state
+        .await?;
+    Ok(auction_cycle_state
         .bid_history
         .get_last_element()
-        .map(|bid_data| bid_data.bidder_pubkey)
+        .map(|bid_data| bid_data.bidder_pubkey))
 }
 
 pub async fn get_state_pubkeys(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
-) -> (Pubkey, Pubkey) {
+) -> TestbenchResult<(Pubkey, Pubkey)> {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
-    let cycle_number = get_current_cycle_number(testbench, &auction_root_state_pubkey).await;
+    let cycle_number = get_current_cycle_number(testbench, &auction_root_state_pubkey).await?;
     let cycle_number_bytes = cycle_number.to_le_bytes();
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
         &auction_cycle_state_seeds(&auction_root_state_pubkey, &cycle_number_bytes),
         &CONTRACT_ID,
     );
 
-    (auction_root_state_pubkey, auction_cycle_state_pubkey)
+    Ok((auction_root_state_pubkey, auction_cycle_state_pubkey))
 }
 
 pub async fn close_cycle_transaction(
@@ -182,16 +198,16 @@ pub async fn close_cycle_transaction(
     auction_id: [u8; 32],
     auction_owner_pubkey: &Pubkey,
     token_type: TokenType,
-) -> Result<i64, AuctionContractError> {
+) -> AuctionTransactionResult {
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
+        get_state_pubkeys(testbench, auction_id).await?;
 
-    let next_cycle_num = get_current_cycle_number(testbench, &auction_root_state_pubkey).await;
+    let next_cycle_num = get_current_cycle_number(testbench, &auction_root_state_pubkey).await?;
 
     let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: payer_keypair.pubkey(),
         auction_owner_pubkey: *auction_owner_pubkey,
-        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await,
+        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,
         auction_id,
         next_cycle_num,
         token_type,
@@ -199,39 +215,31 @@ pub async fn close_cycle_transaction(
 
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
 
-    let payer_balance_before = testbench
-        .get_account_lamports(&payer_keypair.pubkey())
-        .await;
     testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
         .await
-        .map_err(to_auction_error)?;
-    let payer_balance_after = testbench
-        .get_account_lamports(&payer_keypair.pubkey())
-        .await;
-
-    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn freeze_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
     auction_owner_keypair: &Keypair,
-) -> Result<(), AuctionContractError> {
+) -> AuctionTransactionResult {
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
+        get_state_pubkeys(testbench, auction_id).await?;
 
     let freeze_args = FreezeAuctionArgs {
         auction_owner_pubkey: auction_owner_keypair.pubkey(),
         auction_id,
-        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await,
-        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
+        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,
+        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
     };
     let freeze_instruction = freeze_auction(&freeze_args);
     testbench
         .process_transaction(&[freeze_instruction], auction_owner_keypair, None)
         .await
-        .map_err(to_auction_error)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn filter_auction_transaction(
@@ -239,37 +247,29 @@ pub async fn filter_auction_transaction(
     auction_id: [u8; 32],
     filter: bool,
     contract_admin_keypair: &Keypair,
-) -> Result<(), AuctionContractError> {
+) -> AuctionTransactionResult {
     let filter_instruction = filter_auction(contract_admin_keypair.pubkey(), auction_id, filter);
     testbench
         .process_transaction(&[filter_instruction], contract_admin_keypair, None)
         .await
-        .map_err(to_auction_error)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn verify_auction_transaction(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
     contract_admin_keypair: &Keypair,
-) -> Result<i64, AuctionContractError> {
+) -> AuctionTransactionResult {
     let verify_args = VerifyAuctionArgs {
         contract_admin_pubkey: contract_admin_keypair.pubkey(),
         auction_id,
     };
     let verify_instruction = verify_auction(&verify_args);
 
-    let payer_balance_before = testbench
-        .get_account_lamports(&contract_admin_keypair.pubkey())
-        .await;
     testbench
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
         .await
-        .map_err(to_auction_error)?;
-    let payer_balance_after = testbench
-        .get_account_lamports(&contract_admin_keypair.pubkey())
-        .await;
-
-    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn claim_funds_transaction(
@@ -277,31 +277,23 @@ pub async fn claim_funds_transaction(
     auction_id: [u8; 32],
     auction_owner: &Keypair,
     amount: u64,
-) -> Result<i64, AuctionContractError> {
+) -> AuctionTransactionResult {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let claim_funds_args = ClaimFundsArgs {
         auction_owner_pubkey: auction_owner.pubkey(),
         auction_id,
-        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
+        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
         amount,
     };
 
     let claim_funds_ix = claim_funds(&claim_funds_args);
 
-    let payer_balance_before = testbench
-        .get_account_lamports(&auction_owner.pubkey())
-        .await;
     testbench
         .process_transaction(&[claim_funds_ix], auction_owner, None)
         .await
-        .map_err(to_auction_error)?;
-    let payer_balance_after = testbench
-        .get_account_lamports(&auction_owner.pubkey())
-        .await;
-
-    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn place_bid_transaction(
@@ -309,27 +301,23 @@ pub async fn place_bid_transaction(
     auction_id: [u8; 32],
     user_keypair: &Keypair,
     amount: u64,
-) -> Result<i64, AuctionContractError> {
+) -> AuctionTransactionResult {
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
+        get_state_pubkeys(testbench, auction_id).await?;
 
     let place_bid_args = PlaceBidArgs {
         user_main_pubkey: user_keypair.pubkey(),
         auction_id,
-        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await,
-        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await,
+        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
+        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,
         amount,
     };
     let bid_instruction = place_bid(&place_bid_args);
 
-    let payer_balance_before = testbench.get_account_lamports(&user_keypair.pubkey()).await;
     testbench
         .process_transaction(&[bid_instruction], user_keypair, None)
         .await
-        .map_err(to_auction_error)?;
-    let payer_balance_after = testbench.get_account_lamports(&user_keypair.pubkey()).await;
-
-    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn initialize_new_auction_custom(
@@ -338,7 +326,7 @@ pub async fn initialize_new_auction_custom(
     auction_config: &AuctionConfig,
     auction_id: [u8; 32],
     create_token_args: CreateTokenArgs,
-) -> Result<(), TransactionError> {
+) -> AuctionTransactionResult {
     let initialize_auction_args = InitializeAuctionArgs {
         auction_owner_pubkey: auction_owner.pubkey(),
         auction_id,
@@ -359,6 +347,7 @@ pub async fn initialize_new_auction_custom(
     testbench
         .process_transaction(&[instruction], auction_owner, None)
         .await
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn initialize_new_auction(
@@ -367,7 +356,7 @@ pub async fn initialize_new_auction(
     auction_config: &AuctionConfig,
     auction_id: [u8; 32],
     token_type: TokenType,
-) -> Result<i64, AuctionContractError> {
+) -> AuctionTransactionResult {
     let initialize_auction_args = InitializeAuctionArgs::new_test(
         auction_owner.pubkey(),
         *auction_config,
@@ -376,27 +365,19 @@ pub async fn initialize_new_auction(
     );
     let instruction = initialize_auction(&initialize_auction_args);
 
-    let payer_balance_before = testbench
-        .get_account_lamports(&auction_owner.pubkey())
-        .await;
     testbench
         .process_transaction(&[instruction], auction_owner, None)
         .await
-        .map_err(to_auction_error)?;
-    let payer_balance_after = testbench
-        .get_account_lamports(&auction_owner.pubkey())
-        .await;
-
-    Ok(payer_balance_after as i64 - payer_balance_before as i64)
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
 
 pub async fn get_auction_cycle_pubkey(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> Pubkey {
+) -> TestbenchResult<Pubkey> {
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(auction_root_state_pubkey)
-        .await;
+        .await?;
 
     let cycle_number_bytes = auction_root_state
         .status
@@ -407,32 +388,37 @@ pub async fn get_auction_cycle_pubkey(
         &CONTRACT_ID,
     );
 
-    auction_cycle_state_pubkey
+    Ok(auction_cycle_state_pubkey)
 }
 
-pub async fn is_existing_account(testbench: &mut Testbench, account_pubkey: &Pubkey) -> bool {
-    testbench
-        .client()
-        .get_account(*account_pubkey)
-        .await
-        .unwrap()
-        .is_some()
+pub async fn is_existing_account(
+    testbench: &mut Testbench,
+    account_pubkey: &Pubkey,
+) -> TestbenchResult<bool> {
+    let account_query = testbench.get_account(account_pubkey).await;
+    match account_query {
+        Err(err) => match err {
+            TestbenchError::AccountNotFound => Ok(false),
+            _ => Err(err),
+        },
+        Ok(_) => Ok(true),
+    }
 }
 
 pub async fn get_auction_cycle_state(
     testbench: &mut Testbench,
     auction_root_state_pubkey: &Pubkey,
-) -> (Pubkey, AuctionCycleState) {
+) -> TestbenchResult<(Pubkey, AuctionCycleState)> {
     let auction_cycle_state_pubkey =
-        get_auction_cycle_pubkey(testbench, auction_root_state_pubkey).await;
+        get_auction_cycle_pubkey(testbench, auction_root_state_pubkey).await?;
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
+        .await?;
 
-    (auction_cycle_state_pubkey, auction_cycle_state)
+    Ok((auction_cycle_state_pubkey, auction_cycle_state))
 }
 
-pub async fn testbench_setup() -> (Testbench, TestUser) {
+pub async fn testbench_setup() -> TestbenchTransactionResult<(Testbench, TestUser)> {
     let program_id = agsol_gold_contract::id();
     let testbench_program = TestbenchProgram {
         name: "agsol_gold_contract",
@@ -448,19 +434,21 @@ pub async fn testbench_setup() -> (Testbench, TestUser) {
         process_instruction: None,
     };
 
-    let mut testbench = Testbench::new(&[testbench_program, meta_program]).await;
+    let mut testbench = Testbench::new(&[testbench_program, meta_program]).await?;
     let initialize_contract_args = InitializeContractArgs {
         contract_admin: testbench.payer().pubkey(),
         withdraw_authority: testbench.payer().pubkey(),
         initial_auction_pool_len: INITIAL_AUCTION_POOL_LEN,
     };
     let init_contract_ix = initialize_contract(&initialize_contract_args);
-    testbench
+    let result = testbench
         .process_transaction(&[init_contract_ix], &testbench.clone_payer(), None)
-        .await
-        .unwrap();
+        .await;
 
-    let auction_owner = TestUser::new(&mut testbench).await;
+    // TODO: unwrap here is is somewhat ok because it does not include own contract code
+    //  However, this is includes a second process_transaction call with potentially
+    //  different transaction error
+    let auction_owner = TestUser::new(&mut testbench).await?.unwrap();
 
-    (testbench, auction_owner)
+    result.map(|transaction_result| transaction_result.map(|_| (testbench, auction_owner)))
 }

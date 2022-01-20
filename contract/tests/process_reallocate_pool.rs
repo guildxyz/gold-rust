@@ -13,12 +13,13 @@ use solana_sdk::signature::Signer;
 
 #[tokio::test]
 async fn test_process_reallocate_pool() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(auction_pool.max_len, INITIAL_AUCTION_POOL_LEN);
     assert!(auction_pool.pool.is_empty());
@@ -43,26 +44,34 @@ async fn test_process_reallocate_pool() {
             TokenType::Nft,
         )
         .await
+        .unwrap()
         .unwrap();
     }
 
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(auction_pool.pool.len(), INITIAL_AUCTION_POOL_LEN as usize);
 
     auction_id = [INITIAL_AUCTION_POOL_LEN as u8; 32];
     // try to initialize an auction with a full pool
-    let result = initialize_new_auction(
+    let initialize_auction_with_full_pool_error = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
         &auction_config,
         auction_id,
         TokenType::Nft,
     )
-    .await;
-    assert_eq!(result, Err(AuctionContractError::AuctionPoolFull));
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+    assert_eq!(
+        initialize_auction_with_full_pool_error,
+        AuctionContractError::AuctionPoolFull
+    );
 
     let new_max_len = 10_u32;
     let rent_program = testbench.client().get_rent().await.unwrap();
@@ -71,22 +80,37 @@ async fn test_process_reallocate_pool() {
     );
     let new_pool_rent = rent_program
         .minimum_balance(AuctionPool::max_serialized_len(new_max_len as usize).unwrap());
-    let admin_balance_before = testbench.get_account_lamports(&payer.pubkey()).await;
+    let admin_balance_before = testbench
+        .get_account_lamports(&payer.pubkey())
+        .await
+        .unwrap();
 
     let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_max_len);
     testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
+        .unwrap()
         .unwrap();
 
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(auction_pool.pool.len(), INITIAL_AUCTION_POOL_LEN as usize);
     assert_eq!(auction_pool.max_len, new_max_len);
-    let admin_balance_after = testbench.get_account_lamports(&payer.pubkey()).await;
-    let pool_balance = testbench.get_account_lamports(&auction_pool_pubkey).await;
-    let pool_data_len = testbench.get_account_data(&auction_pool_pubkey).await.len();
+    let admin_balance_after = testbench
+        .get_account_lamports(&payer.pubkey())
+        .await
+        .unwrap();
+    let pool_balance = testbench
+        .get_account_lamports(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let pool_data_len = testbench
+        .get_account_data(&auction_pool_pubkey)
+        .await
+        .unwrap()
+        .len();
     assert_eq!(
         admin_balance_before - admin_balance_after,
         TRANSACTION_FEE + new_pool_rent - old_pool_rent
@@ -99,11 +123,14 @@ async fn test_process_reallocate_pool() {
         auction_id,
         TokenType::Nft,
     )
-    .await;
+    .await
+    .unwrap();
     assert!(result.is_ok());
+
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(
         auction_pool.pool.len(),
         INITIAL_AUCTION_POOL_LEN as usize + 1
@@ -116,6 +143,7 @@ async fn test_process_reallocate_pool() {
     let error = testbench
         .process_transaction(&[reallocate_instruction], &auction_owner.keypair, None)
         .await
+        .unwrap()
         .err()
         .unwrap();
     assert_eq!(
@@ -129,6 +157,7 @@ async fn test_process_reallocate_pool() {
     let error = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
+        .unwrap()
         .err()
         .unwrap();
     assert_eq!(
@@ -140,6 +169,7 @@ async fn test_process_reallocate_pool() {
     let reallocate_instruction = reallocate_pool(&payer.pubkey(), 350_000);
     let result = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
-        .await;
+        .await
+        .unwrap();
     assert!(result.is_err());
 }

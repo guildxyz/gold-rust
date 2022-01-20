@@ -23,5 +23,5 @@ solana-program = "1.9.0"
 spl-token = { git = "https://github.com/zgendao/solana-program-library.git", features = ["no-entrypoint"] }
 
 [dev-dependencies]
-agsol-testbench = { git = "https://github.com/agoraxyz/agora-solana.git" }
+agsol-testbench = { git = "https://github.com/agoraxyz/agora-solana.git", branch = "I6-testbench-unwraps" }
 solana-sdk = "1.9.0"

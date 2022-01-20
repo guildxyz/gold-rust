@@ -14,7 +14,7 @@ use solana_sdk::signer::Signer;
 
 #[tokio::test]
 async fn test_process_admin_withdraw() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
         cycle_period: 20,
@@ -25,8 +25,12 @@ async fn test_process_admin_withdraw() {
 
     let payer = testbench.clone_payer();
 
-    let user_1 = TestUser::new(&mut testbench).await;
-    let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
+    let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
 
     initialize_new_auction(
         &mut testbench,
@@ -36,15 +40,17 @@ async fn test_process_admin_withdraw() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
     // Place bid
     let bid_amount = 100_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
+        .unwrap()
         .unwrap();
 
     // Close second cycle
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     let _balance_change = close_cycle_transaction(
         &mut testbench,
@@ -54,12 +60,16 @@ async fn test_process_admin_withdraw() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     // claim funds
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
-    let contract_balance_before = testbench.get_account_lamports(&contract_bank_pubkey).await;
+    let contract_balance_before = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
 
     let claim_amount = 1_000_000;
     let owner_balance_change = claim_funds_transaction(
@@ -69,8 +79,12 @@ async fn test_process_admin_withdraw() {
         claim_amount,
     )
     .await
+    .unwrap()
     .unwrap();
-    let contract_balance_after = testbench.get_account_lamports(&contract_bank_pubkey).await;
+    let contract_balance_after = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
 
     assert_eq!(
         claim_amount / 20 * 19 - TRANSACTION_FEE,
@@ -91,6 +105,7 @@ async fn test_process_admin_withdraw() {
     let error = testbench
         .process_transaction(&[withdraw_instruction], &user_1.keypair, None)
         .await
+        .unwrap()
         .err()
         .unwrap();
 
@@ -101,7 +116,8 @@ async fn test_process_admin_withdraw() {
 
     let contract_bank_state = testbench
         .get_and_deserialize_account_data::<ContractBankState>(&contract_bank_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(
         contract_bank_state.withdraw_authority,
         testbench.payer().pubkey()
@@ -122,6 +138,7 @@ async fn test_process_admin_withdraw() {
     let error = testbench
         .process_transaction(&[withdraw_instruction], &payer, None)
         .await
+        .unwrap()
         .err()
         .unwrap();
 
@@ -130,19 +147,29 @@ async fn test_process_admin_withdraw() {
         AuctionContractError::InvalidClaimAmount
     );
 
-    let withdraw_authority_balance_before = testbench.get_account_lamports(&payer.pubkey()).await;
+    let withdraw_authority_balance_before = testbench
+        .get_account_lamports(&payer.pubkey())
+        .await
+        .unwrap();
 
     // withdraw proper amount
     admin_withdraw_args.amount = TRANSACTION_FEE + 100;
     let withdraw_instruction = admin_withdraw(&admin_withdraw_args);
     let result = testbench
         .process_transaction(&[withdraw_instruction.clone()], &payer, None)
-        .await;
+        .await
+        .unwrap();
 
     assert!(result.is_ok());
 
-    let withdraw_authority_balance_after = testbench.get_account_lamports(&payer.pubkey()).await;
-    let contract_bank_balance_after_2 = testbench.get_account_lamports(&contract_bank_pubkey).await;
+    let withdraw_authority_balance_after = testbench
+        .get_account_lamports(&payer.pubkey())
+        .await
+        .unwrap();
+    let contract_bank_balance_after_2 = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
 
     assert_eq!(
         withdraw_authority_balance_after - withdraw_authority_balance_before,
@@ -167,13 +194,15 @@ async fn test_process_admin_withdraw() {
     // reassign signed by true authority
     let result = testbench
         .process_transaction(&[reassign_instruction], &payer, None)
-        .await;
+        .await
+        .unwrap();
 
     assert!(result.is_ok());
 
     let contract_bank_state = testbench
         .get_and_deserialize_account_data::<ContractBankState>(&contract_bank_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(
         contract_bank_state.withdraw_authority,
@@ -184,6 +213,7 @@ async fn test_process_admin_withdraw() {
     let error = testbench
         .process_transaction(&[withdraw_instruction], &payer, None)
         .await
+        .unwrap()
         .err()
         .unwrap();
 
@@ -198,15 +228,18 @@ async fn test_process_admin_withdraw() {
 
     let user_balance_before = testbench
         .get_account_lamports(&user_1.keypair.pubkey())
-        .await;
+        .await
+        .unwrap();
     let result = testbench
         .process_transaction(&[withdraw_instruction], &user_1.keypair, None)
-        .await;
+        .await
+        .unwrap();
     assert!(result.is_ok());
 
     let user_balance_after = testbench
         .get_account_lamports(&user_1.keypair.pubkey())
-        .await;
+        .await
+        .unwrap();
     assert_eq!(
         user_balance_after - user_balance_before,
         admin_withdraw_args.amount - TRANSACTION_FEE
