@@ -14,7 +14,7 @@ const TRANSACTION_FEE: u64 = 5000;
 
 #[tokio::test]
 async fn test_process_freeze() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [2; 32];
     let auction_config = AuctionConfig {
@@ -32,6 +32,7 @@ async fn test_process_freeze() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let payer = testbench.clone_payer();
@@ -45,21 +46,23 @@ async fn test_process_freeze() {
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(!auction_root_state.status.is_frozen);
 
-    let bidder = TestUser::new(&mut testbench).await;
+    let bidder = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     // Bid to auction once
     let first_bid = 50_000_000;
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &bidder.keypair, first_bid)
             .await
+            .unwrap()
             .unwrap();
 
     assert_eq!(-balance_change as u64, first_bid + TRANSACTION_FEE);
 
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     // close first cycle
     close_cycle_transaction(
@@ -70,11 +73,13 @@ async fn test_process_freeze() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(auction_root_state.available_funds, first_bid);
     assert_eq!(auction_root_state.all_time_treasury, first_bid);
@@ -84,27 +89,39 @@ async fn test_process_freeze() {
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &bidder.keypair, second_bid)
             .await
+            .unwrap()
             .unwrap();
 
     assert_eq!(-balance_change as u64, second_bid + TRANSACTION_FEE);
 
     let bidder_balance = testbench
         .get_account_lamports(&bidder.keypair.pubkey())
-        .await;
+        .await
+        .unwrap();
     let owner_balance = testbench
         .get_account_lamports(&auction_owner.keypair.pubkey())
-        .await;
-    let contract_balance = testbench.get_account_lamports(&contract_bank_pubkey).await;
-    let withdrawn_amount = testbench.get_account_lamports(&auction_bank_pubkey).await - second_bid;
+        .await
+        .unwrap();
+    let contract_balance = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
+    let withdrawn_amount = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap()
+        - second_bid;
 
     // Freezing auction
     freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
         .await
+        .unwrap()
         .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert!(auction_root_state.status.is_frozen);
     assert_eq!(auction_root_state.all_time_treasury, first_bid);
@@ -112,11 +129,16 @@ async fn test_process_freeze() {
 
     let bidder_balance_after = testbench
         .get_account_lamports(&bidder.keypair.pubkey())
-        .await;
+        .await
+        .unwrap();
     let owner_balance_after = testbench
         .get_account_lamports(&auction_owner.keypair.pubkey())
-        .await;
-    let contract_balance_after = testbench.get_account_lamports(&contract_bank_pubkey).await;
+        .await
+        .unwrap();
+    let contract_balance_after = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
 
     let five_percent = withdrawn_amount / 20;
     assert_eq!(bidder_balance_after, bidder_balance + second_bid); // bidder refunded
@@ -131,6 +153,7 @@ async fn test_process_freeze() {
     let auction_already_frozen_error =
         freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
             .await
+            .unwrap()
             .err()
             .unwrap();
     assert_eq!(
@@ -143,6 +166,7 @@ async fn test_process_freeze() {
     let freeze_incorrect_signature_error =
         freeze_auction_transaction(&mut testbench, auction_id, &payer)
             .await
+            .unwrap()
             .err()
             .unwrap();
     assert_eq!(

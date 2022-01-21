@@ -15,7 +15,7 @@ const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_557_840;
 
 #[tokio::test]
 async fn test_process_claim_funds() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
@@ -25,8 +25,12 @@ async fn test_process_claim_funds() {
         number_of_cycles: Some(2),
     };
 
-    let user_1 = TestUser::new(&mut testbench).await;
-    let auction_cycle_payer = TestUser::new(&mut testbench).await.keypair;
+    let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
 
     initialize_new_auction(
         &mut testbench,
@@ -36,6 +40,7 @@ async fn test_process_claim_funds() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let (auction_root_state_pubkey, _) =
@@ -53,6 +58,7 @@ async fn test_process_claim_funds() {
         claim_amount,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
 
@@ -65,6 +71,7 @@ async fn test_process_claim_funds() {
     let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
+        .unwrap()
         .unwrap();
 
     // Invalid use case
@@ -76,6 +83,7 @@ async fn test_process_claim_funds() {
         claim_amount,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
 
@@ -85,7 +93,7 @@ async fn test_process_claim_funds() {
     );
 
     // Make the auction cycle reach end time
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     // Close auction cycle so that we can claim funds
     let balance_change = close_cycle_transaction(
@@ -96,6 +104,7 @@ async fn test_process_claim_funds() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     assert_eq!(
@@ -104,7 +113,10 @@ async fn test_process_claim_funds() {
     );
 
     // claim all treasury from not ended auction should be prohibited due to rent
-    let claim_all = testbench.get_account_lamports(&auction_bank_pubkey).await;
+    let claim_all = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap();
 
     let error = claim_funds_transaction(
         &mut testbench,
@@ -113,6 +125,7 @@ async fn test_process_claim_funds() {
         claim_all,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
 
@@ -120,7 +133,8 @@ async fn test_process_claim_funds() {
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(auction_root_state.available_funds, bid_amount);
     assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 
@@ -132,6 +146,7 @@ async fn test_process_claim_funds() {
         claim_amount,
     )
     .await
+    .unwrap()
     .unwrap();
 
     assert_eq!(
@@ -141,7 +156,8 @@ async fn test_process_claim_funds() {
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(
         auction_root_state.available_funds,
         bid_amount - claim_amount
@@ -150,7 +166,7 @@ async fn test_process_claim_funds() {
 
     // Closing last (second) auction cycle will only extend it because there was
     // no bid
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     close_cycle_transaction(
         &mut testbench,
@@ -160,6 +176,7 @@ async fn test_process_claim_funds() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     // Claim funds from the ended auction
@@ -170,6 +187,7 @@ async fn test_process_claim_funds() {
         claim_amount,
     )
     .await
+    .unwrap()
     .unwrap();
 
     assert_eq!(
@@ -178,7 +196,10 @@ async fn test_process_claim_funds() {
     );
 
     // Claiming ALL funds from the auction should be an error because it has not ended yet.
-    let claim_all = testbench.get_account_lamports(&auction_bank_pubkey).await;
+    let claim_all = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap();
     let error = claim_funds_transaction(
         &mut testbench,
         auction_id,
@@ -186,13 +207,17 @@ async fn test_process_claim_funds() {
         claim_all,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
     assert_eq!(error, AuctionContractError::InvalidClaimAmount);
 
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
-    let contract_balance_before = testbench.get_account_lamports(&contract_bank_pubkey).await;
+    let contract_balance_before = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
         auction_id,
@@ -200,8 +225,12 @@ async fn test_process_claim_funds() {
         claim_amount,
     )
     .await
+    .unwrap()
     .unwrap();
-    let contract_balance_after = testbench.get_account_lamports(&contract_bank_pubkey).await;
+    let contract_balance_after = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
 
     assert_eq!(
         claim_amount / 20 * 19 - TRANSACTION_FEE,
@@ -216,9 +245,10 @@ async fn test_process_claim_funds() {
     // second bid
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
         .await
+        .unwrap()
         .unwrap();
 
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     // close second cycle for real
     close_cycle_transaction(
@@ -229,17 +259,22 @@ async fn test_process_claim_funds() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert!(!auction_root_state.status.is_frozen);
     assert!(auction_root_state.status.is_finished);
 
     // claim all treasury from ended auction
-    let claim_all = testbench.get_account_lamports(&auction_bank_pubkey).await;
+    let claim_all = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap();
 
     claim_funds_transaction(
         &mut testbench,
@@ -248,5 +283,6 @@ async fn test_process_claim_funds() {
         claim_all,
     )
     .await
+    .unwrap()
     .unwrap();
 }

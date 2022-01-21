@@ -1,3 +1,7 @@
+// This is necessary because clippy throws 'unneeded unit expression' error
+// on the wasm_bindgen expressions
+#![allow(clippy::unused_unit)]
+
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;

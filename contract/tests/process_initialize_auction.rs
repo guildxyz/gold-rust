@@ -14,14 +14,13 @@ use metaplex_token_metadata::ID as META_ID;
 
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
-use spl_token::state::{Account as TokenAccount, Mint};
 
 const TRANSACTION_FEE: u64 = 5_000;
 const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
     let auction_id = [123_u8; 32];
 
     // Invalid use case
@@ -41,6 +40,7 @@ async fn test_process_initialize_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
 
@@ -59,6 +59,7 @@ async fn test_process_initialize_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     assert_eq!(-balance_change as u64, AUCTION_CREATION_COST);
@@ -71,9 +72,8 @@ async fn test_process_initialize_auction() {
         &metaplex_token_metadata::ID,
     );
 
-    let master_mint_data: Mint = testbench
-        .client()
-        .get_packed_account_data(master_mint_pubkey)
+    let master_mint_data = testbench
+        .get_mint_account(&master_mint_pubkey)
         .await
         .unwrap();
 
@@ -88,9 +88,8 @@ async fn test_process_initialize_auction() {
     // check holding account
     let (master_holding_pubkey, _) =
         Pubkey::find_program_address(&master_holding_seeds(&auction_id), &CONTRACT_ID);
-    let master_holding_data: TokenAccount = testbench
-        .client()
-        .get_packed_account_data(master_holding_pubkey)
+    let master_holding_data = testbench
+        .get_token_account(&master_holding_pubkey)
         .await
         .unwrap();
 
@@ -103,7 +102,8 @@ async fn test_process_initialize_auction() {
         .get_and_deserialize_account_data::<metaplex_token_metadata::state::Metadata>(
             &master_metadata_pubkey,
         )
-        .await;
+        .await
+        .unwrap();
     unpuff_metadata(&mut master_metadata.data);
     assert_eq!(master_metadata.data.uri, "uri/1.json");
 
@@ -117,7 +117,10 @@ async fn test_process_initialize_auction() {
     );
 
     // Assert length of the root state data
-    let auction_root_state_data = testbench.get_account_data(&auction_root_state_pubkey).await;
+    let auction_root_state_data = testbench
+        .get_account_data(&auction_root_state_pubkey)
+        .await
+        .unwrap();
     assert_eq!(
         auction_root_state_data.len(),
         AuctionRootState::MAX_SERIALIZED_LEN + agsol_gold_contract::EXTRA_ROOT_STATE_BYTES
@@ -126,10 +129,12 @@ async fn test_process_initialize_auction() {
     // Assert that these accounts can be read
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(
         auction_root_state.auction_config.cycle_period,
@@ -147,7 +152,8 @@ async fn test_process_initialize_auction() {
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(1, auction_pool.pool.len());
     assert_eq!(auction_pool.pool[0], [123_u8; 32]);
 
@@ -161,6 +167,7 @@ async fn test_process_initialize_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
     assert_eq!(
@@ -168,7 +175,7 @@ async fn test_process_initialize_auction() {
         AuctionContractError::AuctionIdNotUnique
     );
 
-    let other_user = TestUser::new(&mut testbench).await;
+    let other_user = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     let initialize_auction_with_same_id_error = initialize_new_auction(
         &mut testbench,
@@ -178,6 +185,7 @@ async fn test_process_initialize_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
     assert_eq!(

@@ -18,12 +18,15 @@ async fn assert_auction_state(
     bid_amount: u64,
 ) {
     let (_auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await;
+        get_state_pubkeys(testbench, auction_id).await.unwrap();
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
     // Assert top bidder
-    if let Some(top_bid) = &get_top_bid(testbench, &auction_cycle_state_pubkey).await {
+    if let Some(top_bid) = &get_top_bid(testbench, &auction_cycle_state_pubkey)
+        .await
+        .unwrap()
+    {
         assert_eq!(&top_bid.bidder_pubkey, expected_top_bidder);
         assert_eq!(top_bid.bid_amount, bid_amount);
     }
@@ -32,13 +35,16 @@ async fn assert_auction_state(
     let min_balance = testbench.rent.minimum_balance(0);
     assert_eq!(
         min_balance + bid_amount,
-        testbench.get_account_lamports(&auction_bank_pubkey).await
+        testbench
+            .get_account_lamports(&auction_bank_pubkey)
+            .await
+            .unwrap()
     );
 }
 
 #[tokio::test]
 async fn test_process_bid() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_config = AuctionConfig {
         cycle_period: 100,
@@ -56,28 +62,34 @@ async fn test_process_bid() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     // check state account
     let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
-        get_state_pubkeys(&mut testbench, auction_id).await;
+        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    let initial_funds = testbench.get_account_lamports(&auction_bank_pubkey).await;
+    let initial_funds = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap();
     assert!(initial_funds > 0);
 
-    let user_1 = TestUser::new(&mut testbench).await;
-    let user_2 = TestUser::new(&mut testbench).await;
+    let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
+    let user_2 = TestUser::new(&mut testbench).await.unwrap().unwrap();
     let initial_balance = testbench
         .get_account_lamports(&user_1.keypair.pubkey())
-        .await;
+        .await
+        .unwrap();
 
     // Invalid use case
     // Test bid lower than minimum_bid
     let lower_than_minimum_bid_error =
         place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, 10_000_000)
             .await
+            .unwrap()
             .err()
             .unwrap();
 
@@ -91,6 +103,7 @@ async fn test_process_bid() {
     let balance_change =
         place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
             .await
+            .unwrap()
             .unwrap();
 
     assert_auction_state(
@@ -107,7 +120,8 @@ async fn test_process_bid() {
     // Check if treasury is updated
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(auction_root_state.all_time_treasury, bid_amount);
 
     // Test higher than current bid
@@ -119,6 +133,7 @@ async fn test_process_bid() {
         bid_amount_higher,
     )
     .await
+    .unwrap()
     .unwrap();
 
     assert_auction_state(
@@ -135,6 +150,7 @@ async fn test_process_bid() {
         testbench
             .get_account_lamports(&user_1.keypair.pubkey())
             .await
+            .unwrap()
     );
 
     assert_eq!(-balance_change as u64, bid_amount_higher + TRANSACTION_FEE);
@@ -142,7 +158,8 @@ async fn test_process_bid() {
     // Check if treasury is updated
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(auction_root_state.all_time_treasury, bid_amount_higher);
 
     // Invalid use case
@@ -155,6 +172,7 @@ async fn test_process_bid() {
         bid_amount_lower,
     )
     .await
+    .unwrap()
     .err()
     .unwrap();
 
@@ -169,12 +187,13 @@ async fn test_process_bid() {
 
     // Invalid use case
     // Test bid into expired auction
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     let bid_amount = 120_000_000;
     let bid_to_expired_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
             .await
+            .unwrap()
             .err()
             .unwrap();
 
@@ -195,15 +214,16 @@ async fn test_process_bid() {
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert_eq!(1, auction_pool.pool.len());
 }
 
 #[tokio::test]
 async fn bid_to_frozen_auction() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
-    let user_2 = TestUser::new(&mut testbench).await;
+    let user_2 = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     let auction_id = [2; 32];
     let auction_config = AuctionConfig {
@@ -225,25 +245,30 @@ async fn bid_to_frozen_auction() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(!auction_root_state.status.is_frozen);
     freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
         .await
+        .unwrap()
         .unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     assert!(auction_root_state.status.is_frozen);
 
     let bid_amount = 100_000_000;
     let bid_to_frozen_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, bid_amount)
             .await
+            .unwrap()
             .err()
             .unwrap();
 
@@ -253,11 +278,12 @@ async fn bid_to_frozen_auction() {
     );
 
     // Test bid on frozen AND expired auction
-    warp_to_cycle_end(&mut testbench, auction_id).await;
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
     let bid_to_frozen_and_expired_auction_error =
         place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, bid_amount)
             .await
+            .unwrap()
             .err()
             .unwrap();
 
@@ -269,7 +295,7 @@ async fn bid_to_frozen_auction() {
 
 #[tokio::test]
 async fn test_encore_bid() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await;
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [2; 32];
     let auction_config = AuctionConfig {
@@ -287,42 +313,47 @@ async fn test_encore_bid() {
         TokenType::Nft,
     )
     .await
+    .unwrap()
     .unwrap();
 
-    let user = TestUser::new(&mut testbench).await;
+    let user = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     // check state account
     let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(&mut testbench, auction_id).await;
+        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
+        .await
+        .unwrap();
 
     // Place bid to trigger encore
-    testbench.warp_n_seconds(900).await;
+    testbench.warp_n_seconds(900).await.unwrap();
 
     // Assert that we should trigger encore with the bid
     assert!(
-        testbench.block_time().await
+        testbench.block_time().await.unwrap()
             > auction_cycle_state.end_time - auction_root_state.auction_config.encore_period
     );
-    assert!(testbench.block_time().await < auction_cycle_state.end_time);
+    assert!(testbench.block_time().await.unwrap() < auction_cycle_state.end_time);
     let end_time_before = auction_cycle_state.end_time;
 
     let bid_amount = 100_000_000;
-    let block_time_before = testbench.block_time().await;
+    let block_time_before = testbench.block_time().await.unwrap();
     place_bid_transaction(&mut testbench, auction_id, &user.keypair, bid_amount)
         .await
+        .unwrap()
         .unwrap();
 
     // Fetch cycle state again (updated by the transaction)
     let auction_cycle_state = testbench
         .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
-        .await;
+        .await
+        .unwrap();
     let end_time_after = auction_cycle_state.end_time;
 
     assert!(end_time_after > end_time_before);
