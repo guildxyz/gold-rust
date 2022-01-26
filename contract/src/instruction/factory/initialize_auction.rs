@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 // TODO: Optional max supply for ERC20 tokens
 
-#[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Clone)]
 pub struct InitializeAuctionArgs {
     pub auction_owner_pubkey: Pubkey,
     #[alias([u8; 32])]
@@ -63,6 +63,11 @@ impl InitializeAuctionArgs {
 }
 
 pub fn initialize_auction(args: &InitializeAuctionArgs) -> Instruction {
+    let mut args_checked = args.clone();
+    if args.auction_config.number_of_cycles == Some(0) {
+        args_checked.auction_config.number_of_cycles = None;
+    }
+
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
