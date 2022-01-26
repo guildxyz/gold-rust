@@ -1,0 +1,9 @@
+# Rust
+Cargo.lock
+config.toml
+**/target
+
+# Solana
+.coderrect/
+/test-ledger
+*.log
