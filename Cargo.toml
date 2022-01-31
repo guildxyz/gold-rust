@@ -2,4 +2,5 @@
 members = [
 	"contract",
 	"client",
+	"gold-bot",
 ]
