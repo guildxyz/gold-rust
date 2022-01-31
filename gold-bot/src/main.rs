@@ -15,8 +15,8 @@ use agsol_gold_contract::state::{
 };
 use agsol_gold_contract::ID as GOLD_ID;
 
-use log::{error, info, warn};
 use env_logger::Env;
+use log::{error, info, warn};
 
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
@@ -28,7 +28,30 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use structopt::StructOpt;
 
+use std::collections::hash_map::HashMap;
+use std::collections::hash_set::HashSet;
+use std::time::Instant;
+
 const SLEEP_DURATION: u64 = 5000; // milliseconds
+type AuctionId = [u8; 32];
+type HashedPool = HashMap<AuctionId, (Pubkey, AuctionRootState)>;
+type HashedIdSet = HashSet<AuctionId>;
+
+struct ManagedPool {
+    hashed_pool: HashedPool,
+    inactive_auctions: HashedIdSet,
+    error_auctions: HashedIdSet,
+}
+
+impl ManagedPool {
+    fn new() -> Self {
+        Self {
+            hashed_pool: HashedPool::new(),
+            inactive_auctions: HashedIdSet::new(),
+            error_auctions: HashedIdSet::new(),
+        }
+    }
+}
 
 pub fn main() {
     let opt = AuctionBotOpt::from_args();
@@ -45,16 +68,22 @@ pub fn main() {
 
     let bot_keypair = parse_keypair(opt.keypair, &TEST_BOT_SECRET);
 
-    let focused_id_bytes = if let Some(id) = opt.auction_id {
-        Some(pad_to_32_bytes(&id).unwrap())
-    } else {
-        None
-    };
+    let focused_id_bytes = opt
+        .auction_id
+        .map(|id| pad_to_32_bytes(&id).expect("auction id could not be parsed"));
 
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    let mut managed_pool = ManagedPool::new();
+
     loop {
-        if let Err(e) = try_main(&connection, &bot_keypair, should_airdrop, focused_id_bytes) {
+        if let Err(e) = try_main(
+            &connection,
+            &bot_keypair,
+            should_airdrop,
+            &mut managed_pool,
+            focused_id_bytes,
+        ) {
             error!("{}", e);
         }
     }
@@ -64,8 +93,16 @@ fn try_main(
     connection: &RpcClient,
     bot_keypair: &Keypair,
     should_airdrop: bool,
+    managed_pool: &mut ManagedPool,
     focused_id_bytes: Option<[u8; 32]>,
 ) -> Result<(), anyhow::Error> {
+    // LOG ERROR AUCTIONS
+    if managed_pool.error_auctions.len() > 0 {
+        error!("auctions with error on cycle closing:");
+    for auction_id in managed_pool.error_auctions.iter() {
+        error!("{:?}", auction_id);
+    }
+    }
     // AIRDROP IF NECESSARY
     let bot_balance = connection.get_balance(&bot_keypair.pubkey())?;
     if bot_balance < MIN_BALANCE {
@@ -83,10 +120,11 @@ fn try_main(
     info!("time: {} [s]", block_time);
     std::thread::sleep(std::time::Duration::from_millis(SLEEP_DURATION));
     if let Some(id_bytes) = focused_id_bytes {
-        try_close_cycle(connection, &id_bytes, bot_keypair, block_time);
+        try_close_cycle(connection, id_bytes, bot_keypair, block_time, managed_pool)?;
     } else {
         // READ AUCTION POOL
-        let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+        let (auction_pool_pubkey, _) =
+            Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
         let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
         let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
         // CHECK POOL LOAD
@@ -99,7 +137,13 @@ fn try_main(
         }
         // READ INDIVIDUAL STATES
         for auction_id_bytes in auction_pool.pool.iter() {
-            try_close_cycle(connection, auction_id_bytes, bot_keypair, block_time);
+            try_close_cycle(
+                connection,
+                *auction_id_bytes,
+                bot_keypair,
+                block_time,
+                managed_pool,
+            )?;
         }
     }
 
@@ -108,44 +152,65 @@ fn try_main(
 
 fn try_close_cycle(
     connection: &RpcClient,
-    auction_id: &[u8; 32],
+    auction_id: [u8; 32],
     bot_keypair: &Keypair,
     block_time: UnixTimestamp,
-) {
-    let (state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(&(*auction_id)), &GOLD_ID);
+    managed_pool: &mut ManagedPool,
+) -> Result<(), anyhow::Error> {
+    if managed_pool.inactive_auctions.get(&auction_id).is_some() || managed_pool.error_auctions.get(&auction_id).is_some() {
+        return Ok(());
+    }
+
+    let (root_pubkey, root_state) = match managed_pool.hashed_pool.get(&auction_id) {
+        Some((root_pubkey, root_state)) => (*root_pubkey, root_state.clone()),
+        None => {
+            let (root_state_pubkey, _) =
+                Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
+            let root_state_data = connection.get_account_data(&root_state_pubkey)?;
+            let root_state: AuctionRootState = try_from_slice_unchecked(&root_state_data)?;
+            managed_pool
+                .hashed_pool
+                .insert(auction_id, (root_state_pubkey, root_state.clone()));
+            (root_state_pubkey, root_state)
+        }
+    };
+
+    // IF FROZEN OR INACTIVE OR FILTERED, REMOVE FROM MAP
+    if root_state.status.is_frozen || root_state.status.is_finished || root_state.status.is_filtered
+    {
+        managed_pool.inactive_auctions.insert(auction_id);
+        return Ok(());
+    }
+
+    let now = Instant::now();
     if let Err(err) = close_cycle(
         connection,
-        auction_id,
-        &state_pubkey,
+        &auction_id,
+        &root_pubkey,
+        root_state,
         bot_keypair,
         block_time,
     ) {
+        managed_pool.error_auctions.insert(auction_id);
         error!(
             "auction \"{}\" threw error {:?}",
-            String::from_utf8_lossy(auction_id),
+            String::from_utf8_lossy(&auction_id),
             err
         );
     }
+    dbg!(now.elapsed().as_millis());
+    Ok(())
 }
 
 fn close_cycle(
     connection: &RpcClient,
     auction_id: &[u8; 32],
     state_pubkey: &Pubkey,
+    root_state: AuctionRootState,
     bot_keypair: &Keypair,
     block_time: UnixTimestamp,
 ) -> Result<(), anyhow::Error> {
-    let auction_state_data = connection.get_account_data(state_pubkey)?;
-    let auction_state: AuctionRootState = try_from_slice_unchecked(&auction_state_data)?;
-    let current_cycle_bytes = auction_state.status.current_auction_cycle.to_le_bytes();
-    // IF FROZEN OR INACTIVE OR FILTERED, CONTINUE ITERATION
-    if auction_state.status.is_frozen
-        || auction_state.status.is_finished
-        || auction_state.status.is_filtered
-    {
-        return Ok(());
-    }
+    let current_cycle_bytes = root_state.status.current_auction_cycle.to_le_bytes();
 
     let (cycle_state_pubkey, _) = Pubkey::find_program_address(
         &auction_cycle_state_seeds(state_pubkey, &current_cycle_bytes),
@@ -159,7 +224,7 @@ fn close_cycle(
         return Ok(());
     }
 
-    let token_type = match auction_state.token_config {
+    let token_type = match root_state.token_config {
         TokenConfig::Nft(_) => TokenType::Nft,
         TokenConfig::Token(_) => TokenType::Token,
     };
@@ -174,10 +239,10 @@ fn close_cycle(
     };
     let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: bot_keypair.pubkey(),
-        auction_owner_pubkey: auction_state.auction_owner,
+        auction_owner_pubkey: root_state.auction_owner,
         top_bidder_pubkey: top_bidder,
         auction_id: *auction_id,
-        next_cycle_num: auction_state.status.current_auction_cycle,
+        next_cycle_num: root_state.status.current_auction_cycle,
         token_type,
     };
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
@@ -195,7 +260,7 @@ fn close_cycle(
     info!(
         "auction \"{}\"    cycle: {}    signature: {:?}",
         String::from_utf8_lossy(auction_id),
-        auction_state.status.current_auction_cycle,
+        root_state.status.current_auction_cycle,
         signature
     );
     Ok(())
