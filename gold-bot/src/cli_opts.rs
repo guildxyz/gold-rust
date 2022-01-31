@@ -30,4 +30,6 @@ pub struct AuctionBotOpt {
     pub mainnet: bool,
     #[structopt(long, help("The auction bot's keypair file"))]
     pub keypair: Option<PathBuf>,
+    #[structopt(long, help("Auction to focus on (optional)"))]
+    pub auction_id: Option<String>,
 }

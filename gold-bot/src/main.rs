@@ -4,6 +4,8 @@ mod cli_utils;
 use cli_opts::AuctionBotOpt;
 use cli_utils::*;
 
+use agsol_gold_client::pad_to_32_bytes;
+
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
 use agsol_gold_contract::pda::{
     auction_cycle_state_seeds, auction_pool_seeds, auction_root_state_seeds,
@@ -14,6 +16,8 @@ use agsol_gold_contract::state::{
 use agsol_gold_contract::ID as GOLD_ID;
 
 use log::{error, info, warn};
+use env_logger::Env;
+
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
@@ -27,7 +31,6 @@ use structopt::StructOpt;
 const SLEEP_DURATION: u64 = 5000; // milliseconds
 
 pub fn main() {
-    env_logger::init();
     let opt = AuctionBotOpt::from_args();
     let (connection_url, should_airdrop) = if opt.mainnet {
         ("https://api.mainnet-beta.solana.com".to_owned(), false)
@@ -42,8 +45,16 @@ pub fn main() {
 
     let bot_keypair = parse_keypair(opt.keypair, &TEST_BOT_SECRET);
 
+    let focused_id_bytes = if let Some(id) = opt.auction_id {
+        Some(pad_to_32_bytes(&id).unwrap())
+    } else {
+        None
+    };
+
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     loop {
-        if let Err(e) = try_main(&connection, &bot_keypair, should_airdrop) {
+        if let Err(e) = try_main(&connection, &bot_keypair, should_airdrop, focused_id_bytes) {
             error!("{}", e);
         }
     }
@@ -53,6 +64,7 @@ fn try_main(
     connection: &RpcClient,
     bot_keypair: &Keypair,
     should_airdrop: bool,
+    focused_id_bytes: Option<[u8; 32]>,
 ) -> Result<(), anyhow::Error> {
     // AIRDROP IF NECESSARY
     let bot_balance = connection.get_balance(&bot_keypair.pubkey())?;
@@ -70,30 +82,51 @@ fn try_main(
     let block_time = connection.get_block_time(slot)?;
     info!("time: {} [s]", block_time);
     std::thread::sleep(std::time::Duration::from_millis(SLEEP_DURATION));
-    // READ AUCTION POOL
-    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-    let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
-    let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
-    // READ INDIVIDUAL STATES
-    for auction_id in auction_pool.pool.iter() {
-        let (state_pubkey, _) =
-            Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-        if let Err(err) = close_cycle(
-            connection,
-            auction_id,
-            &state_pubkey,
-            bot_keypair,
-            block_time,
-        ) {
-            error!(
-                "auction \"{}\" threw error {:?}",
-                String::from_utf8_lossy(auction_id),
-                err
+    if let Some(id_bytes) = focused_id_bytes {
+        try_close_cycle(connection, &id_bytes, bot_keypair, block_time);
+    } else {
+        // READ AUCTION POOL
+        let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+        let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
+        let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
+        // CHECK POOL LOAD
+        let load = auction_pool.pool.len() as f64 / auction_pool.max_len as f64;
+        if load > 0.8 {
+            warn!(
+                "auction pool is {}% full. Consider allocating additional data.",
+                load
             );
+        }
+        // READ INDIVIDUAL STATES
+        for auction_id_bytes in auction_pool.pool.iter() {
+            try_close_cycle(connection, auction_id_bytes, bot_keypair, block_time);
         }
     }
 
     Ok(())
+}
+
+fn try_close_cycle(
+    connection: &RpcClient,
+    auction_id: &[u8; 32],
+    bot_keypair: &Keypair,
+    block_time: UnixTimestamp,
+) {
+    let (state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&(*auction_id)), &GOLD_ID);
+    if let Err(err) = close_cycle(
+        connection,
+        auction_id,
+        &state_pubkey,
+        bot_keypair,
+        block_time,
+    ) {
+        error!(
+            "auction \"{}\" threw error {:?}",
+            String::from_utf8_lossy(auction_id),
+            err
+        );
+    }
 }
 
 fn close_cycle(
@@ -158,7 +191,7 @@ fn close_cycle(
         latest_blockhash,
     );
 
-    let signature = connection.send_and_confirm_transaction(&transaction)?;
+    let signature = connection.send_transaction(&transaction)?;
     info!(
         "auction \"{}\"    cycle: {}    signature: {:?}",
         String::from_utf8_lossy(auction_id),
