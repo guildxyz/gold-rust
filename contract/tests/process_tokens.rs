@@ -18,7 +18,7 @@ async fn test_process_tokens() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),

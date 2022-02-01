@@ -24,7 +24,7 @@ async fn test_process_close_auction_cycle() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
@@ -215,7 +215,7 @@ async fn test_ended_close_cycle_on_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
@@ -327,7 +327,7 @@ async fn test_close_cycle_on_frozen_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
@@ -393,7 +393,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
@@ -574,7 +574,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),

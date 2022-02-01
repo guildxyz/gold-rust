@@ -44,6 +44,10 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
 /// Minimum bid amount on any auction cycle in Lamports.
 pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
+/// Minimum length of an auction cycle period in seconds.
+pub const MIN_CYCLE_PERIOD: UnixTimestamp = 60; // one minute
+/// Minimum length of an auction cycle period in seconds.
+pub const MAX_CYCLE_PERIOD: UnixTimestamp = 31_557_600; // one year
 
 pub fn unpuff_metadata(metadata_state_data: &mut MetadataStateData) {
     metadata_state_data.name.retain(|c| c != '\u{0}');

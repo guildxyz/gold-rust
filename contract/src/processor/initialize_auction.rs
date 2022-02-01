@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::UNIVERSAL_BID_FLOOR;
+use crate::{MAX_CYCLE_PERIOD, MIN_CYCLE_PERIOD, UNIVERSAL_BID_FLOOR};
 use solana_program::clock::UnixTimestamp;
 
 #[allow(clippy::too_many_arguments)]
@@ -10,7 +10,7 @@ pub fn initialize_auction(
     auction_id: AuctionId,
     auction_name: AuctionName,
     auction_description: AuctionDescription,
-    auction_config: AuctionConfig,
+    mut auction_config: AuctionConfig,
     create_token_args: CreateTokenArgs,
     auction_start_timestamp: Option<UnixTimestamp>,
 ) -> ProgramResult {
@@ -123,6 +123,23 @@ pub fn initialize_auction(
     // Check if provided minimum_bid_amount is higher than the universal bid floor
     if auction_config.minimum_bid_amount < UNIVERSAL_BID_FLOOR {
         return Err(AuctionContractError::InvalidMinimumBidAmount.into());
+    }
+
+    // Check if provided auction cycle period is valid
+    if auction_config.cycle_period < MIN_CYCLE_PERIOD
+        || auction_config.cycle_period > MAX_CYCLE_PERIOD
+    {
+        return Err(AuctionContractError::InvalidCyclePeriod.into());
+    }
+
+    // Check validity of number of cycles
+    if let Some(0) = auction_config.number_of_cycles {
+        auction_config.number_of_cycles = None;
+    }
+
+    // Check that the auction id contains only ascii characters
+    if !auction_id.is_ascii() {
+        return Err(AuctionContractError::AuctionIdNotAscii.into());
     }
 
     // Check auction start time (if provided)
@@ -252,7 +269,7 @@ pub fn initialize_auction(
                 metadata_args.data.creators,
                 metadata_args.data.seller_fee_basis_points,
                 true, // update authority is signer (NOTE contract pda will sign, so could be true)
-                metadata_args.is_mutable,
+                true, // master edition metadata must be mutable regardless of the input
             );
 
             invoke_signed(
@@ -306,6 +323,9 @@ pub fn initialize_auction(
             decimals,
             per_cycle_amount,
         } => {
+            if per_cycle_amount == 0 {
+                return Err(AuctionContractError::InvalidPerCycleAmount.into());
+            }
             // Parse mint account
             let token_mint_account = next_account_info(account_info_iter)?;
 
