@@ -27,7 +27,7 @@ use structopt::StructOpt;
 
 use pool_cache::{ManagedPool, PoolRecord};
 
-const SLEEP_DURATION: u64 = 5000; // milliseconds
+const SLEEP_DURATION: u64 = 1000; // milliseconds
 
 pub fn main() {
     let opt = AuctionBotOpt::from_args();
@@ -48,8 +48,10 @@ pub fn main() {
         .auction_id
         .map(|id| pad_to_32_bytes(&id).expect("auction id could not be parsed"));
 
+    // set default logging level to 'info'
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    // initialize auction pool cache
     let mut managed_pool = ManagedPool::new();
 
     loop {
@@ -130,6 +132,9 @@ fn try_main(
     Ok(())
 }
 
+/// Tries to send a close cycle transaction on the currently processed auction.
+///
+/// It sends the transaction only if the auction is active and the current cycle finished.
 fn try_close_cycle(
     connection: &RpcClient,
     auction_id: [u8; 32],
@@ -158,11 +163,18 @@ fn try_close_cycle(
             String::from_utf8_lossy(&auction_id),
             err
         );
+    } else {
+        // update pool record cache on success
+        pool_record.update_cycle_state(connection)?;
+        pool_record.reset_error_streak();
     }
 
     Ok(())
 }
 
+/// Constructs close cycle arguments and sends the transaction.
+///
+/// Returns error only if the transaction call failed.
 fn close_cycle(
     connection: &RpcClient,
     auction_id: &[u8; 32],
@@ -209,10 +221,6 @@ fn close_cycle(
         pool_record.root_state.status.current_auction_cycle,
         signature
     );
-
-    // update pool record cache on success
-    pool_record.update_cycle_state(connection)?;
-    pool_record.reset_error_streak();
 
     Ok(())
 }

@@ -11,20 +11,20 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 use std::collections::hash_set::HashSet;
 
-// contains the cached data of an auction
+/// Contains the cached data of an auction
 pub struct PoolRecord {
-    // the auction root state account's pubkey
+    /// The auction root state account's pubkey
     pub root_pubkey: Pubkey,
-    // the auction root state
+    /// The auction root state
     pub root_state: AuctionRootState,
-    // the auction cycle state
+    /// The auction cycle state
     pub cycle_state: AuctionCycleState,
-    // the number of times an unexpected error occured on consecutive cycle closings
+    /// The number of times an unexpected error occured on consecutive cycle closings
     pub error_streak: u8,
 }
 
 impl PoolRecord {
-    // initializes a pool record by loading the root and cycle state of the auction
+    /// Initializes a pool record by loading the root and cycle state of the auction
     pub fn new(connection: &RpcClient, auction_id: &AuctionId) -> Result<Self, anyhow::Error> {
         let (root_pubkey, _) =
             Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
@@ -47,14 +47,14 @@ impl PoolRecord {
         })
     }
 
-    // updates the stored root state
+    /// Updates the stored root state
     pub fn update_root_state(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
         let root_state_data = connection.get_account_data(&self.root_pubkey)?;
         self.root_state = try_from_slice_unchecked(&root_state_data)?;
         Ok(())
     }
 
-    // updates the stored cycle state
+    /// Updates the stored cycle state
     pub fn update_cycle_state(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
         let current_cycle_bytes = self.root_state.status.current_auction_cycle.to_le_bytes();
         let (cycle_pubkey, _) = Pubkey::find_program_address(
@@ -66,13 +66,15 @@ impl PoolRecord {
         Ok(())
     }
 
-    // logs error appropriately
-    //  - if unexpected error occurs, increments error_streak
-    //
-    // expected errors:
-    //  - auction cycle was closed by other agent
-    //  - bid triggered encore period which extended the cycle
-    // both errors can be recognized by a difference in cycle end_times
+    /// Logs error appropriately, if unexpected error occurs then increments error_streak
+    ///
+    /// Expected errors:
+    ///
+    ///  - Auction cycle was closed by other agent
+    ///
+    ///  - Bid triggered encore period which extended the cycle
+    ///
+    /// Both errors can be recognized by a difference in cycle end_times
     pub fn report_error(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
         let prev_end_time = self.cycle_state.end_time;
         self.update_root_state(connection)?;
@@ -85,14 +87,14 @@ impl PoolRecord {
         Ok(())
     }
 
-    // resets error streak
-    // should be used after successful cycle closing
+    /// Resets error streak.
+    /// Should be used after successful cycle closing.
     pub fn reset_error_streak(&mut self) {
         self.error_streak = 0;
     }
 
-    // returns if the auction is likely broken
-    // currently identified by facing 5+ consecutive errors on cycle closing
+    /// Returns if the auction is likely broken.
+    /// Currently identified by receiving 5+ consecutive errors on cycle closing
     pub fn is_faulty_auction(&self) -> bool {
         self.error_streak > 5
     }
@@ -101,13 +103,13 @@ impl PoolRecord {
 type HashedPool = HashMap<AuctionId, PoolRecord>;
 type HashedIdSet = HashSet<AuctionId>;
 
-// manages auction states for caching
+/// Manages auction states for caching
 pub struct ManagedPool {
-    // hashmap containing all auctions and their data
+    /// Hashmap containing all auctions and their data
     pub hashed_pool: HashedPool,
-    // hashset containing ids of inactive (frozen, filtered, finished) auctions
+    /// Hashset containing ids of inactive (frozen, filtered, finished) auctions
     pub inactive_auctions: HashedIdSet,
-    // hashset containing ids of erroneous auctions
+    /// Hashset containing ids of erroneous auctions
     pub error_auctions: HashedIdSet,
 }
 
@@ -120,9 +122,11 @@ impl ManagedPool {
         }
     }
 
-    // returns a mutable reference to a pool record if it is active
-    //  - returns none if auction is not active (frozen, filtered, finished, erroneous)
-    //  - returns none if auction cycle is not over yet
+    /// Returns a mutable reference to a pool record if it is active
+    ///
+    ///  - Returns none if auction is not active (frozen, filtered, finished, erroneous)
+    ///
+    ///  - Returns none if auction cycle is not over yet
     pub fn get_or_insert_auction(
         &mut self,
         connection: &RpcClient,
