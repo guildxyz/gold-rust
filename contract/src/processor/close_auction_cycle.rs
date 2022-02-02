@@ -129,27 +129,12 @@ pub fn close_auction_cycle(
             .checked_add(most_recent_bid.bid_amount)
             .ok_or(AuctionContractError::ArithmeticError)?;
     } else {
-        current_auction_cycle_state.end_time = current_auction_cycle_state
-            .end_time
-            .checked_add(auction_root_state.auction_config.cycle_period)
-            .ok_or(AuctionContractError::ArithmeticError)?;
-
-        auction_root_state.status.current_idle_cycle_streak = auction_root_state
-            .status
-            .current_idle_cycle_streak
-            .checked_add(1)
-            .ok_or(AuctionContractError::ArithmeticError)?;
-
-        // If the auction was idle for at least a week then filter it automatically
-        if auction_root_state.auction_config.cycle_period
-            * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
-            > crate::ALLOWED_AUCTION_IDLE_PERIOD
-        {
-            auction_root_state.status.is_filtered = true;
-        }
-
-        current_auction_cycle_state.write(current_auction_cycle_state_account)?;
-        auction_root_state.write(auction_root_state_account)?;
+        increment_idle_streak(
+            &mut current_auction_cycle_state,
+            &mut auction_root_state,
+            current_auction_cycle_state_account,
+            auction_root_state_account,
+        )?;
         return Ok(());
     }
 
@@ -484,6 +469,39 @@ pub fn close_auction_cycle(
     Ok(())
 }
 
+
+fn increment_idle_streak(
+    current_auction_cycle_state: &mut AuctionCycleState,
+    auction_root_state: &mut AuctionRootState,
+    current_auction_cycle_state_account: &AccountInfo,
+    auction_root_state_account: &AccountInfo,
+) -> Result<(), ProgramError> {
+    current_auction_cycle_state.end_time = current_auction_cycle_state
+        .end_time
+        .checked_add(auction_root_state.auction_config.cycle_period)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    auction_root_state.status.current_idle_cycle_streak = auction_root_state
+        .status
+        .current_idle_cycle_streak
+        .checked_add(1)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    // If the auction was idle for at least a week then filter it automatically
+    if auction_root_state.auction_config.cycle_period
+        * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
+        > crate::ALLOWED_AUCTION_IDLE_PERIOD
+        || auction_root_state.status.current_idle_cycle_streak
+            > crate::ALLOWED_CONSECUTIVE_IDLE_CYCLES
+    {
+        auction_root_state.status.is_filtered = true;
+    }
+
+    current_auction_cycle_state.write(current_auction_cycle_state_account)?;
+    auction_root_state.write(auction_root_state_account)?;
+    Ok(())
+}
+
 pub fn increment_name(
     string: &mut String,
     is_last_cycle: bool,
@@ -640,3 +658,4 @@ mod cycle_increment_tests {
         assert_eq!(long_uri, long_uri_expected);
     }
 }
+
