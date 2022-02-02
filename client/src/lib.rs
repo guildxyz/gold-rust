@@ -12,7 +12,6 @@ use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::{wasm_instruction, Net};
-use anyhow::anyhow;
 use borsh::BorshSerialize;
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
@@ -75,41 +74,3 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
     auction_root_state_pubkey
 }
 
-// NOTE special characters are chopped off to fit an u8, so it won't be
-// correct, however, we may assume in this case that the input is valid.
-// Else, we will throw an error when the auction with this id is not found
-pub fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
-    if input.len() > 32 {
-        return Err(anyhow!("input is longer than 32 bytes"));
-    }
-    let mut array = [0_u8; 32];
-    for (i, c) in input.chars().enumerate() {
-        array[i] = c as u8;
-    }
-    Ok(array)
-}
-
-#[test]
-fn str_padding() {
-    assert_eq!(
-        pad_to_32_bytes("this is definitely longer than 32 bytes")
-            .err()
-            .unwrap()
-            .to_string(),
-        "input is longer than 32 bytes"
-    );
-    assert_eq!(
-        pad_to_32_bytes("this-is-fine").unwrap(),
-        [
-            0x74, 0x68, 0x69, 0x73, 0x2d, 0x69, 0x73, 0x2d, 0x66, 0x69, 0x6e, 0x65, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]
-    );
-    assert_eq!(
-        pad_to_32_bytes("hélló").unwrap(),
-        [
-            0x68, 0xe9, 0x6c, 0x6c, 0xf3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-        ]
-    );
-}

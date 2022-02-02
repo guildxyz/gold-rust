@@ -2,6 +2,9 @@
 //! enables users to create their own fundraiser.
 mod entrypoint;
 mod error;
+
+/// Checks and assertions for validating inputs to the smart contract.
+pub mod assertions;
 #[cfg(feature = "client")]
 pub mod frontend;
 /// Smart contract instructions that can be called externally.
@@ -13,13 +16,12 @@ pub mod pda;
 pub mod processor;
 /// Data structures that describe the application's current state.
 pub mod state;
-// Utilities for the instruction processing
+/// Utilities for the instruction processing
 pub mod utils;
 
 pub use error::AuctionContractError;
 pub use solana_program;
 
-use metaplex_token_metadata::state::Data as MetadataStateData;
 use solana_program::clock::UnixTimestamp;
 
 solana_program::declare_id!("go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U");
@@ -44,9 +46,3 @@ pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
 /// Minimum bid amount on any auction cycle in Lamports.
 pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
-
-pub fn unpuff_metadata(metadata_state_data: &mut MetadataStateData) {
-    metadata_state_data.name.retain(|c| c != '\u{0}');
-    metadata_state_data.uri.retain(|c| c != '\u{0}');
-    metadata_state_data.symbol.retain(|c| c != '\u{0}');
-}

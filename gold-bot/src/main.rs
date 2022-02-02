@@ -5,7 +5,7 @@ mod pool_cache;
 use cli_opts::AuctionBotOpt;
 use cli_utils::*;
 
-use agsol_gold_client::pad_to_32_bytes;
+use agsol_gold_contract::utils::pad_to_32_bytes;
 
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
 use agsol_gold_contract::pda::auction_pool_seeds;
