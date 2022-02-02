@@ -33,6 +33,9 @@ pub enum AuctionContractError {
     AuctionPoolFull = 524,
     ShrinkingPoolIsNotAllowed = 525,
     InvalidMinimumBidAmount = 526,
+    InvalidPerCycleAmount = 527,
+    InvalidCyclePeriod = 528,
+    AuctionIdNotAscii = 529,
 }
 
 impl From<AuctionContractError> for ProgramError {
