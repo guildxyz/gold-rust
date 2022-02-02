@@ -469,7 +469,6 @@ pub fn close_auction_cycle(
     Ok(())
 }
 
-
 fn increment_idle_streak(
     current_auction_cycle_state: &mut AuctionCycleState,
     auction_root_state: &mut AuctionRootState,
@@ -658,4 +657,3 @@ mod cycle_increment_tests {
         assert_eq!(long_uri, long_uri_expected);
     }
 }
-
