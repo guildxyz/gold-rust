@@ -9,12 +9,19 @@ use solana_sdk::signer::Signer;
 
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
 
 #[tokio::test]
 async fn test_process_tokens() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
+
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
@@ -24,12 +31,29 @@ async fn test_process_tokens() {
         number_of_cycles: Some(1000),
     };
 
-    let auction_cycle_payer = TestUser::new(&mut testbench)
-        .await
-        .unwrap()
-        .unwrap()
-        .keypair;
+    //  initialize auction with 0 per cycle token amount
+    let create_token_args = CreateTokenArgs::Token {
+        decimals: 0,
+        per_cycle_amount: 0,
+    };
+    let invalid_per_cycle_amount_error = initialize_new_auction_custom(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        create_token_args,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
 
+    assert_eq!(
+        invalid_per_cycle_amount_error,
+        AuctionContractError::InvalidPerCycleAmount,
+    );
+
+    // initialize properly
     initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -51,7 +75,7 @@ async fn test_process_tokens() {
         .await
         .unwrap();
 
-    assert_eq!(token_mint.mint_authority, COption::Some(contract_pda),);
+    assert_eq!(token_mint.mint_authority, COption::Some(contract_pda));
 
     assert_eq!(token_mint.supply, 0);
 
@@ -59,7 +83,7 @@ async fn test_process_tokens() {
 
     assert!(token_mint.is_initialized);
 
-    assert_eq!(token_mint.freeze_authority, COption::None,);
+    assert_eq!(token_mint.freeze_authority, COption::None);
 
     // Test no bids were taken
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();

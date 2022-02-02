@@ -33,7 +33,7 @@ async fn test_process_initialize_auction() {
     };
 
     // invalid auction id (not ascii)
-    let invalid_min_bid_error = initialize_new_auction(
+    let invalid_auction_id_error = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
         &auction_config,
@@ -46,7 +46,7 @@ async fn test_process_initialize_auction() {
     .unwrap();
 
     assert_eq!(
-        invalid_min_bid_error,
+        invalid_auction_id_error,
         AuctionContractError::AuctionIdNotAscii
     );
 
