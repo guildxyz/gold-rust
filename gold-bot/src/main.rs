@@ -11,14 +11,13 @@ use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctio
 use agsol_gold_contract::pda::auction_pool_seeds;
 use agsol_gold_contract::state::{AuctionPool, TokenConfig, TokenType};
 use agsol_gold_contract::ID as GOLD_ID;
+use agsol_wasm_client::{Net, RpcClient};
 
 use env_logger::Env;
 use log::{error, info, warn};
 
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
-use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
@@ -27,20 +26,22 @@ use structopt::StructOpt;
 
 use pool_cache::{ManagedPool, PoolRecord};
 
+const MIN_BALANCE: u64 = 1_000_000_000; // lamports
 const SLEEP_DURATION: u64 = 1000; // milliseconds
 
-pub fn main() {
+#[tokio::main]
+pub async fn main() {
     let opt = AuctionBotOpt::from_args();
-    let (connection_url, should_airdrop) = if opt.mainnet {
-        ("https://api.mainnet-beta.solana.com".to_owned(), false)
+    let (net, should_airdrop) = if opt.mainnet {
+        (Net::Mainnet, false)
     } else if opt.devnet {
-        ("https://api.devnet.solana.com".to_owned(), true)
+        (Net::Devnet, true)
     } else if opt.localnet {
-        ("http://localhost:8899".to_owned(), true)
+        (Net::Localhost, true)
     } else {
-        ("https://api.testnet.solana.com".to_owned(), true)
+        (Net::Testnet, true)
     };
-    let connection = RpcClient::new_with_commitment(connection_url, CommitmentConfig::confirmed());
+    let mut client = RpcClient::new(net);
 
     let bot_keypair = parse_keypair(opt.keypair, &TEST_BOT_SECRET);
 
@@ -56,19 +57,21 @@ pub fn main() {
 
     loop {
         if let Err(e) = try_main(
-            &connection,
+            &mut client,
             &bot_keypair,
             should_airdrop,
             &mut managed_pool,
             focused_id_bytes,
-        ) {
+        )
+        .await
+        {
             error!("{}", e);
         }
     }
 }
 
-fn try_main(
-    connection: &RpcClient,
+async fn try_main(
+    client: &mut RpcClient,
     bot_keypair: &Keypair,
     should_airdrop: bool,
     managed_pool: &mut ManagedPool,
@@ -82,29 +85,30 @@ fn try_main(
         }
     }
     // airdrop if necessary
-    let bot_balance = connection.get_balance(&bot_keypair.pubkey())?;
+    let bot_balance = client.get_balance(&bot_keypair.pubkey()).await?;
     if bot_balance < MIN_BALANCE {
         warn!(
             "bot balance ({}) is below threshold ({})",
             bot_balance, MIN_BALANCE
         );
         if should_airdrop {
-            request_airdrop(connection, bot_keypair)?;
+            let blockhash = client.get_latest_blockhash().await?;
+            client.request_airdrop(&bot_keypair.pubkey(), MIN_BALANCE, &blockhash).await?;
         }
     }
     // get current blockchain time
-    let slot = connection.get_slot()?;
-    let block_time = connection.get_block_time(slot)?;
+    let slot = client.get_slot().await?;
+    let block_time = client.get_block_time(slot).await?;
     info!("time: {} [s]", block_time);
 
     // close cycle(s)
     if let Some(id_bytes) = focused_id_bytes {
-        try_close_cycle(connection, id_bytes, bot_keypair, block_time, managed_pool)?;
+        try_close_cycle(client, id_bytes, bot_keypair, block_time, managed_pool).await?;
     } else {
         // read auction pool
         let (auction_pool_pubkey, _) =
             Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-        let auction_pool_data = connection.get_account_data(&auction_pool_pubkey)?;
+        let auction_pool_data = client.get_account_data(&auction_pool_pubkey).await?;
         let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
         // check pool load
         let load = auction_pool.pool.len() as f64 / auction_pool.max_len as f64;
@@ -117,12 +121,13 @@ fn try_main(
         // read individual states
         for auction_id_bytes in auction_pool.pool.iter() {
             try_close_cycle(
-                connection,
+                client,
                 *auction_id_bytes,
                 bot_keypair,
                 block_time,
                 managed_pool,
-            )?;
+            )
+            .await?;
         }
     }
 
@@ -135,25 +140,26 @@ fn try_main(
 /// Tries to send a close cycle transaction on the currently processed auction.
 ///
 /// It sends the transaction only if the auction is active and the current cycle finished.
-fn try_close_cycle(
-    connection: &RpcClient,
+async fn try_close_cycle(
+    client: &mut RpcClient,
     auction_id: [u8; 32],
     bot_keypair: &Keypair,
     block_time: UnixTimestamp,
     managed_pool: &mut ManagedPool,
 ) -> Result<(), anyhow::Error> {
     // fetch from pool cache or insert if new auction
-    let pool_record = if let Some(record) =
-        managed_pool.get_or_insert_auction(connection, auction_id, block_time)?
+    let pool_record = if let Some(record) = managed_pool
+        .get_or_insert_auction(client, auction_id, block_time)
+        .await?
     {
         record
     } else {
         return Ok(());
     };
 
-    if let Err(err) = close_cycle(connection, &auction_id, pool_record, bot_keypair) {
+    if let Err(err) = close_cycle(client, &auction_id, pool_record, bot_keypair).await {
         // report error on the pool cache
-        pool_record.report_error(connection)?;
+        pool_record.report_error(client).await?;
         if pool_record.is_faulty_auction() {
             managed_pool.error_auctions.insert(auction_id);
         }
@@ -165,7 +171,7 @@ fn try_close_cycle(
         );
     } else {
         // update pool record cache on success
-        pool_record.update_cycle_state(connection)?;
+        pool_record.update_cycle_state(client).await?;
         pool_record.reset_error_streak();
     }
 
@@ -175,8 +181,8 @@ fn try_close_cycle(
 /// Constructs close cycle arguments and sends the transaction.
 ///
 /// Returns error only if the transaction call failed.
-fn close_cycle(
-    connection: &RpcClient,
+async fn close_cycle(
+    client: &mut RpcClient,
     auction_id: &[u8; 32],
     pool_record: &mut PoolRecord,
     bot_keypair: &Keypair,
@@ -205,7 +211,7 @@ fn close_cycle(
     };
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
 
-    let latest_blockhash = connection.get_latest_blockhash()?;
+    let latest_blockhash = client.get_latest_blockhash().await?;
 
     let transaction = Transaction::new_signed_with_payer(
         &[close_auction_cycle_ix],
@@ -214,7 +220,7 @@ fn close_cycle(
         latest_blockhash,
     );
 
-    let signature = connection.send_transaction(&transaction)?;
+    let signature = client.send_transaction(&transaction).await?;
     info!(
         "auction \"{}\"    cycle: {}    signature: {:?}",
         String::from_utf8_lossy(auction_id),

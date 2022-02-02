@@ -1,8 +1,7 @@
 use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
 use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
-
-use solana_client::rpc_client::RpcClient;
+use agsol_wasm_client::RpcClient;
 use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
 use solana_sdk::pubkey::Pubkey;
@@ -25,10 +24,10 @@ pub struct PoolRecord {
 
 impl PoolRecord {
     /// Initializes a pool record by loading the root and cycle state of the auction
-    pub fn new(connection: &RpcClient, auction_id: &AuctionId) -> Result<Self, anyhow::Error> {
+    pub async fn new(client: &mut RpcClient, auction_id: &AuctionId) -> Result<Self, anyhow::Error> {
         let (root_pubkey, _) =
             Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-        let root_state_data = connection.get_account_data(&root_pubkey)?;
+        let root_state_data = client.get_account_data(&root_pubkey).await?;
         let root_state: AuctionRootState = try_from_slice_unchecked(&root_state_data)?;
 
         let current_cycle_bytes = root_state.status.current_auction_cycle.to_le_bytes();
@@ -36,7 +35,7 @@ impl PoolRecord {
             &auction_cycle_state_seeds(&root_pubkey, &current_cycle_bytes),
             &GOLD_ID,
         );
-        let cycle_state_data = connection.get_account_data(&cycle_pubkey)?;
+        let cycle_state_data = client.get_account_data(&cycle_pubkey).await?;
         let cycle_state: AuctionCycleState = try_from_slice_unchecked(&cycle_state_data)?;
 
         Ok(Self {
@@ -48,20 +47,20 @@ impl PoolRecord {
     }
 
     /// Updates the stored root state
-    pub fn update_root_state(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
-        let root_state_data = connection.get_account_data(&self.root_pubkey)?;
+    pub async fn update_root_state(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
+        let root_state_data = client.get_account_data(&self.root_pubkey).await?;
         self.root_state = try_from_slice_unchecked(&root_state_data)?;
         Ok(())
     }
 
     /// Updates the stored cycle state
-    pub fn update_cycle_state(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
+    pub async fn update_cycle_state(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
         let current_cycle_bytes = self.root_state.status.current_auction_cycle.to_le_bytes();
         let (cycle_pubkey, _) = Pubkey::find_program_address(
             &auction_cycle_state_seeds(&self.root_pubkey, &current_cycle_bytes),
             &GOLD_ID,
         );
-        let cycle_state_data = connection.get_account_data(&cycle_pubkey)?;
+        let cycle_state_data = client.get_account_data(&cycle_pubkey).await?;
         self.cycle_state = try_from_slice_unchecked(&cycle_state_data)?;
         Ok(())
     }
@@ -75,10 +74,10 @@ impl PoolRecord {
     ///  - Bid triggered encore period which extended the cycle
     ///
     /// Both errors can be recognized by a difference in cycle end_times
-    pub fn report_error(&mut self, connection: &RpcClient) -> Result<(), anyhow::Error> {
+    pub async fn report_error(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
         let prev_end_time = self.cycle_state.end_time;
-        self.update_root_state(connection)?;
-        self.update_cycle_state(connection)?;
+        self.update_root_state(client).await?;
+        self.update_cycle_state(client).await?;
 
         if prev_end_time == self.cycle_state.end_time {
             self.error_streak += 1;
@@ -127,9 +126,9 @@ impl ManagedPool {
     ///  - Returns none if auction is not active (frozen, filtered, finished, erroneous)
     ///
     ///  - Returns none if auction cycle is not over yet
-    pub fn get_or_insert_auction(
+    pub async fn get_or_insert_auction(
         &mut self,
-        connection: &RpcClient,
+        connection: &mut RpcClient,
         auction_id: AuctionId,
         block_time: UnixTimestamp,
     ) -> Result<Option<&mut PoolRecord>, anyhow::Error> {
@@ -142,7 +141,7 @@ impl ManagedPool {
 
         // fetch or insert pool record
         let pool_record = match self.hashed_pool.entry(auction_id) {
-            Vacant(entry) => entry.insert(PoolRecord::new(connection, &auction_id)?),
+            Vacant(entry) => entry.insert(PoolRecord::new(connection, &auction_id).await?),
             Occupied(entry) => entry.into_mut(),
         };
 

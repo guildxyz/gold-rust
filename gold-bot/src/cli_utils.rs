@@ -1,6 +1,4 @@
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::signer::keypair::{read_keypair_file, Keypair};
-use solana_sdk::signer::Signer;
 use std::path::PathBuf;
 
 #[rustfmt::skip]
@@ -23,8 +21,8 @@ pub fn parse_keypair(keypair: Option<PathBuf>, default: &[u8]) -> Keypair {
     }
 }
 
-pub const MIN_BALANCE: u64 = 1_000_000_000; // lamports
 
+/*
 pub fn request_airdrop(connection: &RpcClient, keypair: &Keypair) -> Result<(), anyhow::Error> {
     let airdrop_signature = connection.request_airdrop(&keypair.pubkey(), MIN_BALANCE)?;
     let mut i = 0;
@@ -36,3 +34,4 @@ pub fn request_airdrop(connection: &RpcClient, keypair: &Keypair) -> Result<(), 
     }
     Ok(())
 }
+*/
