@@ -5,7 +5,7 @@ use test_factory::{initialize_new_auction, TestUser};
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
-use agsol_gold_contract::unpuff_metadata;
+use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;

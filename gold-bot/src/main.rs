@@ -81,7 +81,7 @@ async fn try_main(
     if !managed_pool.error_auctions.is_empty() {
         warn!("auctions with error on cycle closing:");
         managed_pool.error_auctions.iter().for_each(|auction_id| {
-            println!("{:?}", unpad_id(&auction_id));
+            println!("{:?}", unpad_id(auction_id));
         });
     }
     // airdrop if necessary
@@ -161,7 +161,7 @@ async fn try_close_cycle(
 
     if let Err(err) = close_cycle(client, &auction_id, pool_record, bot_keypair).await {
         // report error on the pool cache
-        let is_unexpected_error = pool_record.report_error(client).await?;
+        let is_unexpected_error = pool_record.report_error(client, &err).await?;
 
         if is_unexpected_error {
             if pool_record.is_faulty_auction() {

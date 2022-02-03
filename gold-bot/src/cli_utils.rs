@@ -21,7 +21,6 @@ pub fn parse_keypair(keypair: Option<PathBuf>, default: &[u8]) -> Keypair {
     }
 }
 
-
 /*
 pub fn request_airdrop(connection: &RpcClient, keypair: &Keypair) -> Result<(), anyhow::Error> {
     let airdrop_signature = connection.request_airdrop(&keypair.pubkey(), MIN_BALANCE)?;

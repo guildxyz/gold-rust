@@ -73,4 +73,3 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
         Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
     auction_root_state_pubkey
 }
-

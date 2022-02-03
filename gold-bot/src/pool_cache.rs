@@ -24,7 +24,10 @@ pub struct PoolRecord {
 
 impl PoolRecord {
     /// Initializes a pool record by loading the root and cycle state of the auction
-    pub async fn new(client: &mut RpcClient, auction_id: &AuctionId) -> Result<Self, anyhow::Error> {
+    pub async fn new(
+        client: &mut RpcClient,
+        auction_id: &AuctionId,
+    ) -> Result<Self, anyhow::Error> {
         let (root_pubkey, _) =
             Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
         let root_state_data = client.get_account_data(&root_pubkey).await?;
@@ -54,7 +57,10 @@ impl PoolRecord {
     }
 
     /// Updates the stored cycle state
-    pub async fn update_cycle_state(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
+    pub async fn update_cycle_state(
+        &mut self,
+        client: &mut RpcClient,
+    ) -> Result<(), anyhow::Error> {
         let current_cycle_bytes = self.root_state.status.current_auction_cycle.to_le_bytes();
         let (cycle_pubkey, _) = Pubkey::find_program_address(
             &auction_cycle_state_seeds(&self.root_pubkey, &current_cycle_bytes),
@@ -74,18 +80,20 @@ impl PoolRecord {
     ///
     ///  - Bid triggered encore period which extended the cycle
     ///
-    /// Both errors can be recognized by a difference in cycle end_times
-    pub async fn report_error(&mut self, client: &mut RpcClient) -> Result<bool, anyhow::Error> {
-        let prev_end_time = self.cycle_state.end_time;
+    /// Both errors can be recognized if the error is AuctionIsInProgress (code: 0x1f9 = 505)
+    pub async fn report_error(
+        &mut self,
+        client: &mut RpcClient,
+        error: &anyhow::Error,
+    ) -> Result<bool, anyhow::Error> {
         self.update_root_state(client).await?;
         self.update_cycle_state(client).await?;
 
-        if prev_end_time == self.cycle_state.end_time {
-            self.error_streak += 1;
-            return Ok(true)
+        if error.to_string().ends_with("custom program error: 0x1f9") {
+            return Ok(false);
         }
 
-        Ok(false)
+        Ok(true)
     }
 
     /// Resets error streak.
