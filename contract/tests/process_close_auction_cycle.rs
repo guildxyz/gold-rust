@@ -8,6 +8,7 @@ use agsol_gold_contract::processor::increment_uri;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
+use agsol_gold_contract::ALLOWED_CONSECUTIVE_IDLE_CYCLES;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
 use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
@@ -24,7 +25,7 @@ async fn test_process_close_auction_cycle() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
@@ -215,7 +216,7 @@ async fn test_ended_close_cycle_on_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
@@ -327,7 +328,7 @@ async fn test_close_cycle_on_frozen_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
@@ -393,7 +394,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
@@ -574,7 +575,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
@@ -768,4 +769,73 @@ fn check_metadata_update(
     unpuff_metadata(&mut master_metadata_after);
 
     assert_eq!(master_metadata_before, master_metadata_after);
+}
+
+#[tokio::test]
+async fn test_process_close_idle_rapid_auction() {
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
+
+    let auction_id = [1; 32];
+    let auction_config = AuctionConfig {
+        cycle_period: 60,
+        encore_period: 1,
+        minimum_bid_amount: 50_000_000, // lamports
+        number_of_cycles: Some(1000),
+    };
+
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
+
+    initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    let mut auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+
+    // Close idle cycles until automatically filtered
+    for cycle_number in 1..(ALLOWED_CONSECUTIVE_IDLE_CYCLES + 2) {
+        assert!(!auction_root_state.status.is_filtered);
+        warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
+
+        let balance_change = close_cycle_transaction(
+            &mut testbench,
+            &auction_cycle_payer,
+            auction_id,
+            &auction_owner.keypair.pubkey(),
+            TokenType::Token,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(-balance_change as u64, TRANSACTION_FEE);
+
+        // Check if idle cycle streak has been incremented
+        auction_root_state = testbench
+            .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            auction_root_state.status.current_idle_cycle_streak,
+            cycle_number
+        );
+    }
+    assert!(auction_root_state.status.is_filtered);
 }
