@@ -1,13 +1,14 @@
-use crate::{pad_to_32_bytes, NET};
+use crate::NET;
 use agsol_gold_contract::pda::auction_root_state_seeds;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::AuctionRootState;
+use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
 
 pub async fn get_current_cycle(auction_id: String) -> Result<u64, anyhow::Error> {
     let mut client = RpcClient::new(NET);
-    let auction_id = pad_to_32_bytes(&auction_id)?;
+    let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
     let (root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
 

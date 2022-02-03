@@ -9,12 +9,13 @@ mod initialize_contract;
 mod reallocate_pool;
 mod verify_auction;
 
+use crate::assertions::*;
 use crate::error::AuctionContractError;
 use crate::instruction::AuctionInstruction;
 use crate::pda::factory::*;
 use crate::pda::*;
 use crate::state::*;
-use crate::utils::*;
+use crate::utils::initialize_create_metadata_args;
 
 use metaplex_token_metadata::instruction as meta_instruction;
 use metaplex_token_metadata::ID as META_ID;
