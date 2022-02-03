@@ -39,9 +39,13 @@ pub const MAX_SOCIALS_NUM: usize = 5;
 /// development.
 pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
 /// Allowed time period for an auction to go without a bid placed on it before
-/// it is automatically frozen at cycle closing.
+/// it is automatically filtered at cycle closing.
 /// Currently set for a week of inactivity.
 pub const ALLOWED_AUCTION_IDLE_PERIOD: UnixTimestamp = 604_800;
+/// Allowed number of cycles for an auction to go without a bid placed on it before
+/// it is automatically filtered at cycle closing.
+/// More relevant than `ALLOWED_AUCTION_IDLE_PERIOD` in auctions with low cycle periods.
+pub const ALLOWED_CONSECUTIVE_IDLE_CYCLES: u32 = 50;
 /// Minimum bid amount on any auction cycle in Lamports.
 pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
 /// Minimum length of an auction cycle period in seconds.
