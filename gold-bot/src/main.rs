@@ -227,7 +227,7 @@ async fn close_cycle(
 
     let signature = client.send_transaction(&transaction).await?;
     info!(
-        "auction \"{}\"\nnext cycle: {}\nsignature: {:?}",
+        "auction \"{}\"\nclosed cycle: {}\nsignature: {:?}",
         String::from_utf8_lossy(auction_id),
         pool_record.root_state.status.current_auction_cycle,
         signature
