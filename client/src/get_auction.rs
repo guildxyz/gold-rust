@@ -7,9 +7,9 @@ use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState, TokenConfig};
 use agsol_gold_contract::utils::{pad_to_32_bytes, unpuff_metadata};
 use agsol_gold_contract::ID as GOLD_ID;
+use agsol_token_metadata::state::Metadata;
+use agsol_token_metadata::ID as META_ID;
 use agsol_wasm_client::RpcClient;
-use metaplex_token_metadata::state::Metadata;
-use metaplex_token_metadata::ID as META_ID;
 use spl_token::state::Mint;
 use std::convert::TryFrom;
 

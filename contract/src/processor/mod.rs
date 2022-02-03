@@ -17,8 +17,8 @@ use crate::pda::*;
 use crate::state::*;
 use crate::utils::initialize_create_metadata_args;
 
-use metaplex_token_metadata::instruction as meta_instruction;
-use metaplex_token_metadata::ID as META_ID;
+use agsol_token_metadata::instruction as meta_instruction;
+use agsol_token_metadata::ID as META_ID;
 
 use solana_program::account_info::{next_account_info, AccountInfo};
 use solana_program::borsh::try_from_slice_unchecked;

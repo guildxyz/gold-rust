@@ -10,7 +10,7 @@ use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 
-use metaplex_token_metadata::ID as META_ID;
+use agsol_token_metadata::ID as META_ID;
 
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
@@ -132,7 +132,7 @@ async fn test_process_initialize_auction() {
         Pubkey::find_program_address(&master_mint_seeds(&auction_id), &CONTRACT_ID);
     let (master_edition_pubkey, _) = Pubkey::find_program_address(
         &edition_seeds(&master_mint_pubkey),
-        &metaplex_token_metadata::ID,
+        &agsol_token_metadata::ID,
     );
 
     let master_mint_data = testbench
@@ -162,7 +162,7 @@ async fn test_process_initialize_auction() {
     let (master_metadata_pubkey, _) =
         Pubkey::find_program_address(&metadata_seeds(&master_mint_pubkey), &META_ID);
     let mut master_metadata = testbench
-        .get_and_deserialize_account_data::<metaplex_token_metadata::state::Metadata>(
+        .get_and_deserialize_account_data::<agsol_token_metadata::state::Metadata>(
             &master_metadata_pubkey,
         )
         .await

@@ -1,7 +1,7 @@
 use super::*;
 
-use metaplex_token_metadata::state::Data as MetadataStateData;
-use metaplex_token_metadata::state::MasterEditionV2;
+use agsol_token_metadata::state::Data as MetadataStateData;
+use agsol_token_metadata::state::MasterEditionV2;
 use solana_program::clock::UnixTimestamp;
 use solana_program::sysvar::rent::Rent;
 
