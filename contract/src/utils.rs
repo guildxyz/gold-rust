@@ -15,6 +15,12 @@ pub fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], &'static str> {
     Ok(array)
 }
 
+pub fn unpad_id(id: &[u8; 32]) -> String {
+    let mut unpadded = String::from_utf8_lossy(id).to_string();
+    unpadded.retain(|c| c != '\u{0}');
+    unpadded
+}
+
 pub fn initialize_create_metadata_args(
     metadata_args: &mut CreateMetadataAccountArgs,
     is_repeating: bool,
@@ -88,5 +94,30 @@ mod initialize_auction_tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ]
         );
+    }
+
+    #[test]
+    fn unpadding() {
+        let mut auction_id = [0_u8; 32];
+        let unpadded = unpad_id(&auction_id);
+        assert!(unpadded.is_empty());
+        auction_id[0] = 0x68;
+        let unpadded = unpad_id(&auction_id);
+        assert_eq!(unpadded, "h");
+
+        let slugified = "this-is-fine";
+        let auction_id = pad_to_32_bytes(slugified).unwrap();
+        let unpadded = unpad_id(&auction_id);
+        assert_eq!(unpadded, slugified);
+
+        let slugified = "hi-this-is-exactly-32-bytes-long";
+        let auction_id = pad_to_32_bytes(slugified).unwrap();
+        let unpadded = unpad_id(&auction_id);
+        assert_eq!(unpadded, slugified);
+
+        let slugified = "Höh";
+        let auction_id = pad_to_32_bytes(slugified).unwrap();
+        let unpadded = unpad_id(&auction_id);
+        assert_eq!(unpadded, "H�h");
     }
 }

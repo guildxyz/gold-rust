@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 agsol-gold-contract = { path = "../contract", features = ["client"] }
-agsol-wasm-client = { git = "https://github.com/agoraxyz/agora-solana.git", branch = "I12-wasm-client-enhancement" }
+agsol-wasm-client = { path = "../../agora-solana/agsol-wasm-client" }
 anyhow = "1"
 env_logger = "0.9.0"
 log = "0.4"

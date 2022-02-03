@@ -5,7 +5,7 @@ mod pool_cache;
 use cli_opts::AuctionBotOpt;
 use cli_utils::*;
 
-use agsol_gold_contract::utils::pad_to_32_bytes;
+use agsol_gold_contract::utils::{pad_to_32_bytes, unpad_id};
 
 use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
 use agsol_gold_contract::pda::auction_pool_seeds;
@@ -79,10 +79,10 @@ async fn try_main(
 ) -> Result<(), anyhow::Error> {
     // log error auctions
     if !managed_pool.error_auctions.is_empty() {
-        error!("auctions with error on cycle closing:");
-        for auction_id in managed_pool.error_auctions.iter() {
-            error!("{:?}", auction_id);
-        }
+        warn!("auctions with error on cycle closing:");
+        managed_pool.error_auctions.iter().for_each(|auction_id| {
+            println!("{:?}", unpad_id(&auction_id));
+        });
     }
     // airdrop if necessary
     let bot_balance = client.get_balance(&bot_keypair.pubkey()).await?;
@@ -93,7 +93,9 @@ async fn try_main(
         );
         if should_airdrop {
             let blockhash = client.get_latest_blockhash().await?;
-            client.request_airdrop(&bot_keypair.pubkey(), MIN_BALANCE, &blockhash).await?;
+            client
+                .request_airdrop(&bot_keypair.pubkey(), MIN_BALANCE, &blockhash)
+                .await?;
         }
     }
     // get current blockchain time
@@ -167,12 +169,11 @@ async fn try_close_cycle(
             }
 
             error!(
-                "auction \"{}\" threw error {:?}",
+                "auction \"{}\"\n{:?}",
                 String::from_utf8_lossy(&auction_id),
                 err
             );
         }
-        
     } else {
         // update pool record cache on success
         pool_record.update_cycle_state(client).await?;
@@ -226,7 +227,7 @@ async fn close_cycle(
 
     let signature = client.send_transaction(&transaction).await?;
     info!(
-        "auction \"{}\"    cycle: {}    signature: {:?}",
+        "auction \"{}\"\nnext cycle: {}\nsignature: {:?}",
         String::from_utf8_lossy(auction_id),
         pool_record.root_state.status.current_auction_cycle,
         signature
