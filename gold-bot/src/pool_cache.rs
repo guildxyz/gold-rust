@@ -65,7 +65,8 @@ impl PoolRecord {
         Ok(())
     }
 
-    /// Logs error appropriately, if unexpected error occurs then increments error_streak
+    /// Logs error appropriately, if unexpected error occurs then increments error_streak.
+    /// Returns whether the error was expected or not.
     ///
     /// Expected errors:
     ///
@@ -74,16 +75,17 @@ impl PoolRecord {
     ///  - Bid triggered encore period which extended the cycle
     ///
     /// Both errors can be recognized by a difference in cycle end_times
-    pub async fn report_error(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
+    pub async fn report_error(&mut self, client: &mut RpcClient) -> Result<bool, anyhow::Error> {
         let prev_end_time = self.cycle_state.end_time;
         self.update_root_state(client).await?;
         self.update_cycle_state(client).await?;
 
         if prev_end_time == self.cycle_state.end_time {
             self.error_streak += 1;
+            return Ok(true)
         }
 
-        Ok(())
+        Ok(false)
     }
 
     /// Resets error streak.

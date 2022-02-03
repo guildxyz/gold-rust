@@ -159,16 +159,20 @@ async fn try_close_cycle(
 
     if let Err(err) = close_cycle(client, &auction_id, pool_record, bot_keypair).await {
         // report error on the pool cache
-        pool_record.report_error(client).await?;
-        if pool_record.is_faulty_auction() {
-            managed_pool.error_auctions.insert(auction_id);
-        }
+        let is_unexpected_error = pool_record.report_error(client).await?;
 
-        error!(
-            "auction \"{}\" threw error {:?}",
-            String::from_utf8_lossy(&auction_id),
-            err
-        );
+        if is_unexpected_error {
+            if pool_record.is_faulty_auction() {
+                managed_pool.error_auctions.insert(auction_id);
+            }
+
+            error!(
+                "auction \"{}\" threw error {:?}",
+                String::from_utf8_lossy(&auction_id),
+                err
+            );
+        }
+        
     } else {
         // update pool record cache on success
         pool_record.update_cycle_state(client).await?;
