@@ -20,17 +20,3 @@ pub fn parse_keypair(keypair: Option<PathBuf>, default: &[u8]) -> Keypair {
         Keypair::from_bytes(default).unwrap()
     }
 }
-
-/*
-pub fn request_airdrop(connection: &RpcClient, keypair: &Keypair) -> Result<(), anyhow::Error> {
-    let airdrop_signature = connection.request_airdrop(&keypair.pubkey(), MIN_BALANCE)?;
-    let mut i = 0;
-    while !connection.confirm_transaction(&airdrop_signature)? {
-        i += 1;
-        if i >= 100 {
-            break;
-        }
-    }
-    Ok(())
-}
-*/
