@@ -47,7 +47,7 @@ pub async fn main() {
 
     let focused_id_bytes = opt
         .auction_id
-        .clone()
+        .as_ref()
         .map(|id| pad_to_32_bytes(&id).expect("auction id could not be parsed"));
 
     if let Some(id_bytes) = focused_id_bytes {
