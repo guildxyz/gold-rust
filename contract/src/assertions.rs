@@ -10,7 +10,7 @@ use solana_program::sysvar::rent::ID as RENT_ID;
 use spl_token::state::{Account, Mint};
 use spl_token::ID as TOKEN_ID;
 
-use metaplex_token_metadata::ID as META_ID;
+use agsol_token_metadata::ID as META_ID;
 
 use crate::state::{AuctionCycleState, AuctionRootState};
 use crate::AuctionContractError;

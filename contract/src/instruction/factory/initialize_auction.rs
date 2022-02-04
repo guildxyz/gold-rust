@@ -27,7 +27,7 @@ impl InitializeAuctionArgs {
         let create_token_args = match token_type {
             TokenType::Nft => CreateTokenArgs::Nft {
                 metadata_args: CreateMetadataAccountArgs {
-                    data: metaplex_token_metadata::state::Data {
+                    data: agsol_token_metadata::state::Data {
                         name: "random auction".to_owned(),
                         symbol: "RAND".to_owned(),
                         uri: "uri".to_owned(),

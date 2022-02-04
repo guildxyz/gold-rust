@@ -1,5 +1,5 @@
-use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
-use metaplex_token_metadata::state::Data as MetadataStateData;
+use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
+use agsol_token_metadata::state::Data as MetadataStateData;
 
 // NOTE special characters are chopped off to fit an u8, so it won't be
 // correct, however, we may assume in this case that the input is valid.
@@ -44,7 +44,7 @@ mod initialize_auction_tests {
 
     fn get_test_args() -> CreateMetadataAccountArgs {
         CreateMetadataAccountArgs {
-            data: metaplex_token_metadata::state::Data {
+            data: agsol_token_metadata::state::Data {
                 name: "random auction".to_owned(),
                 symbol: "RAND".to_owned(),
                 uri: "uri".to_owned(),

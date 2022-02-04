@@ -11,8 +11,8 @@ use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ALLOWED_CONSECUTIVE_IDLE_CYCLES;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
-use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
-use metaplex_token_metadata::state::Metadata;
+use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
+use agsol_token_metadata::state::Metadata;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
@@ -592,7 +592,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     let create_token_args = CreateTokenArgs::Nft {
         metadata_args: CreateMetadataAccountArgs {
-            data: metaplex_token_metadata::state::Data {
+            data: agsol_token_metadata::state::Data {
                 name: "random auction".to_owned(),
                 symbol: "RAND".to_owned(),
                 uri: "uri".to_owned(),

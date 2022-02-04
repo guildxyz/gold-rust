@@ -47,7 +47,17 @@ pub async fn main() {
 
     let focused_id_bytes = opt
         .auction_id
-        .map(|id| pad_to_32_bytes(&id).expect("auction id could not be parsed"));
+        .as_ref()
+        .map(|id| pad_to_32_bytes(id).expect("auction id could not be parsed"));
+
+    if let Some(id_bytes) = focused_id_bytes {
+        if !is_existing_auction(&mut client, id_bytes).await {
+            panic!(
+                "auction {} does not exist in pool.",
+                opt.auction_id.unwrap()
+            );
+        }
+    }
 
     // set default logging level to 'info'
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
@@ -227,11 +237,19 @@ async fn close_cycle(
 
     let signature = client.send_transaction(&transaction).await?;
     info!(
-        "auction \"{}\"\nnext cycle: {}\nsignature: {:?}",
+        "auction \"{}\"\nclosed cycle: {}\nsignature: {:?}",
         String::from_utf8_lossy(auction_id),
         pool_record.root_state.status.current_auction_cycle,
         signature
     );
 
     Ok(())
+}
+
+async fn is_existing_auction(client: &mut RpcClient, focused_id_bytes: [u8; 32]) -> bool {
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+    let auction_pool_data = client.get_account_data(&auction_pool_pubkey).await.unwrap();
+    let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data).unwrap();
+
+    auction_pool.pool.binary_search(&focused_id_bytes).is_ok()
 }

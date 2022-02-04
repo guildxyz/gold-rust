@@ -10,6 +10,8 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 use std::collections::hash_set::HashSet;
 
+pub const MAX_ERROR_STREAK: u8 = 20;
+
 /// Contains the cached data of an auction
 pub struct PoolRecord {
     /// The auction root state account's pubkey
@@ -18,12 +20,14 @@ pub struct PoolRecord {
     pub root_state: AuctionRootState,
     /// The auction cycle state
     pub cycle_state: AuctionCycleState,
-    /// The number of times an unexpected error occured on consecutive cycle closings
+    /// The number of times an unexpected error occured on consecutive cycle
+    /// closings
     pub error_streak: u8,
 }
 
 impl PoolRecord {
-    /// Initializes a pool record by loading the root and cycle state of the auction
+    /// Initializes a pool record by loading the root and cycle state of the
+    /// auction
     pub async fn new(
         client: &mut RpcClient,
         auction_id: &AuctionId,
@@ -71,8 +75,8 @@ impl PoolRecord {
         Ok(())
     }
 
-    /// Logs error appropriately, if unexpected error occurs then increments error_streak.
-    /// Returns whether the error was expected or not.
+    /// Logs error appropriately, if unexpected error occurs then increments
+    /// error_streak. Returns whether the error was expected or not.
     ///
     /// Expected errors:
     ///
@@ -80,7 +84,8 @@ impl PoolRecord {
     ///
     ///  - Bid triggered encore period which extended the cycle
     ///
-    /// Both errors can be recognized if the error is AuctionIsInProgress (code: 0x1f9 = 505)
+    /// Both errors can be recognized if the error is AuctionIsInProgress
+    /// (code: 0x1f9 = 505)
     pub async fn report_error(
         &mut self,
         client: &mut RpcClient,
@@ -102,10 +107,10 @@ impl PoolRecord {
         self.error_streak = 0;
     }
 
-    /// Returns if the auction is likely broken.
-    /// Currently identified by receiving 5+ consecutive errors on cycle closing
+    /// Returns if the auction is likely broken. Currently identified by
+    /// receiving a certain number of consecutive errors on cycle closing
     pub fn is_faulty_auction(&self) -> bool {
-        self.error_streak > 5
+        self.error_streak > MAX_ERROR_STREAK
     }
 }
 
@@ -116,7 +121,8 @@ type HashedIdSet = HashSet<AuctionId>;
 pub struct ManagedPool {
     /// Hashmap containing all auctions and their data
     pub hashed_pool: HashedPool,
-    /// Hashset containing ids of inactive (frozen, filtered, finished) auctions
+    /// Hashset containing ids of inactive (frozen, filtered, finished)
+    /// auctions
     pub inactive_auctions: HashedIdSet,
     /// Hashset containing ids of erroneous auctions
     pub error_auctions: HashedIdSet,
@@ -133,7 +139,8 @@ impl ManagedPool {
 
     /// Returns a mutable reference to a pool record if it is active
     ///
-    ///  - Returns none if auction is not active (frozen, filtered, finished, erroneous)
+    ///  - Returns none if auction is not active (frozen, filtered, finished,
+    ///  erroneous)
     ///
     ///  - Returns none if auction cycle is not over yet
     pub async fn get_or_insert_auction(

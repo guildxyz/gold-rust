@@ -7,7 +7,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::clock::UnixTimestamp;
 use solana_program::pubkey::Pubkey;
 
-use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
+use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
 
 /// A unique identifier of an auction.
 ///

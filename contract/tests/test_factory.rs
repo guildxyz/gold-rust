@@ -4,7 +4,7 @@
 use num_traits::FromPrimitive;
 use std::convert::TryInto;
 
-use metaplex_token_metadata::state::MasterEditionV2;
+use agsol_token_metadata::state::MasterEditionV2;
 use solana_program::pubkey::Pubkey;
 use solana_program::system_instruction;
 use solana_sdk::instruction::InstructionError;
@@ -427,7 +427,7 @@ pub async fn testbench_setup() -> TestbenchTransactionResult<(Testbench, TestUse
     };
 
     // load metadata program binary
-    let meta_program_id = metaplex_token_metadata::id();
+    let meta_program_id = agsol_token_metadata::id();
     let meta_program = TestbenchProgram {
         name: "spl_token_metadata",
         id: meta_program_id,

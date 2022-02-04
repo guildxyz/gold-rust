@@ -65,7 +65,7 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
             let next_edition_string = next_edition_div.to_string();
             let (child_edition_marker_pubkey, _) = Pubkey::find_program_address(
                 &edition_marker_seeds(&next_edition_string, &master_pdas.mint),
-                &metaplex_token_metadata::ID,
+                &agsol_token_metadata::ID,
             );
 
             vec![
