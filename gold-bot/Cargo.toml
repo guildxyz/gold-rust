@@ -1,6 +1,6 @@
 [package]
 name = "agsol-gold-bot"
-version = "0.0.0-alpha"
+version = "0.0.0-alpha.1"
 edition = "2021"
 license = "MIT"
 description = "Auction cycle closing bot for the gold.xyz platform"
