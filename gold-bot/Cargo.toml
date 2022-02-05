@@ -9,7 +9,7 @@ repository = "https://github.com/agoraxyz/gold-rust"
 
 [dependencies]
 agsol-gold-contract = { path = "../contract", features = ["client"], version = "0.0.0-alpha" }
-agsol-wasm-client = "0.0.1-alpha.1"
+agsol-wasm-client = "0.0.1-alpha.2"
 anyhow = "1"
 env_logger = "0.9.0"
 log = "0.4"
