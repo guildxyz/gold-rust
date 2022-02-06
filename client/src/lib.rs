@@ -11,6 +11,7 @@ use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
+use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{wasm_instruction, Net};
 use borsh::BorshSerialize;
 use js_sys::Uint8Array;
@@ -18,6 +19,10 @@ use wasm_bindgen::prelude::*;
 
 // TODO client net from env-var
 const NET: Net = Net::Devnet;
+const RPC_CONFIG: RpcConfig = RpcConfig {
+    encoding: Some(Encoding::JsonParsed),
+    commitment: Some(CommitmentLevel::Processed),
+};
 
 wasm_instruction!(initialize_auction);
 wasm_instruction!(freeze_auction);
