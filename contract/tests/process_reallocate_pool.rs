@@ -85,7 +85,7 @@ async fn test_process_reallocate_pool() {
         .await
         .unwrap();
 
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_max_len);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_max_len, auction_pool_seeds);
     testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
@@ -139,7 +139,7 @@ async fn test_process_reallocate_pool() {
     assert_eq!(auction_pool.pool, vec![[0; 32], [1; 32], [2; 32], [3; 32]]);
 
     // try to deallocate/reallocate without admin authority
-    let reallocate_instruction = reallocate_pool(&auction_owner.keypair.pubkey(), 0);
+    let reallocate_instruction = reallocate_pool(&auction_owner.keypair.pubkey(), 0, auction_pool_seeds);
     let error = testbench
         .process_transaction(&[reallocate_instruction], &auction_owner.keypair, None)
         .await
@@ -153,7 +153,7 @@ async fn test_process_reallocate_pool() {
 
     // try to shrink the pool, sending these together is fine now,
     // because the size check is before the system program is called
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 1);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 1, auction_pool_seeds);
     let error = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
@@ -166,7 +166,7 @@ async fn test_process_reallocate_pool() {
     );
 
     // try to reallocate to a too large size
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 350_000);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 350_000, auction_pool_seeds);
     let result = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await

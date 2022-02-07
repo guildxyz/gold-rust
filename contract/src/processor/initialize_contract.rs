@@ -29,24 +29,24 @@ pub fn initialize_contract(
     assert_system_program(system_program.key)?;
 
     // Check pda addresses
-    //let contract_bank_seeds = contract_bank_seeds();
-    //let contract_bank_pda =
-    //    SignerPda::new_checked(&contract_bank_seeds, program_id, contract_bank_account)?;
-    //let auction_pool_seeds = auction_pool_seeds();
-    //let auction_pool_pda =
-    //    SignerPda::new_checked(&auction_pool_seeds, program_id, auction_pool_account)?;
+    let contract_bank_seeds = contract_bank_seeds();
+    let contract_bank_pda =
+        SignerPda::new_checked(&contract_bank_seeds, program_id, contract_bank_account)?;
+    let auction_pool_seeds = auction_pool_seeds();
+    let auction_pool_pda =
+        SignerPda::new_checked(&auction_pool_seeds, program_id, auction_pool_account)?;
     let secondary_pool_seeds = secondary_pool_seeds();
     let secondary_pool_pda =
-        SignerPda::new_checked(&secondary_pool_seeds, program_id, auction_pool_account)?;
+        SignerPda::new_checked(&secondary_pool_seeds, program_id, secondary_pool_account)?;
 
     // if contract bank account exists, then we have
-    //if contract_bank_account.lamports() != 0 {
-    //    return Err(AuctionContractError::ContractAlreadyInitialized.into());
-    //}
-
-    if secondary_pool_account.lamports() != 0 {
+    if contract_bank_account.lamports() != 0 {
         return Err(AuctionContractError::ContractAlreadyInitialized.into());
     }
+
+    //if secondary_pool_account.lamports() != 0 {
+    //    return Err(AuctionContractError::ContractAlreadyInitialized.into());
+    //}
 
     // Create auction pool account
     // NOTE u32 will always fit into a usize because we are definitely not
@@ -55,14 +55,14 @@ pub fn initialize_contract(
         .ok_or(AuctionContractError::ArithmeticError)?;
 
     // create auction pool account
-    //create_state_account(
-    //    contract_admin_account,
-    //    auction_pool_account,
-    //    auction_pool_pda.signer_seeds(),
-    //    program_id,
-    //    system_program,
-    //    account_size,
-    //)?;
+    create_state_account(
+        contract_admin_account,
+        auction_pool_account,
+        auction_pool_pda.signer_seeds(),
+        program_id,
+        system_program,
+        account_size,
+    )?;
     
     // create secondary pool account
     create_state_account(
@@ -76,21 +76,21 @@ pub fn initialize_contract(
 
     // need to write max len of the auction pool into the state
     let auction_pool = AuctionPool::new(initial_auction_pool_len);
-    //auction_pool.write(auction_pool_account)?;
-    auction_pool.write(secondary_pool_account)
+    auction_pool.write(auction_pool_account)?;
+    auction_pool.write(secondary_pool_account)?;
 
     // create contract bank account
-    //create_state_account(
-    //    contract_admin_account,
-    //    contract_bank_account,
-    //    contract_bank_pda.signer_seeds(),
-    //    program_id,
-    //    system_program,
-    //    ContractBankState::MAX_SERIALIZED_LEN,
-    //)?;
-    //let contract_bank_state = ContractBankState {
-    //    contract_admin: *contract_admin_account.key,
-    //    withdraw_authority,
-    //};
-    //contract_bank_state.write(contract_bank_account)
+    create_state_account(
+        contract_admin_account,
+        contract_bank_account,
+        contract_bank_pda.signer_seeds(),
+        program_id,
+        system_program,
+        ContractBankState::MAX_SERIALIZED_LEN,
+    )?;
+    let contract_bank_state = ContractBankState {
+        contract_admin: *contract_admin_account.key,
+        withdraw_authority,
+    };
+    contract_bank_state.write(contract_bank_account)
 }
