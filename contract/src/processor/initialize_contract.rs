@@ -63,7 +63,7 @@ pub fn initialize_contract(
         system_program,
         account_size,
     )?;
-    
+
     // create secondary pool account
     create_state_account(
         contract_admin_account,

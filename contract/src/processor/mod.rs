@@ -6,6 +6,7 @@ mod filter_auction;
 mod freeze;
 mod initialize_auction;
 mod initialize_contract;
+mod pool_cleanup;
 mod reallocate_pool;
 mod verify_auction;
 
@@ -99,5 +100,6 @@ pub fn process(
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
+        AuctionInstruction::PoolCleanup => pool_cleanup::process_pool_cleanup(program_id, accounts),
     }
 }

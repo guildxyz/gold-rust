@@ -149,7 +149,8 @@ async fn test_process_reallocate_pool() {
     assert_eq!(auction_pool.pool, vec![[0; 32], [1; 32], [2; 32], [3; 32]]);
 
     // try to deallocate/reallocate without admin authority
-    let reallocate_instruction = reallocate_pool(&auction_owner.keypair.pubkey(), 0, auction_pool_seeds);
+    let reallocate_instruction =
+        reallocate_pool(&auction_owner.keypair.pubkey(), 0, auction_pool_seeds);
     let error = testbench
         .process_transaction(&[reallocate_instruction], &auction_owner.keypair, None)
         .await
@@ -185,7 +186,8 @@ async fn test_process_reallocate_pool() {
 
     // reallocate secondary pool
     let new_secondary_len = 20;
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_secondary_len, secondary_pool_seeds);
+    let reallocate_instruction =
+        reallocate_pool(&payer.pubkey(), new_secondary_len, secondary_pool_seeds);
     testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
@@ -200,7 +202,8 @@ async fn test_process_reallocate_pool() {
     assert_eq!(secondary_pool.max_len, new_secondary_len);
 
     // reallocate with invalid seeds
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_secondary_len, contract_bank_seeds);
+    let reallocate_instruction =
+        reallocate_pool(&payer.pubkey(), new_secondary_len, contract_bank_seeds);
     let result = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
