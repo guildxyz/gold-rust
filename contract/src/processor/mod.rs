@@ -100,6 +100,6 @@ pub fn process(
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
-        AuctionInstruction::PoolCleanup => pool_cleanup::process_pool_cleanup(program_id, accounts),
+        AuctionInstruction::PoolCleanup { id_vec } => pool_cleanup::process_pool_cleanup(program_id, accounts, id_vec),
     }
 }

@@ -65,7 +65,7 @@ impl TestUser {
         let instruction = system_instruction::transfer(
             &testbench.payer().pubkey(),
             &keypair.pubkey(),
-            500_000_000,
+            15_500_000_000,
         );
 
         let payer = testbench.clone_payer();

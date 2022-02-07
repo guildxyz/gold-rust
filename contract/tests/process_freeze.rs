@@ -10,8 +10,6 @@ use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
-const TRANSACTION_FEE: u64 = 5000;
-
 #[tokio::test]
 async fn test_process_freeze() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
