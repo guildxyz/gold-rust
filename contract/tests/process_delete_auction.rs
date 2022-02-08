@@ -16,6 +16,94 @@ use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 use agsol_testbench::tokio;
 use agsol_testbench::Testbench;
 
+use agsol_gold_contract::utils::pad_to_32_bytes;
+use core::str::FromStr;
+
+#[tokio::test]
+async fn test_delete_auction_immediately() {
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
+
+    let auction_id = [1; 32];
+    let auction_config = AuctionConfig {
+        cycle_period: 60,
+        encore_period: 0,
+        minimum_bid_amount: 50_000_000, // lamports
+        number_of_cycles: Some(10),
+    };
+
+    initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+    let (auction_bank_pubkey, _) =
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+
+    let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
+        &auction_cycle_state_seeds(
+            &auction_root_state_pubkey,
+            &auction_root_state
+                .status
+                .current_auction_cycle
+                .to_le_bytes(),
+        ),
+        &CONTRACT_ID,
+    );
+
+    let delete_auction_args = DeleteAuctionArgs {
+        auction_owner_pubkey: auction_owner.keypair.pubkey(),
+        top_bidder_pubkey: get_top_bidder_pubkey(&mut testbench, &auction_cycle_state_pubkey)
+            .await
+            .unwrap(),
+        auction_id,
+        current_auction_cycle: get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap(),
+        num_of_cycles_to_delete: RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
+    };
+
+    let delete_auction_ix = delete_auction(&delete_auction_args);
+
+    testbench
+        .process_transaction(&[delete_auction_ix], &auction_owner.keypair, None)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_pool.pool.len(), 0);
+
+
+    // Test if state accounts are deleted
+    assert!(
+        !is_existing_account(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap()
+    );
+    assert!(!is_existing_account(&mut testbench, &auction_bank_pubkey)
+        .await
+        .unwrap());
+    assert!(are_given_cycle_states_deleted(&mut testbench, &auction_root_state_pubkey, 1, 1).await);
+}
+
 #[tokio::test]
 async fn test_delete_small_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
