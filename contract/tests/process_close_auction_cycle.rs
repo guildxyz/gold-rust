@@ -420,6 +420,21 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .unwrap()
     .unwrap();
 
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_pool.pool[0], auction_id);
+    assert!(secondary_pool.pool.is_empty());
+
     let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
     // Place bid on first cycle
@@ -567,6 +582,17 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
         &child_metadata,
         true,
     );
+
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(secondary_pool.pool[0], auction_id);
+    assert!(auction_pool.pool.is_empty());
 }
 
 #[tokio::test]
