@@ -254,7 +254,8 @@ async fn test_delete_long_ongoing_auction() {
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await.unwrap();
+        .await
+        .unwrap();
 
     assert!(!auction_root_state.status.is_finished);
 
@@ -285,22 +286,31 @@ async fn test_delete_long_ongoing_auction() {
     // Delete auction
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await.unwrap();
+        .await
+        .unwrap();
     assert_eq!(auction_pool.pool.len(), 1);
     testbench
         .process_transaction(&[delete_auction_ix], &auction_owner.keypair, None)
-        .await.unwrap()
+        .await
+        .unwrap()
         .unwrap();
 
     // Test that auction is not yet removed from the pool
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await.unwrap();
+        .await
+        .unwrap();
     assert_eq!(auction_pool.pool.len(), 1); // should still be present
 
     // Test that state accounts are not deleted
-    assert!(is_existing_account(&mut testbench, &auction_root_state_pubkey).await.unwrap());
-    assert!(is_existing_account(&mut testbench, &auction_bank_pubkey).await.unwrap());
+    assert!(
+        is_existing_account(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap()
+    );
+    assert!(is_existing_account(&mut testbench, &auction_bank_pubkey)
+        .await
+        .unwrap());
     assert!(
         are_given_cycle_states_deleted(&mut testbench, &auction_root_state_pubkey, 2, 31).await
     );
@@ -309,12 +319,14 @@ async fn test_delete_long_ongoing_auction() {
     // Check that auction is inactivated
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await.unwrap();
+        .await
+        .unwrap();
     assert!(auction_root_state.status.is_frozen);
 
-
     delete_auction_args.current_auction_cycle =
-        get_current_cycle_number(&mut testbench, &auction_root_state_pubkey).await.unwrap();
+        get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap();
     let delete_auction_ix = delete_auction(&delete_auction_args);
     testbench
         .process_transaction(&[delete_auction_ix], &auction_owner.keypair, None)
@@ -324,12 +336,19 @@ async fn test_delete_long_ongoing_auction() {
 
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
-        .await.unwrap();
+        .await
+        .unwrap();
     assert!(auction_pool.pool.is_empty()); // should be deleted now
 
     // Test that state accounts are now deleted
-    assert!(!is_existing_account(&mut testbench, &auction_root_state_pubkey).await.unwrap());
-    assert!(!is_existing_account(&mut testbench, &auction_bank_pubkey).await.unwrap());
+    assert!(
+        !is_existing_account(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap()
+    );
+    assert!(!is_existing_account(&mut testbench, &auction_bank_pubkey)
+        .await
+        .unwrap());
     assert!(are_given_cycle_states_deleted(&mut testbench, &auction_root_state_pubkey, 1, 1).await);
 }
 
