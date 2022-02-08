@@ -307,6 +307,13 @@ async fn test_delete_long_auction() {
     );
     assert!(does_nth_cycle_state_exist(&mut testbench, &auction_root_state_pubkey, 1).await);
 
+    // Check that auction is inactivated
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await.unwrap();
+    assert!(auction_root_state.status.is_frozen);
+
+
     delete_auction_args.current_auction_cycle =
         get_current_cycle_number(&mut testbench, &auction_root_state_pubkey).await.unwrap();
     let delete_auction_ix = delete_auction(&delete_auction_args);
