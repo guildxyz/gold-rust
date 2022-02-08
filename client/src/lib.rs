@@ -7,7 +7,9 @@ mod get_current_cycle;
 mod get_top_bidder;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
+use agsol_gold_contract::pda::{
+    auction_pool_seeds, auction_root_state_seeds, secondary_pool_seeds,
+};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
@@ -67,8 +69,13 @@ pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> 
 }
 
 #[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn wasm_auction_pool_pubkey() -> Pubkey {
-    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+pub fn wasm_auction_pool_pubkey(secondary: bool) -> Pubkey {
+    let seeds = if secondary {
+        secondary_pool_seeds()
+    } else {
+        auction_pool_seeds()
+    };
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
     auction_pool_pubkey
 }
 

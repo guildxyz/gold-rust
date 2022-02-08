@@ -85,6 +85,7 @@ async fn test_process_filter_auction() {
         .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
         .await
         .unwrap();
+
     assert!(secondary_pool.pool.is_empty());
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
