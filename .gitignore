@@ -10,3 +10,4 @@ config.toml
 
 # Docker
 bin/
+bot.json
