@@ -21,7 +21,7 @@ env:
 jobs:
   containerBuildTest:
     name: Container build test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
 
@@ -60,7 +60,7 @@ jobs:
   imagePush:
     name: Build and publish the conatiner image
     needs: containerBuildTest
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name == 'push' || github.event.pull_request.merged == true
     steps:
       - uses: actions/checkout@v2
