@@ -8,8 +8,6 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 
-const TRANSACTION_FEE: u64 = 5000;
-
 #[tokio::test]
 async fn test_process_verify_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();

@@ -1,6 +1,6 @@
 #![cfg(feature = "test-bpf")]
 mod test_factory;
-use test_factory::{initialize_new_auction, TestUser};
+use test_factory::{initialize_new_auction, TestUser, TRANSACTION_FEE};
 
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::pda::*;
@@ -15,7 +15,6 @@ use agsol_token_metadata::ID as META_ID;
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
 
-const TRANSACTION_FEE: u64 = 5_000;
 const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 #[tokio::test]

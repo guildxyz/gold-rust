@@ -3,7 +3,7 @@ mod test_factory;
 use test_factory::*;
 
 use agsol_gold_contract::instruction::factory::reallocate_pool;
-use agsol_gold_contract::pda::auction_pool_seeds;
+use agsol_gold_contract::pda::{auction_pool_seeds, contract_bank_seeds, secondary_pool_seeds};
 use agsol_gold_contract::state::{AuctionConfig, AuctionPool, TokenType};
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
@@ -16,13 +16,23 @@ async fn test_process_reallocate_pool() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await
         .unwrap();
 
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+
     assert_eq!(auction_pool.max_len, INITIAL_AUCTION_POOL_LEN);
+    assert_eq!(secondary_pool.max_len, INITIAL_AUCTION_POOL_LEN);
     assert!(auction_pool.pool.is_empty());
+    assert!(secondary_pool.pool.is_empty());
 
     let mut auction_id;
     let auction_config = AuctionConfig {
@@ -85,7 +95,7 @@ async fn test_process_reallocate_pool() {
         .await
         .unwrap();
 
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_max_len);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), new_max_len, auction_pool_seeds);
     testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
@@ -139,7 +149,8 @@ async fn test_process_reallocate_pool() {
     assert_eq!(auction_pool.pool, vec![[0; 32], [1; 32], [2; 32], [3; 32]]);
 
     // try to deallocate/reallocate without admin authority
-    let reallocate_instruction = reallocate_pool(&auction_owner.keypair.pubkey(), 0);
+    let reallocate_instruction =
+        reallocate_pool(&auction_owner.keypair.pubkey(), 0, auction_pool_seeds);
     let error = testbench
         .process_transaction(&[reallocate_instruction], &auction_owner.keypair, None)
         .await
@@ -153,7 +164,7 @@ async fn test_process_reallocate_pool() {
 
     // try to shrink the pool, sending these together is fine now,
     // because the size check is before the system program is called
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 1);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 1, auction_pool_seeds);
     let error = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
@@ -166,7 +177,33 @@ async fn test_process_reallocate_pool() {
     );
 
     // try to reallocate to a too large size
-    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 350_000);
+    let reallocate_instruction = reallocate_pool(&payer.pubkey(), 350_000, auction_pool_seeds);
+    let result = testbench
+        .process_transaction(&[reallocate_instruction], &payer, None)
+        .await
+        .unwrap();
+    assert!(result.is_err());
+
+    // reallocate secondary pool
+    let new_secondary_len = 20;
+    let reallocate_instruction =
+        reallocate_pool(&payer.pubkey(), new_secondary_len, secondary_pool_seeds);
+    testbench
+        .process_transaction(&[reallocate_instruction], &payer, None)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+
+    assert_eq!(secondary_pool.max_len, new_secondary_len);
+
+    // reallocate with invalid seeds
+    let reallocate_instruction =
+        reallocate_pool(&payer.pubkey(), new_secondary_len, contract_bank_seeds);
     let result = testbench
         .process_transaction(&[reallocate_instruction], &payer, None)
         .await
