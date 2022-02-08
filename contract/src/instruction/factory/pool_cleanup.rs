@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy)]
 pub struct AccountToClean {
     pub pubkey: Pubkey,
     pub id: AuctionId,
