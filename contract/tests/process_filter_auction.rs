@@ -81,31 +81,15 @@ async fn test_process_filter_auction() {
         .unwrap();
     assert!(!auction_root_state.status.is_filtered);
 
-    freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
-        .await
-        .unwrap()
-        .unwrap();
-
     let secondary_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
         .await
         .unwrap();
+
     assert!(secondary_pool.pool.is_empty());
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await
         .unwrap();
     assert_eq!(auction_pool.pool[0], auction_id);
-
-    // filter frozen transaction
-    filter_auction_transaction(&mut testbench, auction_id, true, &payer)
-        .await
-        .unwrap()
-        .unwrap();
-
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-    assert!(auction_root_state.status.is_filtered);
 }

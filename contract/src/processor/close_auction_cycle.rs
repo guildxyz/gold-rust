@@ -118,7 +118,7 @@ pub fn close_auction_cycle(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    // Check auction status (freeze, active, able to end cycle)
+    // Check auction status (frozen, active, able to end cycle)
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
     check_status(

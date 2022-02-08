@@ -1,4 +1,4 @@
-use crate::NET;
+use crate::{NET, RPC_CONFIG};
 use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
@@ -14,7 +14,7 @@ use spl_token::state::Mint;
 use std::convert::TryFrom;
 
 pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
-    let mut client = RpcClient::new(NET);
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
     let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
 
     // read root state
