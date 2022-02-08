@@ -2,6 +2,7 @@ mod admin_withdraw;
 mod bid;
 mod claim_funds;
 mod close_auction_cycle;
+mod delete_auction;
 mod filter_auction;
 mod freeze;
 mod initialize_auction;
@@ -80,6 +81,15 @@ pub fn process(
         AuctionInstruction::FilterAuction { id, filter } => {
             filter_auction::filter_auction(program_id, accounts, id, filter)
         }
+        AuctionInstruction::DeleteAuction {
+            id,
+            num_of_cycles_to_delete,
+        } => delete_auction::process_delete_auction(
+            program_id,
+            accounts,
+            id,
+            num_of_cycles_to_delete,
+        ),
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
         }

@@ -23,9 +23,7 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
-use agsol_testbench::{
-    Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult,
-};
+use agsol_testbench::{Testbench, TestbenchProgram, TestbenchResult, TestbenchTransactionResult};
 
 pub const TRANSACTION_FEE: u64 = 5000;
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
@@ -397,11 +395,9 @@ pub async fn is_existing_account(
 ) -> TestbenchResult<bool> {
     let account_query = testbench.get_account(account_pubkey).await;
     match account_query {
-        Err(err) => match err {
-            TestbenchError::AccountNotFound => Ok(false),
-            _ => Err(err),
-        },
-        Ok(_) => Ok(true),
+        Err(err) => Err(err),
+        Ok(Some(_)) => Ok(true),
+        Ok(None) => Ok(false),
     }
 }
 

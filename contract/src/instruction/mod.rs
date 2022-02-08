@@ -32,6 +32,10 @@ pub enum AuctionInstruction {
         id: AuctionId,
         filter: bool,
     },
+    DeleteAuction {
+        id: AuctionId,
+        num_of_cycles_to_delete: u64,
+    },
     CloseAuctionCycle {
         id: AuctionId,
     },
