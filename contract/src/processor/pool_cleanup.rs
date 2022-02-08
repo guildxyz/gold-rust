@@ -1,6 +1,10 @@
 use super::*;
 
-pub fn process_pool_cleanup(program_id: &Pubkey, accounts: &[AccountInfo], id_vec: Vec<AuctionId>) -> ProgramResult {
+pub fn process_pool_cleanup(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    id_vec: Vec<AuctionId>,
+) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let payer_account = next_account_info(account_info_iter)?;
     let auction_pool_account = next_account_info(account_info_iter)?;

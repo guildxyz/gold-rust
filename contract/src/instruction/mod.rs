@@ -57,5 +57,5 @@ pub enum AuctionInstruction {
     },
     PoolCleanup {
         id_vec: Vec<AuctionId>,
-    }
+    },
 }
