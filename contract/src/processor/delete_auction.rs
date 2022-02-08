@@ -101,7 +101,7 @@ pub fn process_delete_auction(
         }
 
         // Deallocate cycle state
-        deallocate_state(auction_cycle_state_account, contract_bank_account);
+        deallocate_state(auction_cycle_state_account, contract_bank_account)?;
 
         cycle_num -= 1;
     }
@@ -117,8 +117,8 @@ pub fn process_delete_auction(
     }
 
     // Deallocate remaining states if all cycle states are deallocated
-    deallocate_state(auction_bank_account, auction_owner_account);
-    deallocate_state(auction_root_state_account, auction_owner_account);
+    deallocate_state(auction_bank_account, auction_owner_account)?;
+    deallocate_state(auction_root_state_account, auction_owner_account)?;
 
     // Remove auction entry from auction pools
     let mut auction_pool = AuctionPool::read(auction_pool_account)?;
@@ -132,12 +132,14 @@ pub fn process_delete_auction(
     Ok(())
 }
 
-// TODO: unwraps
 #[inline(always)]
-fn deallocate_state<'a>(from: &'a AccountInfo, to: &'a AccountInfo) {
+fn deallocate_state<'a>(
+    from: &'a AccountInfo,
+    to: &'a AccountInfo,
+) -> Result<(), AuctionContractError> {
     let lamports_to_claim = **from.lamports.borrow();
-    checked_debit_account(from, lamports_to_claim).unwrap();
-    checked_credit_account(to, lamports_to_claim).unwrap();
+    checked_debit_account(from, lamports_to_claim)?;
+    checked_credit_account(to, lamports_to_claim)
 }
 
 fn refund_top_bidder<'a>(
