@@ -7,7 +7,9 @@ mod get_current_cycle;
 mod get_top_bidder;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{auction_pool_seeds, secondary_pool_seeds, auction_root_state_seeds};
+use agsol_gold_contract::pda::{
+    auction_pool_seeds, auction_root_state_seeds, secondary_pool_seeds,
+};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
