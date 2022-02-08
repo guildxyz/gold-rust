@@ -98,6 +98,7 @@ impl PoolRecord {
             return Ok(false);
         }
 
+        self.error_streak += 1;
         Ok(true)
     }
 
