@@ -25,7 +25,7 @@ const RPC_CONFIG: RpcConfig = RpcConfig {
 };
 
 wasm_instruction!(initialize_auction);
-wasm_instruction!(freeze_auction);
+wasm_instruction!(delete_auction);
 wasm_instruction!(place_bid);
 wasm_instruction!(claim_funds);
 

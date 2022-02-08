@@ -4,7 +4,6 @@ mod claim_funds;
 mod close_auction_cycle;
 mod delete_auction;
 mod filter_auction;
-mod freeze;
 mod initialize_auction;
 mod initialize_contract;
 mod reallocate_pool;
@@ -77,7 +76,6 @@ pub fn process(
         AuctionInstruction::CloseAuctionCycle { id } => {
             close_auction_cycle::close_auction_cycle(program_id, accounts, id)
         }
-        AuctionInstruction::Freeze { id } => freeze::freeze_auction(program_id, accounts, id),
         AuctionInstruction::FilterAuction { id, filter } => {
             filter_auction::filter_auction(program_id, accounts, id, filter)
         }

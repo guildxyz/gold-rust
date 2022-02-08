@@ -25,9 +25,6 @@ pub enum AuctionInstruction {
         create_token_args: CreateTokenArgs,
         auction_start_timestamp: Option<UnixTimestamp>,
     },
-    Freeze {
-        id: AuctionId,
-    },
     FilterAuction {
         id: AuctionId,
         filter: bool,
