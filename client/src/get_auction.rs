@@ -1,21 +1,21 @@
-use crate::{pad_to_32_bytes, NET};
+use crate::{NET, RPC_CONFIG};
 use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::program_pack::Pack;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState, TokenConfig};
-use agsol_gold_contract::unpuff_metadata;
+use agsol_gold_contract::utils::{pad_to_32_bytes, unpuff_metadata};
 use agsol_gold_contract::ID as GOLD_ID;
+use agsol_token_metadata::state::Metadata;
+use agsol_token_metadata::ID as META_ID;
 use agsol_wasm_client::RpcClient;
-use metaplex_token_metadata::state::Metadata;
-use metaplex_token_metadata::ID as META_ID;
 use spl_token::state::Mint;
 use std::convert::TryFrom;
 
 pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
-    let mut client = RpcClient::new(NET);
-    let auction_id = pad_to_32_bytes(&auction_id)?;
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
 
     // read root state
     let (root_state_pubkey, _) =

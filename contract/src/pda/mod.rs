@@ -1,6 +1,6 @@
 pub mod factory;
 
-use metaplex_token_metadata::state::{EDITION, PREFIX};
+use agsol_token_metadata::state::{EDITION, PREFIX};
 use solana_program::pubkey::Pubkey;
 
 pub fn contract_pda_seeds<'a>() -> [&'a [u8]; 1] {
@@ -9,6 +9,10 @@ pub fn contract_pda_seeds<'a>() -> [&'a [u8]; 1] {
 
 pub fn auction_pool_seeds<'a>() -> [&'a [u8]; 1] {
     [b"gold_auction_pool"]
+}
+
+pub fn secondary_pool_seeds<'a>() -> [&'a [u8]; 1] {
+    [b"gold_secondary_pool"]
 }
 
 pub fn auction_bank_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
@@ -52,7 +56,7 @@ pub fn master_holding_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
 pub fn edition_seeds(mint_pubkey: &Pubkey) -> [&[u8]; 4] {
     [
         PREFIX.as_bytes(),
-        metaplex_token_metadata::ID.as_ref(),
+        agsol_token_metadata::ID.as_ref(),
         mint_pubkey.as_ref(),
         EDITION.as_bytes(),
     ]
@@ -86,7 +90,7 @@ pub fn child_holding_seeds<'a>(edition: &'a [u8; 8], auction_id: &'a [u8]) -> [&
 pub fn edition_marker_seeds<'a>(edition_str: &'a str, mint: &'a Pubkey) -> [&'a [u8]; 5] {
     [
         PREFIX.as_bytes(),
-        metaplex_token_metadata::ID.as_ref(),
+        agsol_token_metadata::ID.as_ref(),
         mint.as_ref(),
         EDITION.as_bytes(),
         edition_str.as_bytes(),
@@ -108,8 +112,8 @@ pub fn user_asset_pubkey(
 
 pub fn metadata_seeds(mint_pubkey: &Pubkey) -> [&[u8]; 3] {
     [
-        metaplex_token_metadata::state::PREFIX.as_bytes(),
-        metaplex_token_metadata::ID.as_ref(),
+        agsol_token_metadata::state::PREFIX.as_bytes(),
+        agsol_token_metadata::ID.as_ref(),
         mint_pubkey.as_ref(),
     ]
 }
@@ -150,9 +154,9 @@ impl EditionPda {
             }
         };
         let (metadata, _) =
-            Pubkey::find_program_address(&metadata_seeds(&mint), &metaplex_token_metadata::ID);
+            Pubkey::find_program_address(&metadata_seeds(&mint), &agsol_token_metadata::ID);
         let (edition, _) =
-            Pubkey::find_program_address(&edition_seeds(&mint), &metaplex_token_metadata::ID);
+            Pubkey::find_program_address(&edition_seeds(&mint), &agsol_token_metadata::ID);
         Self {
             edition,
             mint,

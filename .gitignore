@@ -7,3 +7,9 @@ config.toml
 .coderrect/
 /test-ledger
 *.log
+
+# Docker
+bin/
+
+# Mac
+**/.DS_Store

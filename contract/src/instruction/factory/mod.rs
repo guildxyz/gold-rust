@@ -1,8 +1,8 @@
 mod admin_withdraw;
 mod claim_funds;
 mod close_auction_cycle;
+mod delete_auction;
 mod filter_auction;
-mod freeze_auction;
 mod initialize_auction;
 mod initialize_contract;
 mod place_bid;
@@ -12,8 +12,8 @@ mod verify_auction;
 pub use admin_withdraw::*;
 pub use claim_funds::*;
 pub use close_auction_cycle::*;
+pub use delete_auction::*;
 pub use filter_auction::*;
-pub use freeze_auction::*;
 pub use initialize_auction::*;
 pub use initialize_contract::*;
 pub use place_bid::*;
@@ -25,10 +25,10 @@ use crate::pda::*;
 use crate::state::{
     AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs, TokenType,
 };
+use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
+use agsol_token_metadata::state::EDITION_MARKER_BIT_SIZE;
+use agsol_token_metadata::ID as META_ID;
 use borsh::{BorshDeserialize, BorshSerialize};
-use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
-use metaplex_token_metadata::state::EDITION_MARKER_BIT_SIZE;
-use metaplex_token_metadata::ID as META_ID;
 
 use agsol_borsh_schema::BorshSchema;
 use solana_program::clock::UnixTimestamp;

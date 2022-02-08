@@ -1,8 +1,8 @@
 use crate::state::AuctionRootState;
 use agsol_borsh_schema::BorshSchema;
 use agsol_common::{MaxLenString, MaxSerializedLen};
+use agsol_token_metadata::state::{MAX_NAME_LENGTH, MAX_SYMBOL_LENGTH, MAX_URI_LENGTH};
 use borsh::{BorshDeserialize, BorshSerialize};
-use metaplex_token_metadata::state::{MAX_NAME_LENGTH, MAX_SYMBOL_LENGTH, MAX_URI_LENGTH};
 use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]

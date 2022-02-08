@@ -1,37 +1,59 @@
 #![cfg(feature = "test-bpf")]
 mod test_factory;
-use test_factory::{initialize_new_auction, TestUser};
+use test_factory::{initialize_new_auction, TestUser, TRANSACTION_FEE};
 
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
-use agsol_gold_contract::unpuff_metadata;
+use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 
-use metaplex_token_metadata::ID as META_ID;
+use agsol_token_metadata::ID as META_ID;
 
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
 
-const TRANSACTION_FEE: u64 = 5_000;
 const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 #[tokio::test]
 async fn test_process_initialize_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
-    let auction_id = [123_u8; 32];
+    let non_ascii_bytes = "héllóabcdefghijklmnopqrstuvwxy".as_bytes();
+    let mut auction_id = [0_u8; 32];
+    auction_id.copy_from_slice(non_ascii_bytes);
 
-    // Invalid use case
-    // Initialize auction with invalid minimum_bid_amount
-    // minimum_bid_amount < UNIVERSAL_BID_FLOOR
     let mut auction_config = AuctionConfig {
         cycle_period: 86400,
         encore_period: 300,
-        minimum_bid_amount: 10_000_000,
+        minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
+
+    // invalid auction id (not ascii)
+    let invalid_auction_id_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        invalid_auction_id_error,
+        AuctionContractError::AuctionIdNotAscii
+    );
+
+    let auction_id = [123_u8; 32];
+    // Invalid use case
+    // Initialize auction with invalid minimum_bid_amount
+    // minimum_bid_amount < UNIVERSAL_BID_FLOOR
+    auction_config.minimum_bid_amount = 10_000_000;
     let invalid_min_bid_error = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -49,7 +71,47 @@ async fn test_process_initialize_auction() {
         AuctionContractError::InvalidMinimumBidAmount
     );
 
+    // cycle period too small
+    auction_config.cycle_period = 30;
     auction_config.minimum_bid_amount = 50_000_000;
+
+    let invalid_cycle_period_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        invalid_cycle_period_error,
+        AuctionContractError::InvalidCyclePeriod
+    );
+
+    // cycle period too large
+    auction_config.cycle_period = 50_000_000;
+    let invalid_cycle_period_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        invalid_cycle_period_error,
+        AuctionContractError::InvalidCyclePeriod
+    );
+
+    auction_config.cycle_period = 60;
 
     let balance_change = initialize_new_auction(
         &mut testbench,
@@ -69,7 +131,7 @@ async fn test_process_initialize_auction() {
         Pubkey::find_program_address(&master_mint_seeds(&auction_id), &CONTRACT_ID);
     let (master_edition_pubkey, _) = Pubkey::find_program_address(
         &edition_seeds(&master_mint_pubkey),
-        &metaplex_token_metadata::ID,
+        &agsol_token_metadata::ID,
     );
 
     let master_mint_data = testbench
@@ -99,7 +161,7 @@ async fn test_process_initialize_auction() {
     let (master_metadata_pubkey, _) =
         Pubkey::find_program_address(&metadata_seeds(&master_mint_pubkey), &META_ID);
     let mut master_metadata = testbench
-        .get_and_deserialize_account_data::<metaplex_token_metadata::state::Metadata>(
+        .get_and_deserialize_account_data::<agsol_token_metadata::state::Metadata>(
             &master_metadata_pubkey,
         )
         .await

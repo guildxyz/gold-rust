@@ -1,7 +1,7 @@
 use super::*;
 
-use metaplex_token_metadata::state::Data as MetadataStateData;
-use metaplex_token_metadata::state::MasterEditionV2;
+use agsol_token_metadata::state::Data as MetadataStateData;
+use agsol_token_metadata::state::MasterEditionV2;
 use solana_program::clock::UnixTimestamp;
 use solana_program::sysvar::rent::Rent;
 
@@ -38,6 +38,8 @@ pub fn close_auction_cycle(
     // contract state accounts
     let auction_bank_account = next_account_info(account_info_iter)?;
     let auction_owner_account = next_account_info(account_info_iter)?;
+    let auction_pool_account = next_account_info(account_info_iter)?;
+    let secondary_pool_account = next_account_info(account_info_iter)?;
     let auction_root_state_account = next_account_info(account_info_iter)?;
     let current_auction_cycle_state_account = next_account_info(account_info_iter)?;
     let next_auction_cycle_state_account = next_account_info(account_info_iter)?;
@@ -72,6 +74,21 @@ pub fn close_auction_cycle(
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
 
+    // check pool pdas
+    SignerPda::check_owner(
+        &auction_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    )?;
+
+    SignerPda::check_owner(
+        &secondary_pool_seeds(),
+        program_id,
+        program_id,
+        secondary_pool_account,
+    )?;
+
     // check root and cycle states
     SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
@@ -101,7 +118,7 @@ pub fn close_auction_cycle(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    // Check auction status (freeze, active, able to end cycle)
+    // Check auction status (frozen, active, able to end cycle)
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
     check_status(
@@ -129,27 +146,12 @@ pub fn close_auction_cycle(
             .checked_add(most_recent_bid.bid_amount)
             .ok_or(AuctionContractError::ArithmeticError)?;
     } else {
-        current_auction_cycle_state.end_time = current_auction_cycle_state
-            .end_time
-            .checked_add(auction_root_state.auction_config.cycle_period)
-            .ok_or(AuctionContractError::ArithmeticError)?;
-
-        auction_root_state.status.current_idle_cycle_streak = auction_root_state
-            .status
-            .current_idle_cycle_streak
-            .checked_add(1)
-            .ok_or(AuctionContractError::ArithmeticError)?;
-
-        // If the auction was idle for at least a week then filter it automatically
-        if auction_root_state.auction_config.cycle_period
-            * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
-            > crate::ALLOWED_AUCTION_IDLE_PERIOD
-        {
-            auction_root_state.status.is_filtered = true;
-        }
-
-        current_auction_cycle_state.write(current_auction_cycle_state_account)?;
-        auction_root_state.write(auction_root_state_account)?;
+        increment_idle_streak(
+            &mut current_auction_cycle_state,
+            &mut auction_root_state,
+            current_auction_cycle_state_account,
+            auction_root_state_account,
+        )?;
         return Ok(());
     }
 
@@ -450,6 +452,12 @@ pub fn close_auction_cycle(
             .available_funds
             .checked_add(Rent::get()?.minimum_balance(0))
             .ok_or(AuctionContractError::ArithmeticError)?;
+        let mut auction_pool = AuctionPool::read(auction_pool_account)?;
+        let mut secondary_pool = AuctionPool::read(secondary_pool_account)?;
+        auction_pool.remove(&auction_id);
+        secondary_pool.try_insert_sorted(auction_id)?;
+        auction_pool.write(auction_pool_account)?;
+        secondary_pool.write(secondary_pool_account)?;
     } else {
         create_state_account(
             payer_account,
@@ -481,6 +489,38 @@ pub fn close_auction_cycle(
     auction_root_state.status.current_idle_cycle_streak = 0;
     auction_root_state.write(auction_root_state_account)?;
 
+    Ok(())
+}
+
+fn increment_idle_streak(
+    current_auction_cycle_state: &mut AuctionCycleState,
+    auction_root_state: &mut AuctionRootState,
+    current_auction_cycle_state_account: &AccountInfo,
+    auction_root_state_account: &AccountInfo,
+) -> Result<(), ProgramError> {
+    current_auction_cycle_state.end_time = current_auction_cycle_state
+        .end_time
+        .checked_add(auction_root_state.auction_config.cycle_period)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    auction_root_state.status.current_idle_cycle_streak = auction_root_state
+        .status
+        .current_idle_cycle_streak
+        .checked_add(1)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+
+    // If the auction was idle for at least a week then filter it automatically
+    if auction_root_state.auction_config.cycle_period
+        * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
+        > crate::ALLOWED_AUCTION_IDLE_PERIOD
+        || auction_root_state.status.current_idle_cycle_streak
+            > crate::ALLOWED_CONSECUTIVE_IDLE_CYCLES
+    {
+        auction_root_state.status.is_filtered = true;
+    }
+
+    current_auction_cycle_state.write(current_auction_cycle_state_account)?;
+    auction_root_state.write(auction_root_state_account)?;
     Ok(())
 }
 

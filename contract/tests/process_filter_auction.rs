@@ -31,6 +31,11 @@ async fn test_process_filter_auction() {
     .unwrap()
     .unwrap();
 
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+
     // check state account
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
@@ -53,6 +58,17 @@ async fn test_process_filter_auction() {
         .unwrap();
     assert!(auction_root_state.status.is_filtered);
 
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(secondary_pool.pool[0], auction_id);
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    assert!(auction_pool.pool.is_empty());
+
     // unfilter
     filter_auction_transaction(&mut testbench, auction_id, false, &payer)
         .await
@@ -65,20 +81,15 @@ async fn test_process_filter_auction() {
         .unwrap();
     assert!(!auction_root_state.status.is_filtered);
 
-    freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
         .await
-        .unwrap()
         .unwrap();
 
-    // filter frozen transaction
-    filter_auction_transaction(&mut testbench, auction_id, true, &payer)
-        .await
-        .unwrap()
-        .unwrap();
-
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+    assert!(secondary_pool.pool.is_empty());
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
         .await
         .unwrap();
-    assert!(auction_root_state.status.is_filtered);
+    assert_eq!(auction_pool.pool[0], auction_id);
 }

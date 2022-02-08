@@ -14,6 +14,9 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
         Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &crate::ID);
 
     let (contract_pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &crate::ID);
 
@@ -42,6 +45,8 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
         AccountMeta::new(args.payer_pubkey, true),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(args.auction_owner_pubkey, false),
+        AccountMeta::new(auction_pool_pubkey, false),
+        AccountMeta::new(secondary_pool_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(current_auction_cycle_state_pubkey, false),
         AccountMeta::new(next_auction_cycle_state_pubkey, false),
@@ -65,7 +70,7 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
             let next_edition_string = next_edition_div.to_string();
             let (child_edition_marker_pubkey, _) = Pubkey::find_program_address(
                 &edition_marker_seeds(&next_edition_string, &master_pdas.mint),
-                &metaplex_token_metadata::ID,
+                &agsol_token_metadata::ID,
             );
 
             vec![

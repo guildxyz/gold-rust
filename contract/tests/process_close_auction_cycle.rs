@@ -6,12 +6,13 @@ use test_factory::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::processor::increment_uri;
 use agsol_gold_contract::state::*;
-use agsol_gold_contract::unpuff_metadata;
+use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
+use agsol_gold_contract::ALLOWED_CONSECUTIVE_IDLE_CYCLES;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
-use metaplex_token_metadata::instruction::CreateMetadataAccountArgs;
-use metaplex_token_metadata::state::Metadata;
+use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
+use agsol_token_metadata::state::Metadata;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
@@ -24,7 +25,7 @@ async fn test_process_close_auction_cycle() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1000),
@@ -215,7 +216,7 @@ async fn test_ended_close_cycle_on_auction() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(1),
@@ -306,85 +307,6 @@ async fn test_ended_close_cycle_on_auction() {
         close_cycle_on_ended_auction_error,
         AuctionContractError::AuctionEnded
     );
-
-    // Invalid use case
-    // Freezing ended auction
-    let freeze_finished_auction_error =
-        freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
-            .await
-            .unwrap()
-            .err()
-            .unwrap();
-    assert_eq!(
-        freeze_finished_auction_error,
-        AuctionContractError::AuctionEnded
-    );
-}
-
-#[tokio::test]
-async fn test_close_cycle_on_frozen_auction() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
-
-    let auction_id = [1; 32];
-    let auction_config = AuctionConfig {
-        cycle_period: 20,
-        encore_period: 1,
-        minimum_bid_amount: 50_000_000, // lamports
-        number_of_cycles: Some(1),
-    };
-
-    initialize_new_auction(
-        &mut testbench,
-        &auction_owner.keypair,
-        &auction_config,
-        auction_id,
-        TokenType::Nft,
-    )
-    .await
-    .unwrap()
-    .unwrap();
-
-    let auction_cycle_payer = TestUser::new(&mut testbench)
-        .await
-        .unwrap()
-        .unwrap()
-        .keypair;
-    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
-        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
-
-    // Freeze auction
-    freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
-        .await
-        .unwrap()
-        .unwrap();
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-    assert!(auction_root_state.status.is_frozen);
-
-    // Invalid use case
-    // End cycle on frozen auction
-
-    // Warp to slot so that the cycle could be closed if it was not frozen
-    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
-
-    // Trying to close the cycle
-    let close_cycle_on_frozen_auction_error = close_cycle_transaction(
-        &mut testbench,
-        &auction_cycle_payer,
-        auction_id,
-        &auction_owner.keypair.pubkey(),
-        TokenType::Nft,
-    )
-    .await
-    .unwrap()
-    .err()
-    .unwrap();
-    assert_eq!(
-        close_cycle_on_frozen_auction_error,
-        AuctionContractError::AuctionFrozen
-    );
 }
 
 #[tokio::test]
@@ -393,7 +315,7 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
@@ -418,6 +340,21 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .await
     .unwrap()
     .unwrap();
+
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_pool.pool[0], auction_id);
+    assert!(secondary_pool.pool.is_empty());
 
     let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
@@ -566,6 +503,17 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
         &child_metadata,
         true,
     );
+
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(secondary_pool.pool[0], auction_id);
+    assert!(auction_pool.pool.is_empty());
 }
 
 #[tokio::test]
@@ -574,7 +522,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     let auction_id = [1; 32];
     let auction_config = AuctionConfig {
-        cycle_period: 20,
+        cycle_period: 60,
         encore_period: 1,
         minimum_bid_amount: 50_000_000, // lamports
         number_of_cycles: Some(3),
@@ -591,7 +539,7 @@ async fn test_child_close_cycle_metadata_change_repeating() {
 
     let create_token_args = CreateTokenArgs::Nft {
         metadata_args: CreateMetadataAccountArgs {
-            data: metaplex_token_metadata::state::Data {
+            data: agsol_token_metadata::state::Data {
                 name: "random auction".to_owned(),
                 symbol: "RAND".to_owned(),
                 uri: "uri".to_owned(),
@@ -768,4 +716,73 @@ fn check_metadata_update(
     unpuff_metadata(&mut master_metadata_after);
 
     assert_eq!(master_metadata_before, master_metadata_after);
+}
+
+#[tokio::test]
+async fn test_process_close_idle_rapid_auction() {
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
+
+    let auction_id = [1; 32];
+    let auction_config = AuctionConfig {
+        cycle_period: 60,
+        encore_period: 1,
+        minimum_bid_amount: 50_000_000, // lamports
+        number_of_cycles: Some(1000),
+    };
+
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+
+    let auction_cycle_payer = TestUser::new(&mut testbench)
+        .await
+        .unwrap()
+        .unwrap()
+        .keypair;
+
+    initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    let mut auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+
+    // Close idle cycles until automatically filtered
+    for cycle_number in 1..(ALLOWED_CONSECUTIVE_IDLE_CYCLES + 2) {
+        assert!(!auction_root_state.status.is_filtered);
+        warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
+
+        let balance_change = close_cycle_transaction(
+            &mut testbench,
+            &auction_cycle_payer,
+            auction_id,
+            &auction_owner.keypair.pubkey(),
+            TokenType::Token,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(-balance_change as u64, TRANSACTION_FEE);
+
+        // Check if idle cycle streak has been incremented
+        auction_root_state = testbench
+            .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            auction_root_state.status.current_idle_cycle_streak,
+            cycle_number
+        );
+    }
+    assert!(auction_root_state.status.is_filtered);
 }

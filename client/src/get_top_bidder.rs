@@ -1,13 +1,14 @@
-use crate::{pad_to_32_bytes, NET};
+use crate::{NET, RPC_CONFIG};
 use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState};
+use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
 
 pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error> {
-    let mut client = RpcClient::new(NET);
-    let auction_id = pad_to_32_bytes(&auction_id)?;
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
     let (root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
 

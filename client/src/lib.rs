@@ -7,21 +7,27 @@ mod get_current_cycle;
 mod get_top_bidder;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{auction_pool_seeds, auction_root_state_seeds};
+use agsol_gold_contract::pda::{
+    auction_pool_seeds, auction_root_state_seeds, secondary_pool_seeds,
+};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::ID as GOLD_ID;
+use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{wasm_instruction, Net};
-use anyhow::anyhow;
 use borsh::BorshSerialize;
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
 // TODO client net from env-var
 const NET: Net = Net::Devnet;
+const RPC_CONFIG: RpcConfig = RpcConfig {
+    encoding: Some(Encoding::JsonParsed),
+    commitment: Some(CommitmentLevel::Processed),
+};
 
 wasm_instruction!(initialize_auction);
-wasm_instruction!(freeze_auction);
+wasm_instruction!(delete_auction);
 wasm_instruction!(place_bid);
 wasm_instruction!(claim_funds);
 
@@ -63,8 +69,13 @@ pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> 
 }
 
 #[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn wasm_auction_pool_pubkey() -> Pubkey {
-    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
+pub fn wasm_auction_pool_pubkey(secondary: bool) -> Pubkey {
+    let seeds = if secondary {
+        secondary_pool_seeds()
+    } else {
+        auction_pool_seeds()
+    };
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
     auction_pool_pubkey
 }
 
@@ -73,43 +84,4 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
     auction_root_state_pubkey
-}
-
-// NOTE special characters are chopped off to fit an u8, so it won't be
-// correct, however, we may assume in this case that the input is valid.
-// Else, we will throw an error when the auction with this id is not found
-pub fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], anyhow::Error> {
-    if input.len() > 32 {
-        return Err(anyhow!("input is longer than 32 bytes"));
-    }
-    let mut array = [0_u8; 32];
-    for (i, c) in input.chars().enumerate() {
-        array[i] = c as u8;
-    }
-    Ok(array)
-}
-
-#[test]
-fn str_padding() {
-    assert_eq!(
-        pad_to_32_bytes("this is definitely longer than 32 bytes")
-            .err()
-            .unwrap()
-            .to_string(),
-        "input is longer than 32 bytes"
-    );
-    assert_eq!(
-        pad_to_32_bytes("this-is-fine").unwrap(),
-        [
-            0x74, 0x68, 0x69, 0x73, 0x2d, 0x69, 0x73, 0x2d, 0x66, 0x69, 0x6e, 0x65, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]
-    );
-    assert_eq!(
-        pad_to_32_bytes("hélló").unwrap(),
-        [
-            0x68, 0xe9, 0x6c, 0x6c, 0xf3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-        ]
-    );
 }
