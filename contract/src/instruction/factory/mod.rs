@@ -6,7 +6,6 @@ mod freeze_auction;
 mod initialize_auction;
 mod initialize_contract;
 mod place_bid;
-mod pool_cleanup;
 mod reallocate_pool;
 mod verify_auction;
 
@@ -18,7 +17,6 @@ pub use freeze_auction::*;
 pub use initialize_auction::*;
 pub use initialize_contract::*;
 pub use place_bid::*;
-pub use pool_cleanup::*;
 pub use reallocate_pool::*;
 pub use verify_auction::*;
 

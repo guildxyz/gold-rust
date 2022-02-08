@@ -55,7 +55,4 @@ pub enum AuctionInstruction {
     ReallocatePool {
         new_max_auction_num: u32,
     },
-    PoolCleanup {
-        id_vec: Vec<AuctionId>,
-    },
 }
