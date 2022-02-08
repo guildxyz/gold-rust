@@ -10,3 +10,6 @@ config.toml
 
 # Docker
 bin/
+
+# Mac
+**/.DS_Store
