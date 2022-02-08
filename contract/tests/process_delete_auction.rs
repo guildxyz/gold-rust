@@ -10,7 +10,6 @@ use solana_sdk::signer::Signer;
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
-use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 
@@ -114,7 +113,7 @@ async fn test_delete_small_auction() {
 }
 
 #[tokio::test]
-async fn test_delete_just_long_enough_auction() {
+async fn test_delete_just_long_enough_finished_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
@@ -138,8 +137,8 @@ async fn test_delete_just_long_enough_auction() {
     .unwrap()
     .unwrap();
 
-    let (auction_pool_pubkey, _) =
-        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
@@ -187,11 +186,11 @@ async fn test_delete_just_long_enough_auction() {
     let delete_auction_ix = delete_auction(&delete_auction_args);
 
     // Delete auction
-    let auction_pool = testbench
-        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
         .await
         .unwrap();
-    assert_eq!(auction_pool.pool.len(), 1);
+    assert_eq!(secondary_pool.pool.len(), 1);
     testbench
         .process_transaction(&[delete_auction_ix.clone()], &auction_owner.keypair, None)
         .await
@@ -199,11 +198,11 @@ async fn test_delete_just_long_enough_auction() {
         .unwrap();
 
     // Test that auction is removed from the pool
-    let auction_pool = testbench
-        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
         .await
         .unwrap();
-    assert!(auction_pool.pool.is_empty());
+    assert!(secondary_pool.pool.is_empty());
 
     // Test that state accounts are also deleted
     assert!(
@@ -220,7 +219,7 @@ async fn test_delete_just_long_enough_auction() {
 }
 
 #[tokio::test]
-async fn test_delete_long_auction() {
+async fn test_delete_long_ongoing_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
@@ -228,7 +227,7 @@ async fn test_delete_long_auction() {
         cycle_period: 60,
         encore_period: 0,
         minimum_bid_amount: 50_000_000, // lamports
-        number_of_cycles: Some(RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL + 1),
+        number_of_cycles: Some(RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL + 2),
     };
 
     let payer = testbench.clone_payer();
@@ -251,13 +250,13 @@ async fn test_delete_long_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    close_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 31, 1000).await;
+    close_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 30, 1000).await;
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await.unwrap();
 
-    assert!(auction_root_state.status.is_finished);
+    assert!(!auction_root_state.status.is_finished);
 
     let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
         &auction_cycle_state_seeds(

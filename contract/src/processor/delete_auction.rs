@@ -15,6 +15,7 @@ pub fn process_delete_auction(
     let auction_bank_account = next_account_info(account_info_iter)?; // 4
     let contract_bank_account = next_account_info(account_info_iter)?; // 5
     let auction_pool_account = next_account_info(account_info_iter)?; // 6
+    let secondary_pool_account = next_account_info(account_info_iter)?; // 7
 
     if !auction_owner_account.is_signer {
         msg!("Auction owner signature is missing");
@@ -47,6 +48,13 @@ pub fn process_delete_auction(
     )?;
 
     SignerPda::check_owner(
+        &secondary_pool_seeds(),
+        program_id,
+        program_id,
+        secondary_pool_account,
+    )?;
+
+    SignerPda::check_owner(
         &auction_bank_seeds(&auction_id),
         program_id,
         program_id,
@@ -65,7 +73,7 @@ pub fn process_delete_auction(
     ) as usize;
 
     // The auction cycle states to remove in reverse chronological order
-    let auction_cycle_states = next_account_infos(account_info_iter, removable_cycle_states_num)?; // 7+
+    let auction_cycle_states = next_account_infos(account_info_iter, removable_cycle_states_num)?; // 8+
 
     // Iterate over auction cycle states
     let mut cycle_num = auction_root_state.status.current_auction_cycle;
@@ -112,9 +120,14 @@ pub fn process_delete_auction(
     deallocate_state(auction_bank_account, auction_owner_account);
     deallocate_state(auction_root_state_account, auction_owner_account);
 
+    // Remove auction entry from auction pools
     let mut auction_pool = AuctionPool::read(auction_pool_account)?;
     auction_pool.remove(&auction_id);
     auction_pool.write(auction_pool_account)?;
+
+    let mut secondary_auction_pool = AuctionPool::read(secondary_pool_account)?;
+    secondary_auction_pool.remove(&auction_id);
+    secondary_auction_pool.write(secondary_pool_account)?;
 
     Ok(())
 }
