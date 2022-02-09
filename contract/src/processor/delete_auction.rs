@@ -95,7 +95,6 @@ pub fn process_delete_auction(
                 auction_bank_account,
                 top_bidder_account,
                 &auction_cycle_state,
-                &mut auction_root_state,
             )?;
             auction_root_state.status.is_frozen = true;
         }
@@ -146,7 +145,6 @@ fn refund_top_bidder<'a>(
     auction_bank_account: &'a AccountInfo,
     top_bidder_account: &'a AccountInfo,
     auction_cycle_state: &'a AuctionCycleState,
-    auction_root_state: &'a mut AuctionRootState,
 ) -> Result<(), AuctionContractError> {
     let most_recent_bid_option = auction_cycle_state.bid_history.get_last_element();
     if let Some(most_recent_bid) = most_recent_bid_option {
@@ -156,11 +154,6 @@ fn refund_top_bidder<'a>(
 
         checked_debit_account(auction_bank_account, most_recent_bid.bid_amount)?;
         checked_credit_account(top_bidder_account, most_recent_bid.bid_amount)?;
-
-        auction_root_state.all_time_treasury = auction_root_state
-            .all_time_treasury
-            .checked_sub(most_recent_bid.bid_amount)
-            .ok_or(AuctionContractError::ArithmeticError)?;
     }
     Ok(())
 }
