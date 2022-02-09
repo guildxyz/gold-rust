@@ -25,12 +25,13 @@ pub enum AuctionInstruction {
         create_token_args: CreateTokenArgs,
         auction_start_timestamp: Option<UnixTimestamp>,
     },
-    Freeze {
-        id: AuctionId,
-    },
     FilterAuction {
         id: AuctionId,
         filter: bool,
+    },
+    DeleteAuction {
+        id: AuctionId,
+        num_of_cycles_to_delete: u64,
     },
     CloseAuctionCycle {
         id: AuctionId,

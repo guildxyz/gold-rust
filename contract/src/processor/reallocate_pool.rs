@@ -28,12 +28,23 @@ pub fn reallocate_pool(
         contract_bank_account,
     )?;
 
-    SignerPda::check_owner(
+    let auction_pool_pda_check = SignerPda::check_owner(
         &auction_pool_seeds(),
         program_id,
         program_id,
         auction_pool_account,
-    )?;
+    );
+
+    let secondary_pool_pda_check = SignerPda::check_owner(
+        &secondary_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    );
+
+    if auction_pool_pda_check.is_err() && secondary_pool_pda_check.is_err() {
+        auction_pool_pda_check?;
+    }
 
     // check admin
     let contract_bank_state = ContractBankState::read(contract_bank_account)?;

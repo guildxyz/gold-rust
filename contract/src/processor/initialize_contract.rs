@@ -10,6 +10,7 @@ pub fn initialize_contract(
     let contract_admin_account = next_account_info(account_info_iter)?;
     let contract_bank_account = next_account_info(account_info_iter)?;
     let auction_pool_account = next_account_info(account_info_iter)?;
+    let secondary_pool_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     if !contract_admin_account.is_signer {
@@ -34,6 +35,9 @@ pub fn initialize_contract(
     let auction_pool_seeds = auction_pool_seeds();
     let auction_pool_pda =
         SignerPda::new_checked(&auction_pool_seeds, program_id, auction_pool_account)?;
+    let secondary_pool_seeds = secondary_pool_seeds();
+    let secondary_pool_pda =
+        SignerPda::new_checked(&secondary_pool_seeds, program_id, secondary_pool_account)?;
 
     // if contract bank account exists, then we have
     if contract_bank_account.lamports() != 0 {
@@ -56,9 +60,20 @@ pub fn initialize_contract(
         account_size,
     )?;
 
+    // create secondary pool account
+    create_state_account(
+        contract_admin_account,
+        secondary_pool_account,
+        secondary_pool_pda.signer_seeds(),
+        program_id,
+        system_program,
+        account_size,
+    )?;
+
     // need to write max len of the auction pool into the state
     let auction_pool = AuctionPool::new(initial_auction_pool_len);
     auction_pool.write(auction_pool_account)?;
+    auction_pool.write(secondary_pool_account)?;
 
     // create contract bank account
     create_state_account(

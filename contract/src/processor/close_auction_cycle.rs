@@ -38,6 +38,8 @@ pub fn close_auction_cycle(
     // contract state accounts
     let auction_bank_account = next_account_info(account_info_iter)?;
     let auction_owner_account = next_account_info(account_info_iter)?;
+    let auction_pool_account = next_account_info(account_info_iter)?;
+    let secondary_pool_account = next_account_info(account_info_iter)?;
     let auction_root_state_account = next_account_info(account_info_iter)?;
     let current_auction_cycle_state_account = next_account_info(account_info_iter)?;
     let next_auction_cycle_state_account = next_account_info(account_info_iter)?;
@@ -72,6 +74,21 @@ pub fn close_auction_cycle(
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
 
+    // check pool pdas
+    SignerPda::check_owner(
+        &auction_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    )?;
+
+    SignerPda::check_owner(
+        &secondary_pool_seeds(),
+        program_id,
+        program_id,
+        secondary_pool_account,
+    )?;
+
     // check root and cycle states
     SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
@@ -101,7 +118,7 @@ pub fn close_auction_cycle(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
-    // Check auction status (freeze, active, able to end cycle)
+    // Check auction status (frozen, active, able to end cycle)
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
     check_status(
@@ -435,6 +452,12 @@ pub fn close_auction_cycle(
             .available_funds
             .checked_add(Rent::get()?.minimum_balance(0))
             .ok_or(AuctionContractError::ArithmeticError)?;
+        let mut auction_pool = AuctionPool::read(auction_pool_account)?;
+        let mut secondary_pool = AuctionPool::read(secondary_pool_account)?;
+        auction_pool.remove(&auction_id);
+        secondary_pool.try_insert_sorted(auction_id)?;
+        auction_pool.write(auction_pool_account)?;
+        secondary_pool.write(secondary_pool_account)?;
     } else {
         create_state_account(
             payer_account,

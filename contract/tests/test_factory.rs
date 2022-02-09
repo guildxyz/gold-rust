@@ -23,9 +23,7 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
-use agsol_testbench::{
-    Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult,
-};
+use agsol_testbench::{Testbench, TestbenchProgram, TestbenchResult, TestbenchTransactionResult};
 
 pub const TRANSACTION_FEE: u64 = 5000;
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
@@ -38,12 +36,6 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
         _ => unimplemented!(),
     }
 }
-/*
-pub fn to_auction_error<T>(testbench_result: Result<T, TransactionError>) -> AuctionContractError {
-    let program_err = testbench_result.unwrap().err().unwrap();
-    to_auction_error_intermediary(program_err)
-}
-*/
 
 type TestbenchResultOption<T> = TestbenchResult<Option<T>>;
 type AuctionTransactionResult = TestbenchResult<Result<i64, AuctionContractError>>;
@@ -65,7 +57,7 @@ impl TestUser {
         let instruction = system_instruction::transfer(
             &testbench.payer().pubkey(),
             &keypair.pubkey(),
-            500_000_000,
+            15_500_000_000,
         );
 
         let payer = testbench.clone_payer();
@@ -217,27 +209,6 @@ pub async fn close_cycle_transaction(
 
     testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
-        .await
-        .map(|transaction_result| transaction_result.map_err(to_auction_error))
-}
-
-pub async fn freeze_auction_transaction(
-    testbench: &mut Testbench,
-    auction_id: [u8; 32],
-    auction_owner_keypair: &Keypair,
-) -> AuctionTransactionResult {
-    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await?;
-
-    let freeze_args = FreezeAuctionArgs {
-        auction_owner_pubkey: auction_owner_keypair.pubkey(),
-        auction_id,
-        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,
-        cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
-    };
-    let freeze_instruction = freeze_auction(&freeze_args);
-    testbench
-        .process_transaction(&[freeze_instruction], auction_owner_keypair, None)
         .await
         .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
@@ -397,11 +368,9 @@ pub async fn is_existing_account(
 ) -> TestbenchResult<bool> {
     let account_query = testbench.get_account(account_pubkey).await;
     match account_query {
-        Err(err) => match err {
-            TestbenchError::AccountNotFound => Ok(false),
-            _ => Err(err),
-        },
-        Ok(_) => Ok(true),
+        Err(err) => Err(err),
+        Ok(Some(_)) => Ok(true),
+        Ok(None) => Ok(false),
     }
 }
 

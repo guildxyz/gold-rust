@@ -54,3 +54,7 @@ pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
 pub const MIN_CYCLE_PERIOD: UnixTimestamp = 60; // one minute
 /// Minimum length of an auction cycle period in seconds.
 pub const MAX_CYCLE_PERIOD: UnixTimestamp = 31_557_600; // one year
+
+/// The recommended number of state accounts that can be safely wiped via a
+/// `DeleteAuction` contract call without exceeding the allotted compute units.
+pub const RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL: u64 = 30;

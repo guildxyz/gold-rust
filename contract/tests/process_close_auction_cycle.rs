@@ -307,85 +307,6 @@ async fn test_ended_close_cycle_on_auction() {
         close_cycle_on_ended_auction_error,
         AuctionContractError::AuctionEnded
     );
-
-    // Invalid use case
-    // Freezing ended auction
-    let freeze_finished_auction_error =
-        freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
-            .await
-            .unwrap()
-            .err()
-            .unwrap();
-    assert_eq!(
-        freeze_finished_auction_error,
-        AuctionContractError::AuctionEnded
-    );
-}
-
-#[tokio::test]
-async fn test_close_cycle_on_frozen_auction() {
-    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
-
-    let auction_id = [1; 32];
-    let auction_config = AuctionConfig {
-        cycle_period: 60,
-        encore_period: 1,
-        minimum_bid_amount: 50_000_000, // lamports
-        number_of_cycles: Some(1),
-    };
-
-    initialize_new_auction(
-        &mut testbench,
-        &auction_owner.keypair,
-        &auction_config,
-        auction_id,
-        TokenType::Nft,
-    )
-    .await
-    .unwrap()
-    .unwrap();
-
-    let auction_cycle_payer = TestUser::new(&mut testbench)
-        .await
-        .unwrap()
-        .unwrap()
-        .keypair;
-    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
-        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
-
-    // Freeze auction
-    freeze_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
-        .await
-        .unwrap()
-        .unwrap();
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-    assert!(auction_root_state.status.is_frozen);
-
-    // Invalid use case
-    // End cycle on frozen auction
-
-    // Warp to slot so that the cycle could be closed if it was not frozen
-    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
-
-    // Trying to close the cycle
-    let close_cycle_on_frozen_auction_error = close_cycle_transaction(
-        &mut testbench,
-        &auction_cycle_payer,
-        auction_id,
-        &auction_owner.keypair.pubkey(),
-        TokenType::Nft,
-    )
-    .await
-    .unwrap()
-    .err()
-    .unwrap();
-    assert_eq!(
-        close_cycle_on_frozen_auction_error,
-        AuctionContractError::AuctionFrozen
-    );
 }
 
 #[tokio::test]
@@ -419,6 +340,21 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .await
     .unwrap()
     .unwrap();
+
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_pool.pool[0], auction_id);
+    assert!(secondary_pool.pool.is_empty());
 
     let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
 
@@ -567,6 +503,17 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
         &child_metadata,
         true,
     );
+
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(secondary_pool.pool[0], auction_id);
+    assert!(auction_pool.pool.is_empty());
 }
 
 #[tokio::test]
