@@ -22,6 +22,7 @@ use agsol_gold_contract::state::{
 };
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
+use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
@@ -237,6 +238,32 @@ pub async fn close_cycle_transaction(
 
     testbench
         .process_transaction(&[close_auction_cycle_ix], payer_keypair, None)
+        .await
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
+}
+
+pub async fn delete_auction_transaction(
+    testbench: &mut Testbench,
+    auction_owner_keypair: &Keypair,
+    auction_id: [u8; 32],
+) -> AuctionTransactionResult {
+    let (auction_root_state_pubkey, auction_cycle_state_pubkey) =
+        get_state_pubkeys(testbench, auction_id).await?;
+
+    let current_auction_cycle =
+        get_current_cycle_number(testbench, &auction_root_state_pubkey).await?;
+
+    let delete_auction_args = DeleteAuctionArgs {
+        auction_owner_pubkey: auction_owner_keypair.pubkey(),
+        top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,
+        auction_id,
+        current_auction_cycle,
+        num_of_cycles_to_delete: RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
+    };
+    let delete_auction_ix = delete_auction(&delete_auction_args);
+
+    testbench
+        .process_transaction(&[delete_auction_ix], auction_owner_keypair, None)
         .await
         .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
