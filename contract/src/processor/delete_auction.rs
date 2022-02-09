@@ -122,7 +122,14 @@ pub fn process_delete_auction(
     }
 
     // Deallocate remaining states if all cycle states are deallocated
-    deallocate_state(auction_bank_account, auction_owner_account)?;
+    let bank_balance = **auction_bank_account.lamports.borrow();
+    claim_lamports(
+        bank_balance,
+        auction_owner_account,
+        auction_bank_account,
+        contract_bank_account,
+    )?;
+
     deallocate_state(auction_root_state_account, auction_owner_account)?;
 
     // Remove auction entry from auction pools

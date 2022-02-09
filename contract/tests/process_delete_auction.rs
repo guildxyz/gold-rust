@@ -293,6 +293,8 @@ async fn test_delete_just_long_enough_finished_auction() {
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
+    let (contract_bank_pubkey, _) =
+        Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
 
     close_n_cycles(
         &mut testbench,
@@ -311,6 +313,25 @@ async fn test_delete_just_long_enough_finished_auction() {
 
     assert!(auction_root_state.status.is_finished);
 
+    let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
+        &auction_cycle_state_seeds(&auction_root_state_pubkey, &1_u64.to_le_bytes()),
+        &CONTRACT_ID,
+    );
+
+    let auction_bank_balance = testbench
+        .get_account_lamports(&auction_bank_pubkey)
+        .await
+        .unwrap();
+    let auction_cycle_balance_sum = 30
+        * testbench
+            .get_account_lamports(&auction_cycle_state_pubkey)
+            .await
+            .unwrap();
+    let auction_root_balance = testbench
+        .get_account_lamports(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+
     // Delete auction
     let secondary_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
@@ -318,10 +339,24 @@ async fn test_delete_just_long_enough_finished_auction() {
         .unwrap();
     assert_eq!(secondary_pool.pool.len(), 1);
 
-    delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
+    let contract_balance_before = testbench
+        .get_account_lamports(&contract_bank_pubkey)
         .await
-        .unwrap()
         .unwrap();
+
+    let owner_balance_change =
+        delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+    let contract_balance_after = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
+
+    dbg!(contract_balance_before);
+    dbg!(contract_balance_after);
 
     // Test that auction is removed from the pool
     let secondary_pool = testbench
@@ -341,6 +376,16 @@ async fn test_delete_just_long_enough_finished_auction() {
         .unwrap());
     assert!(
         are_given_cycle_states_deleted(&mut testbench, &auction_root_state_pubkey, 1, 30).await
+    );
+
+    // Test that all state balances are claimed correctly
+    assert_eq!(
+        auction_bank_balance - (auction_bank_balance / 20 * 19) + auction_cycle_balance_sum,
+        contract_balance_after - contract_balance_before
+    );
+    assert_eq!(
+        auction_bank_balance / 20 * 19 + auction_root_balance - TRANSACTION_FEE,
+        owner_balance_change as u64
     );
 }
 
