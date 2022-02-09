@@ -26,7 +26,9 @@ use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
-use agsol_testbench::{Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult};
+use agsol_testbench::{
+    Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult,
+};
 
 pub const TRANSACTION_FEE: u64 = 5000;
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
