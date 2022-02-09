@@ -54,12 +54,17 @@ pub fn process_delete_auction(
         secondary_pool_account,
     )?;
 
-    SignerPda::check_owner(
-        &auction_bank_seeds(&auction_id),
-        program_id,
-        program_id,
-        auction_bank_account,
-    )?;
+    if auction_bank_account.lamports() != 0 {
+        SignerPda::check_owner(
+            &auction_bank_seeds(&auction_id),
+            program_id,
+            program_id,
+            auction_bank_account,
+        )?;
+    } else {
+        let auction_bank_seeds = auction_bank_seeds(&auction_id);
+        SignerPda::new_checked(&auction_bank_seeds, program_id, auction_bank_account)?;
+    }
 
     // Check auction owner account
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
@@ -89,7 +94,7 @@ pub fn process_delete_auction(
         )?;
 
         // Refund top bidder of the last cycle
-        if !auction_root_state.status.is_frozen {
+        if !auction_root_state.status.is_frozen && !auction_root_state.status.is_finished {
             let auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
             refund_top_bidder(
                 auction_bank_account,
@@ -117,7 +122,14 @@ pub fn process_delete_auction(
     }
 
     // Deallocate remaining states if all cycle states are deallocated
-    deallocate_state(auction_bank_account, auction_owner_account)?;
+    let bank_balance = **auction_bank_account.lamports.borrow();
+    claim_lamports(
+        bank_balance,
+        auction_owner_account,
+        auction_bank_account,
+        contract_bank_account,
+    )?;
+
     deallocate_state(auction_root_state_account, auction_owner_account)?;
 
     // Remove auction entry from auction pools

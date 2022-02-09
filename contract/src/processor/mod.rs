@@ -35,6 +35,7 @@ use spl_token::ID as TOKEN_ID;
 
 use agsol_common::{AccountState, MaxSerializedLen, SignerPda};
 
+pub use claim_funds::claim_lamports;
 pub use close_auction_cycle::{increment_name, increment_uri};
 
 pub fn process(
