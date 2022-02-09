@@ -28,7 +28,7 @@ pub fn process_bid(
         auction_root_state_account,
     )?;
 
-    let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
+    let auction_root_state = AuctionRootState::read(auction_root_state_account)?;
 
     let cycle_num = auction_root_state
         .status
@@ -72,14 +72,6 @@ pub fn process_bid(
     } else {
         0
     };
-
-    auction_root_state.all_time_treasury = auction_root_state
-        .all_time_treasury
-        .checked_add(amount)
-        .ok_or(AuctionContractError::ArithmeticError)?
-        .checked_sub(previous_bid_amount)
-        .ok_or(AuctionContractError::ArithmeticError)?;
-    auction_root_state.write(auction_root_state_account)?;
 
     // Transfer SOL to fund
     let lamport_transfer_ix =

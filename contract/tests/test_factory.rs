@@ -13,7 +13,9 @@ use solana_sdk::signer::Signer;
 use solana_sdk::transaction::TransactionError;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
+use agsol_gold_contract::pda::{
+    auction_bank_seeds, auction_cycle_state_seeds, auction_root_state_seeds,
+};
 use agsol_gold_contract::state::{
     AuctionConfig, AuctionCycleState, AuctionDescription, AuctionRootState, BidData,
     CreateTokenArgs, NftData, TokenConfig, TokenData, TokenType,
@@ -24,7 +26,9 @@ use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
-use agsol_testbench::{Testbench, TestbenchProgram, TestbenchResult, TestbenchTransactionResult};
+use agsol_testbench::{
+    Testbench, TestbenchError, TestbenchProgram, TestbenchResult, TestbenchTransactionResult,
+};
 
 pub const TRANSACTION_FEE: u64 = 5000;
 pub const INITIAL_AUCTION_POOL_LEN: u32 = 3;
@@ -153,6 +157,30 @@ pub async fn get_top_bid(
         .get_and_deserialize_account_data::<AuctionCycleState>(auction_cycle_state_pubkey)
         .await?;
     Ok(auction_cycle_state.bid_history.get_last_element().cloned())
+}
+
+pub async fn get_bank_balance_without_rent(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+) -> TestbenchResult<u64> {
+    let (auction_bank_pubkey, _) =
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
+
+    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
+        get_state_pubkeys(testbench, auction_id).await?;
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await?;
+
+    let mut auction_bank_lamports = testbench.get_account_lamports(&auction_bank_pubkey).await?;
+
+    if !auction_root_state.status.is_finished {
+        auction_bank_lamports = auction_bank_lamports
+            .checked_sub(testbench.rent.minimum_balance(0))
+            .ok_or(TestbenchError::RentError)?;
+    }
+    Ok(auction_bank_lamports)
 }
 
 pub async fn get_top_bidder_pubkey(

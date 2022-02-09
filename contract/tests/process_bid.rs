@@ -65,9 +65,6 @@ async fn test_process_bid() {
     .unwrap()
     .unwrap();
 
-    // check state account
-    let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
-        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
@@ -118,11 +115,12 @@ async fn test_process_bid() {
     assert_eq!(-balance_change as u64, bid_amount + TRANSACTION_FEE);
 
     // Check if treasury is updated
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-    assert_eq!(auction_root_state.all_time_treasury, bid_amount);
+    assert_eq!(
+        get_bank_balance_without_rent(&mut testbench, auction_id)
+            .await
+            .unwrap(),
+        bid_amount
+    );
 
     // Test higher than current bid
     let bid_amount_higher = 100_000_000;
@@ -156,11 +154,12 @@ async fn test_process_bid() {
     assert_eq!(-balance_change as u64, bid_amount_higher + TRANSACTION_FEE);
 
     // Check if treasury is updated
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-    assert_eq!(auction_root_state.all_time_treasury, bid_amount_higher);
+    assert_eq!(
+        get_bank_balance_without_rent(&mut testbench, auction_id)
+            .await
+            .unwrap(),
+        bid_amount_higher
+    );
 
     // Invalid use case
     // Test bid lower than current bid

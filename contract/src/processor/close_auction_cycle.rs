@@ -145,6 +145,12 @@ pub fn close_auction_cycle(
             .available_funds
             .checked_add(most_recent_bid.bid_amount)
             .ok_or(AuctionContractError::ArithmeticError)?;
+
+        auction_root_state.all_time_treasury = auction_root_state
+            .all_time_treasury
+            .checked_add(most_recent_bid.bid_amount)
+            .ok_or(AuctionContractError::ArithmeticError)?;
+        auction_root_state.write(auction_root_state_account)?;
     } else {
         increment_idle_streak(
             &mut current_auction_cycle_state,
