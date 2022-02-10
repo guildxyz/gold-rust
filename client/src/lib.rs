@@ -5,6 +5,7 @@
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;
+mod try_find_master;
 
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::{
