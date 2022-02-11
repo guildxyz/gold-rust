@@ -10,6 +10,7 @@ config.toml
 
 # Docker
 bin/
+bot.json
 
 # Mac
 **/.DS_Store
