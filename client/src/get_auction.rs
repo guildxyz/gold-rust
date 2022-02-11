@@ -46,9 +46,10 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
             }
         }
         TokenConfig::Token(ref data) => {
+            // TODO
             // get mint metadata
-            let mint_data = client.get_account_data(&data.mint).await?;
-            // get decimals
+            let mint_data = vec![0_u8; 200]; //client.get_account_data(&data.mint).await?;
+                                             // get decimals
             let mint = Mint::unpack_from_slice(&mint_data)?;
 
             FrontendTokenConfig::Token {

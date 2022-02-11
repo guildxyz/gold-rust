@@ -2,7 +2,6 @@ use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_see
 use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
-use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
 use solana_sdk::pubkey::Pubkey;
 
@@ -34,16 +33,18 @@ impl PoolRecord {
     ) -> Result<Self, anyhow::Error> {
         let (root_pubkey, _) =
             Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-        let root_state_data = client.get_account_data(&root_pubkey).await?;
-        let root_state: AuctionRootState = try_from_slice_unchecked(&root_state_data)?;
+        let root_state: AuctionRootState = client
+            .get_and_deserialize_account_data(&root_pubkey)
+            .await?;
 
         let current_cycle_bytes = root_state.status.current_auction_cycle.to_le_bytes();
         let (cycle_pubkey, _) = Pubkey::find_program_address(
             &auction_cycle_state_seeds(&root_pubkey, &current_cycle_bytes),
             &GOLD_ID,
         );
-        let cycle_state_data = client.get_account_data(&cycle_pubkey).await?;
-        let cycle_state: AuctionCycleState = try_from_slice_unchecked(&cycle_state_data)?;
+        let cycle_state: AuctionCycleState = client
+            .get_and_deserialize_account_data(&cycle_pubkey)
+            .await?;
 
         Ok(Self {
             root_pubkey,
@@ -55,8 +56,9 @@ impl PoolRecord {
 
     /// Updates the stored root state
     pub async fn update_root_state(&mut self, client: &mut RpcClient) -> Result<(), anyhow::Error> {
-        let root_state_data = client.get_account_data(&self.root_pubkey).await?;
-        self.root_state = try_from_slice_unchecked(&root_state_data)?;
+        self.root_state = client
+            .get_and_deserialize_account_data(&self.root_pubkey)
+            .await?;
         Ok(())
     }
 
@@ -70,8 +72,9 @@ impl PoolRecord {
             &auction_cycle_state_seeds(&self.root_pubkey, &current_cycle_bytes),
             &GOLD_ID,
         );
-        let cycle_state_data = client.get_account_data(&cycle_pubkey).await?;
-        self.cycle_state = try_from_slice_unchecked(&cycle_state_data)?;
+        self.cycle_state = client
+            .get_and_deserialize_account_data(&cycle_pubkey)
+            .await?;
         Ok(())
     }
 
