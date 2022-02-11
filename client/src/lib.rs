@@ -94,3 +94,8 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
 pub async fn wasm_is_id_unique(auction_id: String) -> bool {
     try_find_master::try_find_master(auction_id).await.is_err()
 }
+
+#[wasm_bindgen(js_name = "getNetWasm")]
+pub fn wasm_get_net() -> String {
+    NET.to_url().to_owned()
+}
