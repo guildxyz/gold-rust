@@ -20,9 +20,9 @@ use borsh::BorshSerialize;
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
-#[cfg(feature = "devnet")]
+#[cfg(feature = "Devnet")]
 const NET: Net = Net::Devnet;
-#[cfg(not(feature = "devnet"))]
+#[cfg(not(feature = "Devnet"))]
 const NET: Net = Net::Mainnet;
 
 const RPC_CONFIG: RpcConfig = RpcConfig {
