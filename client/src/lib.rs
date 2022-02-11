@@ -86,3 +86,8 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
         Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
     auction_root_state_pubkey
 }
+
+#[wasm_bindgen(js_name = "isIdUniqueWasm")]
+pub async fn wasm_is_id_unique(auction_id: String) -> bool {
+    try_find_master::try_find_master(auction_id).await.is_err()
+}
