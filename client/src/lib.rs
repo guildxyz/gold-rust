@@ -20,8 +20,11 @@ use borsh::BorshSerialize;
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
-// TODO client net from env-var
+#[cfg(feature = "devnet")]
+const NET: Net = Net::Devnet;
+#[cfg(not(feature = "devnet"))]
 const NET: Net = Net::Mainnet;
+
 const RPC_CONFIG: RpcConfig = RpcConfig {
     encoding: Some(Encoding::JsonParsed),
     commitment: Some(CommitmentLevel::Processed),
