@@ -8,6 +8,7 @@ crate-type = ["cdylib", "lib"]
 
 [features]
 devnet = []
+mainnet = [] # default
 
 [dependencies]
 agsol-common = "0.2.0"
