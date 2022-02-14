@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[features]
+Devnet = []
+Mainnet = [] # default
+
 [dependencies]
 agsol-common = "0.2.0"
 agsol-gold-contract = { path = "../contract", features = ["client"] }
