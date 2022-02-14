@@ -16,7 +16,6 @@ use agsol_wasm_client::{Net, RpcClient};
 use env_logger::Env;
 use log::{error, info, warn};
 
-use solana_sdk::borsh::try_from_slice_unchecked;
 use solana_sdk::clock::UnixTimestamp;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
@@ -120,8 +119,9 @@ async fn try_main(
         // read auction pool
         let (auction_pool_pubkey, _) =
             Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-        let auction_pool_data = client.get_account_data(&auction_pool_pubkey).await?;
-        let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
+        let auction_pool = client
+            .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+            .await?;
         // check pool load
         let load = auction_pool.pool.len() as f64 / auction_pool.max_len as f64;
         if load > 0.8 {
@@ -248,8 +248,10 @@ async fn close_cycle(
 
 async fn is_existing_auction(client: &mut RpcClient, focused_id_bytes: [u8; 32]) -> bool {
     let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &GOLD_ID);
-    let auction_pool_data = client.get_account_data(&auction_pool_pubkey).await.unwrap();
-    let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data).unwrap();
+    let auction_pool: AuctionPool = client
+        .get_and_deserialize_account_data(&auction_pool_pubkey)
+        .await
+        .unwrap();
 
     auction_pool.pool.binary_search(&focused_id_bytes).is_ok()
 }

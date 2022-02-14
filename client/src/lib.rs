@@ -5,6 +5,7 @@
 mod get_auction;
 mod get_current_cycle;
 mod get_top_bidder;
+mod try_find_master;
 
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::{
@@ -19,8 +20,11 @@ use borsh::BorshSerialize;
 use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
-// TODO client net from env-var
+#[cfg(feature = "Devnet")]
+const NET: Net = Net::Devnet;
+#[cfg(not(feature = "Devnet"))]
 const NET: Net = Net::Mainnet;
+
 const RPC_CONFIG: RpcConfig = RpcConfig {
     encoding: Some(Encoding::JsonParsed),
     commitment: Some(CommitmentLevel::Processed),
@@ -84,4 +88,14 @@ pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
     auction_root_state_pubkey
+}
+
+#[wasm_bindgen(js_name = "isIdUniqueWasm")]
+pub async fn wasm_is_id_unique(auction_id: String) -> bool {
+    try_find_master::try_find_master(auction_id).await.is_err()
+}
+
+#[wasm_bindgen(js_name = "getNetWasm")]
+pub fn wasm_get_net() -> String {
+    NET.to_url().to_owned()
 }
