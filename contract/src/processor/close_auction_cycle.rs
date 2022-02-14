@@ -395,15 +395,11 @@ pub fn close_auction_cycle(
             // Check account ownership
             // Accounts created in this instruction:
             //   token_holding_account
+            assert_token_mint(&token_data.mint, token_mint_account)?;
             assert_mint_authority(token_mint_account, contract_pda.key)?;
+            assert_owner(token_mint_account, &TOKEN_ID)?;
 
-            // Check pda addresses
-            SignerPda::check_owner(
-                &token_mint_seeds(&auction_id),
-                program_id,
-                &TOKEN_ID,
-                token_mint_account,
-            )?;
+            // SignerPda check is not required due to the previous checks
 
             if token_mint_account.key != &token_data.mint {
                 return Err(AuctionContractError::InvalidSeeds.into());

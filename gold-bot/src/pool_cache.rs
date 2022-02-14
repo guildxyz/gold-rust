@@ -1,5 +1,5 @@
 use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
-use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState};
+use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState, TokenConfig};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
 use solana_sdk::clock::UnixTimestamp;
@@ -76,6 +76,13 @@ impl PoolRecord {
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
         Ok(())
+    }
+
+    pub async fn get_token_mint_option(&mut self) -> Option<Pubkey> {
+        match self.root_state.token_config {
+            TokenConfig::Nft(_) => None,
+            TokenConfig::Token(ref token_data) => Some(token_data.mint),
+        }
     }
 
     /// Logs error appropriately, if unexpected error occurs then increments

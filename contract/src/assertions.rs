@@ -73,6 +73,43 @@ pub fn assert_mint_authority<'a>(
     Ok(())
 }
 
+// Asserts that the mint's account info is consistent with the data in
+// CreateTokenArgs on Token auction creation
+pub fn assert_token_mint_info<'a>(
+    token_mint_info: &AccountInfo<'a>,
+    existing_account: &Option<Pubkey>,
+) -> Result<(), ProgramError> {
+    if (token_mint_info.data_is_empty() && !existing_account.is_none())
+        || (!token_mint_info.data_is_empty() && existing_account.is_none())
+    {
+        return Err(AuctionContractError::TokenAuctionInconsistency.into());
+    }
+
+    Ok(())
+}
+
+pub fn assert_token_mint<'a>(
+    token_mint_pubkey: &Pubkey,
+    token_mint_account: &AccountInfo<'a>,
+) -> Result<(), ProgramError> {
+    if token_mint_pubkey != token_mint_account.key {
+        return Err(AuctionContractError::TokenAuctionInconsistency.into());
+    }
+
+    Ok(())
+}
+
+pub fn assert_owner<'a>(
+    account: &AccountInfo<'a>,
+    expected_owner: &Pubkey,
+) -> Result<(), ProgramError> {
+    if account.owner != expected_owner {
+        return Err(AuctionContractError::InvalidAccountOwner.into());
+    }
+
+    Ok(())
+}
+
 // ************************ Arithmetic checks ************************ //
 
 pub fn checked_credit_account(

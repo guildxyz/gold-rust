@@ -97,7 +97,11 @@ pub enum CreateTokenArgs {
     ///
     /// The `per_cycle_amount` is the amount of tokens being auctioned off in
     /// each auction round.
-    Token { decimals: u8, per_cycle_amount: u64 },
+    Token {
+        decimals: u8,
+        per_cycle_amount: u64,
+        existing_account: Option<Pubkey>,
+    },
 }
 
 #[derive(Debug, Clone)]
