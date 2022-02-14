@@ -75,7 +75,7 @@ pub fn assert_mint_authority<'a>(
 
 // Asserts that the mint's account info is consistent with the data in
 // CreateTokenArgs on Token auction creation
-pub fn assert_token_mint_info<'a>(
+pub fn assert_token_mint_arg_consistency<'a>(
     token_mint_info: &AccountInfo<'a>,
     existing_account: &Option<Pubkey>,
 ) -> Result<(), ProgramError> {

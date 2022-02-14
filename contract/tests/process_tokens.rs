@@ -13,8 +13,6 @@ use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
 
-// TODO: Try to reinitialize an auction with another closed auction's token mint
-
 #[tokio::test]
 async fn test_process_tokens() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();

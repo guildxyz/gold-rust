@@ -340,7 +340,7 @@ pub fn initialize_auction(
             // Accounts (potentially) created in this instruction:
             //   token_mint_account
 
-            assert_token_mint_info(token_mint_account, &existing_account)?;
+            assert_token_mint_arg_consistency(token_mint_account, &existing_account)?;
 
             if token_mint_account.data_is_empty() {
                 // New mint account
