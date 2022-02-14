@@ -1,5 +1,4 @@
 use crate::{NET, RPC_CONFIG};
-use anyhow::bail;
 use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
@@ -11,6 +10,7 @@ use agsol_token_metadata::state::Metadata;
 use agsol_token_metadata::ID as META_ID;
 use agsol_wasm_client::account::TokenAccount;
 use agsol_wasm_client::RpcClient;
+use anyhow::bail;
 use std::convert::TryFrom;
 
 pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
