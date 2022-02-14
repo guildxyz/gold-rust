@@ -122,7 +122,6 @@ async fn try_main(
         let auction_pool = client
             .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
             .await?;
-        //let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
         // check pool load
         let load = auction_pool.pool.len() as f64 / auction_pool.max_len as f64;
         if load > 0.8 {
