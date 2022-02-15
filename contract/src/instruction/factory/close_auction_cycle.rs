@@ -7,6 +7,7 @@ pub struct CloseAuctionCycleArgs {
     pub auction_id: AuctionId,
     pub next_cycle_num: u64,
     pub token_type: TokenType,
+    pub existing_token_mint: Option<Pubkey>,
 }
 
 pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
@@ -87,14 +88,15 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
             ]
         }
         TokenType::Token => {
-            let (token_mint_pubkey, _) =
-                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID);
+            let mint_pubkey = args.existing_token_mint.unwrap_or_else(|| {
+                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID).0
+            });
             let (token_holding_pubkey, _) = Pubkey::find_program_address(
-                &token_holding_seeds(&token_mint_pubkey, &top_bidder),
+                &token_holding_seeds(&mint_pubkey, &top_bidder),
                 &crate::ID,
             );
             vec![
-                AccountMeta::new(token_mint_pubkey, false),
+                AccountMeta::new(mint_pubkey, false),
                 AccountMeta::new(token_holding_pubkey, false),
             ]
         }

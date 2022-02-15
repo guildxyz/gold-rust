@@ -122,7 +122,6 @@ async fn try_main(
         let auction_pool = client
             .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
             .await?;
-        //let auction_pool: AuctionPool = try_from_slice_unchecked(&auction_pool_data)?;
         // check pool load
         let load = auction_pool.pool.len() as f64 / auction_pool.max_len as f64;
         if load > 0.8 {
@@ -217,6 +216,9 @@ async fn close_cycle(
             .get_last_element()
             .map(|x| x.bidder_pubkey)
     };
+
+    let existing_token_mint = pool_record.get_token_mint_option().await;
+
     let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: bot_keypair.pubkey(),
         auction_owner_pubkey: pool_record.root_state.auction_owner,
@@ -224,6 +226,7 @@ async fn close_cycle(
         auction_id: *auction_id,
         next_cycle_num: pool_record.root_state.status.current_auction_cycle,
         token_type,
+        existing_token_mint,
     };
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
 

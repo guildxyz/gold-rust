@@ -3,6 +3,13 @@ use super::*;
 use crate::{MAX_CYCLE_PERIOD, MIN_CYCLE_PERIOD, UNIVERSAL_BID_FLOOR};
 use solana_program::clock::UnixTimestamp;
 
+// In case of token auction creation there are two possibilities:
+// - Create new mint
+// - Use an existing mint
+
+// If using an existing mint account, the mint authority must be
+// transferred to the contract pda.
+
 #[allow(clippy::too_many_arguments)]
 pub fn initialize_auction(
     program_id: &Pubkey,
@@ -327,6 +334,7 @@ pub fn initialize_auction(
         CreateTokenArgs::Token {
             decimals,
             per_cycle_amount,
+            existing_mint,
         } => {
             if per_cycle_amount == 0 {
                 return Err(AuctionContractError::InvalidPerCycleAmount.into());
@@ -334,26 +342,53 @@ pub fn initialize_auction(
             // Parse mint account
             let token_mint_account = next_account_info(account_info_iter)?;
 
-            // Check account ownership
-            // Accounts created in this instruction:
+            // Accounts (potentially) created in this instruction:
             //   token_mint_account
 
-            // Check pda addresses
-            let token_mint_seeds = token_mint_seeds(&auction_id);
-            let token_mint_pda =
-                SignerPda::new_checked(&token_mint_seeds, program_id, token_mint_account)?;
+            assert_token_mint_arg_consistency(token_mint_account, &existing_mint)?;
 
-            // Create ERC20 mint
-            create_mint_account(
-                auction_owner_account,
-                token_mint_account,
-                contract_pda,
-                token_mint_pda.signer_seeds(),
-                rent_program,
-                system_program,
-                token_program,
-                decimals,
-            )?;
+            if token_mint_account.data_is_empty() {
+                // New mint account
+                // Check pda address
+                let token_mint_seeds = token_mint_seeds(&auction_id);
+                let token_mint_pda =
+                    SignerPda::new_checked(&token_mint_seeds, program_id, token_mint_account)?;
+
+                // Create ERC20 mint
+                create_mint_account(
+                    auction_owner_account,
+                    token_mint_account,
+                    contract_pda,
+                    token_mint_pda.signer_seeds(),
+                    rent_program,
+                    system_program,
+                    token_program,
+                    decimals,
+                )?;
+            } else {
+                // Existing mint account
+                // Check if auction owner is the mint authority of provided mint
+                assert_mint_authority(token_mint_account, auction_owner_account.key)?;
+
+                let transfer_authority_ix = spl_token::instruction::set_authority(
+                    &TOKEN_ID,
+                    token_mint_account.key,
+                    Some(contract_pda.key),
+                    spl_token::instruction::AuthorityType::MintTokens,
+                    auction_owner_account.key,
+                    &[auction_owner_account.key],
+                )?;
+
+                invoke(
+                    &transfer_authority_ix,
+                    &[
+                        token_program.to_owned(),
+                        contract_pda.to_owned(),
+                        auction_owner_account.to_owned(),
+                        token_mint_account.to_owned(),
+                    ],
+                )?;
+            }
 
             TokenConfig::Token(TokenData {
                 per_cycle_amount,

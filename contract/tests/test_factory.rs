@@ -38,7 +38,11 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
             FromPrimitive::from_u32(code).unwrap()
         }
-        _ => unimplemented!(),
+        //_ => unimplemented!(),
+        _ => {
+            dbg!(program_err);
+            unimplemented!();
+        }
     }
 }
 
@@ -225,6 +229,16 @@ pub async fn close_cycle_transaction(
 
     let next_cycle_num = get_current_cycle_number(testbench, &auction_root_state_pubkey).await?;
 
+    let existing_token_mint = match token_type {
+        TokenType::Token => {
+            let token_data = get_token_data(testbench, &auction_root_state_pubkey)
+                .await?
+                .ok_or(TestbenchError::AccountNotFound)?;
+            Some(token_data.mint)
+        }
+        TokenType::Nft => None,
+    };
+
     let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: payer_keypair.pubkey(),
         auction_owner_pubkey: *auction_owner_pubkey,
@@ -232,6 +246,7 @@ pub async fn close_cycle_transaction(
         auction_id,
         next_cycle_num,
         token_type,
+        existing_token_mint,
     };
 
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);

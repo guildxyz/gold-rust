@@ -2,15 +2,15 @@ use crate::{NET, RPC_CONFIG};
 use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
-use agsol_gold_contract::solana_program::program_pack::Pack;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState, TokenConfig};
 use agsol_gold_contract::utils::{pad_to_32_bytes, unpuff_metadata};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_token_metadata::state::Metadata;
 use agsol_token_metadata::ID as META_ID;
+use agsol_wasm_client::account::TokenAccount;
 use agsol_wasm_client::RpcClient;
-use spl_token::state::Mint;
+use anyhow::bail;
 use std::convert::TryFrom;
 
 pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
@@ -46,16 +46,19 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
             }
         }
         TokenConfig::Token(ref data) => {
-            // TODO
-            // get mint metadata
-            let mint_data = vec![0_u8; 200]; //client.get_account_data(&data.mint).await?;
-                                             // get decimals
-            let mint = Mint::unpack_from_slice(&mint_data)?;
+            // get mint metadata and decimals
+            let mint_data = client
+                .get_and_deserialize_parsed_account_data::<TokenAccount>(&data.mint)
+                .await;
 
-            FrontendTokenConfig::Token {
-                mint: data.mint,
-                decimals: mint.decimals,
-                per_cycle_amount: data.per_cycle_amount,
+            match mint_data {
+                Ok(TokenAccount::Mint(mint)) => FrontendTokenConfig::Token {
+                    mint: data.mint,
+                    decimals: mint.decimals,
+                    per_cycle_amount: data.per_cycle_amount,
+                },
+                Ok(_) => bail!("not a mint account"),
+                Err(e) => bail!("{}", e),
             }
         }
     };
