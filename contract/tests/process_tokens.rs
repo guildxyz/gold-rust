@@ -35,7 +35,7 @@ async fn test_process_tokens() {
     let create_token_args = CreateTokenArgs::Token {
         decimals: 0,
         per_cycle_amount: 0,
-        existing_account: None,
+        existing_mint: None,
     };
     let invalid_per_cycle_amount_error = initialize_new_auction_custom(
         &mut testbench,
@@ -188,7 +188,7 @@ async fn test_process_tokens_existing_mint() {
     let create_token_args = CreateTokenArgs::Token {
         decimals: 0,
         per_cycle_amount: 100,
-        existing_account: Some(token_mint_pubkey),
+        existing_mint: Some(token_mint_pubkey),
     };
     initialize_new_auction_custom(
         &mut testbench,

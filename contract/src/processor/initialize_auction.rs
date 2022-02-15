@@ -329,7 +329,7 @@ pub fn initialize_auction(
         CreateTokenArgs::Token {
             decimals,
             per_cycle_amount,
-            existing_account,
+            existing_mint,
         } => {
             if per_cycle_amount == 0 {
                 return Err(AuctionContractError::InvalidPerCycleAmount.into());
@@ -340,7 +340,7 @@ pub fn initialize_auction(
             // Accounts (potentially) created in this instruction:
             //   token_mint_account
 
-            assert_token_mint_arg_consistency(token_mint_account, &existing_account)?;
+            assert_token_mint_arg_consistency(token_mint_account, &existing_mint)?;
 
             if token_mint_account.data_is_empty() {
                 // New mint account

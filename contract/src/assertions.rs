@@ -77,10 +77,10 @@ pub fn assert_mint_authority<'a>(
 // CreateTokenArgs on Token auction creation
 pub fn assert_token_mint_arg_consistency<'a>(
     token_mint_info: &AccountInfo<'a>,
-    existing_account: &Option<Pubkey>,
+    existing_mint: &Option<Pubkey>,
 ) -> Result<(), ProgramError> {
-    if (token_mint_info.data_is_empty() && !existing_account.is_none())
-        || (!token_mint_info.data_is_empty() && existing_account.is_none())
+    if (token_mint_info.data_is_empty() && existing_mint.is_some())
+        || (!token_mint_info.data_is_empty() && existing_mint.is_none())
     {
         return Err(AuctionContractError::TokenAuctionInconsistency.into());
     }

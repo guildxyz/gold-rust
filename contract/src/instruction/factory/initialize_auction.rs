@@ -41,7 +41,7 @@ impl InitializeAuctionArgs {
             TokenType::Token => CreateTokenArgs::Token {
                 decimals: 1,
                 per_cycle_amount: 100,
-                existing_account: None,
+                existing_mint: None,
             },
         };
 
@@ -108,9 +108,9 @@ pub fn initialize_auction(args: &InitializeAuctionArgs) -> Instruction {
         CreateTokenArgs::Token {
             decimals: _,
             per_cycle_amount: _,
-            existing_account,
+            existing_mint,
         } => {
-            let mint_pubkey = existing_account.unwrap_or_else(|| {
+            let mint_pubkey = existing_mint.unwrap_or_else(|| {
                 Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID).0
             });
             vec![AccountMeta::new(mint_pubkey, false)]

@@ -100,7 +100,7 @@ pub enum CreateTokenArgs {
     Token {
         decimals: u8,
         per_cycle_amount: u64,
-        existing_account: Option<Pubkey>,
+        existing_mint: Option<Pubkey>,
     },
 }
 
