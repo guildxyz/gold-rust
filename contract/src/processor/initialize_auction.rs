@@ -142,6 +142,11 @@ pub fn initialize_auction(
         return Err(AuctionContractError::AuctionIdNotAscii.into());
     }
 
+    // Check if encore period is non-negative
+    if auction_config.encore_period < 0 {
+        return Err(AuctionContractError::InvalidEncorePeriod.into());
+    }
+
     // Check auction start time (if provided)
     let clock = Clock::get()?;
     if let Some(start_time) = auction_start_timestamp {

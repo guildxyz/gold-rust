@@ -182,6 +182,16 @@ pub struct AuctionPool {
     pub pool: Vec<AuctionId>,
 }
 
+/// Contains which information to modify on a ModifyAuction call.
+/// If a member is set to `None` it will be unchanged.
+#[repr(C)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct ModifyAuctionData {
+    pub new_description: Option<DescriptionString>,
+    pub new_socials: Option<SocialsVec>,
+    pub new_encore_period: Option<UnixTimestamp>,
+}
+
 impl AuctionPool {
     pub fn max_serialized_len(n: usize) -> Option<usize> {
         let mul_result = AuctionId::MAX_SERIALIZED_LEN.checked_mul(n);

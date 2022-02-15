@@ -18,7 +18,7 @@ use agsol_gold_contract::pda::{
 };
 use agsol_gold_contract::state::{
     AuctionConfig, AuctionCycleState, AuctionDescription, AuctionRootState, BidData,
-    CreateTokenArgs, NftData, TokenConfig, TokenData, TokenType,
+    CreateTokenArgs, ModifyAuctionData, NftData, TokenConfig, TokenData, TokenType,
 };
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
@@ -294,6 +294,25 @@ pub async fn verify_auction_transaction(
 
     testbench
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
+        .await
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
+}
+
+pub async fn modify_auction_transaction(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+    auction_owner_keypair: &Keypair,
+    modify_data: ModifyAuctionData,
+) -> AuctionTransactionResult {
+    let modify_args = ModifyAuctionArgs {
+        auction_owner_pubkey: auction_owner_keypair.pubkey(),
+        auction_id,
+        modify_data,
+    };
+    let modify_instruction = modify_auction(&modify_args);
+
+    testbench
+        .process_transaction(&[modify_instruction], auction_owner_keypair, None)
         .await
         .map(|transaction_result| transaction_result.map_err(to_auction_error))
 }
