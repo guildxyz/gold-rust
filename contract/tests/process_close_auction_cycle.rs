@@ -765,7 +765,7 @@ async fn test_process_close_idle_rapid_auction() {
             &auction_cycle_payer,
             auction_id,
             &auction_owner.keypair.pubkey(),
-            TokenType::Token,
+            TokenType::Nft,
         )
         .await
         .unwrap()
