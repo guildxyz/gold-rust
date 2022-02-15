@@ -153,10 +153,13 @@ pub fn close_auction_cycle(
         auction_root_state.write(auction_root_state_account)?;
     } else {
         increment_idle_streak(
+            &auction_id,
             &mut current_auction_cycle_state,
             &mut auction_root_state,
-            current_auction_cycle_state_account,
             auction_root_state_account,
+            current_auction_cycle_state_account,
+            auction_pool_account,
+            secondary_pool_account,
         )?;
         return Ok(());
     }
@@ -499,10 +502,13 @@ pub fn close_auction_cycle(
 }
 
 fn increment_idle_streak(
+    auction_id: &AuctionId,
     current_auction_cycle_state: &mut AuctionCycleState,
     auction_root_state: &mut AuctionRootState,
-    current_auction_cycle_state_account: &AccountInfo,
     auction_root_state_account: &AccountInfo,
+    current_auction_cycle_state_account: &AccountInfo,
+    primary_pool_account: &AccountInfo,
+    secondary_pool_account: &AccountInfo,
 ) -> Result<(), ProgramError> {
     current_auction_cycle_state.end_time = current_auction_cycle_state
         .end_time
@@ -515,14 +521,24 @@ fn increment_idle_streak(
         .checked_add(1)
         .ok_or(AuctionContractError::ArithmeticError)?;
 
-    // If the auction was idle for at least a week then filter it automatically
+    // If the auction was idle for a period longer than ALLOWED_AUCTION_IDLE_PERIOD
+    // or for more than ALLOWED_CONSECUTIVE_IDLE_CYCLES number of cycles
+    // then move it to the secondary pool automatically
+    // Bidding on these moved auctions will "reactivate" them
     if auction_root_state.auction_config.cycle_period
         * UnixTimestamp::from(auction_root_state.status.current_idle_cycle_streak)
         > crate::ALLOWED_AUCTION_IDLE_PERIOD
         || auction_root_state.status.current_idle_cycle_streak
             > crate::ALLOWED_CONSECUTIVE_IDLE_CYCLES
     {
-        auction_root_state.status.is_filtered = true;
+        let mut primary_pool = AuctionPool::read(primary_pool_account)?;
+        let mut secondary_pool = AuctionPool::read(secondary_pool_account)?;
+
+        primary_pool.remove(auction_id);
+        secondary_pool.try_insert_sorted(*auction_id)?;
+
+        primary_pool.write(primary_pool_account)?;
+        secondary_pool.write(secondary_pool_account)?;
     }
 
     current_auction_cycle_state.write(current_auction_cycle_state_account)?;

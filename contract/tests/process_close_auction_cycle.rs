@@ -755,7 +755,7 @@ async fn test_process_close_idle_rapid_auction() {
         .await
         .unwrap();
 
-    // Close idle cycles until automatically filtered
+    // Close idle cycles until moved to secondary pool
     for cycle_number in 1..(ALLOWED_CONSECUTIVE_IDLE_CYCLES + 2) {
         assert!(!auction_root_state.status.is_filtered);
         warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
@@ -765,7 +765,7 @@ async fn test_process_close_idle_rapid_auction() {
             &auction_cycle_payer,
             auction_id,
             &auction_owner.keypair.pubkey(),
-            TokenType::Token,
+            TokenType::Nft,
         )
         .await
         .unwrap()
@@ -784,5 +784,62 @@ async fn test_process_close_idle_rapid_auction() {
             cycle_number
         );
     }
-    assert!(auction_root_state.status.is_filtered);
+
+    let (primary_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (secondary_pool_pubkey, _) =
+        Pubkey::find_program_address(&secondary_pool_seeds(), &CONTRACT_ID);
+
+    let primary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&primary_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+
+    assert_eq!(primary_pool.pool.len(), 0);
+    assert_eq!(secondary_pool.pool.len(), 1);
+
+    // Warp well over expiration perios
+    testbench
+        .warp_n_seconds(auction_config.cycle_period * 2)
+        .await
+        .unwrap();
+
+    let (_, auction_cycle_state_pubkey) =
+        get_state_pubkeys(&mut testbench, auction_id).await.unwrap();
+
+    // Bid on idle auction
+    let time_before = testbench.block_time().await.unwrap();
+
+    let bid_amount = 50_000_000;
+    place_bid_transaction(&mut testbench, auction_id, &auction_cycle_payer, bid_amount)
+        .await
+        .unwrap()
+        .unwrap();
+
+    // Check cycle end time
+    let auction_cycle_state = testbench
+        .get_and_deserialize_account_data::<AuctionCycleState>(&auction_cycle_state_pubkey)
+        .await
+        .unwrap();
+    let end_time_after = auction_cycle_state.end_time;
+
+    assert!(end_time_after > time_before);
+    assert!(end_time_after <= time_before + auction_root_state.auction_config.cycle_period);
+
+    // Check that the auction is reactivated
+    let primary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&primary_pool_pubkey)
+        .await
+        .unwrap();
+    let secondary_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
+        .await
+        .unwrap();
+
+    assert_eq!(primary_pool.pool.len(), 1);
+    assert_eq!(secondary_pool.pool.len(), 0);
 }
