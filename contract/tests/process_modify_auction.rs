@@ -61,7 +61,11 @@ async fn test_process_verify_auction() {
         .await
         .unwrap();
     assert_eq!(
-        auction_root_state.description.description.contents().to_owned(),
+        auction_root_state
+            .description
+            .description
+            .contents()
+            .to_owned(),
         modify_data.new_description.unwrap().contents().to_owned()
     );
 
@@ -105,7 +109,9 @@ async fn test_process_verify_auction() {
     {
         assert_eq!(
             socials_string.contents().to_owned(),
-            modify_data.new_socials.as_ref().unwrap().contents()[i].contents().to_owned()
+            modify_data.new_socials.as_ref().unwrap().contents()[i]
+                .contents()
+                .to_owned()
         );
     }
 
