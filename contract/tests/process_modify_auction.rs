@@ -61,8 +61,8 @@ async fn test_process_verify_auction() {
         .await
         .unwrap();
     assert_eq!(
-        auction_root_state.description.description.clone_contents(),
-        modify_data.new_description.unwrap().clone_contents()
+        auction_root_state.description.description.contents().to_owned(),
+        modify_data.new_description.unwrap().contents().to_owned()
     );
 
     assert_eq!(-balance_change as u64, TRANSACTION_FEE);
@@ -104,8 +104,8 @@ async fn test_process_verify_auction() {
         .enumerate()
     {
         assert_eq!(
-            socials_string.clone_contents(),
-            modify_data.new_socials.as_ref().unwrap().contents()[i].clone_contents()
+            socials_string.contents().to_owned(),
+            modify_data.new_socials.as_ref().unwrap().contents()[i].contents().to_owned()
         );
     }
 
