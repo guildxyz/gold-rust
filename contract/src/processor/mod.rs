@@ -6,6 +6,7 @@ mod delete_auction;
 mod filter_auction;
 mod initialize_auction;
 mod initialize_contract;
+mod modify_auction;
 mod reallocate_pool;
 mod verify_auction;
 
@@ -108,5 +109,8 @@ pub fn process(
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
+        AuctionInstruction::ModifyAuction { id, modify_data } => {
+            modify_auction::process_modify_auction(program_id, accounts, id, modify_data)
+        }
     }
 }
