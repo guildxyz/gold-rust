@@ -9,7 +9,7 @@ use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 
 #[tokio::test]
-async fn test_process_verify_auction() {
+async fn test_process_modify_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [2; 32];

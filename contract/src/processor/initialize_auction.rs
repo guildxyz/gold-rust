@@ -150,7 +150,7 @@ pub fn initialize_auction(
     }
 
     // Check if encore period is non-negative
-    if auction_config.encore_period < 0 {
+    if auction_config.encore_period < 0 || auction_config.encore_period > auction_config.cycle_period / 2 {
         return Err(AuctionContractError::InvalidEncorePeriod.into());
     }
 
