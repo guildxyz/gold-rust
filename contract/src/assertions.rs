@@ -145,6 +145,7 @@ pub fn checked_debit_account(
 #[repr(C)]
 pub enum AuctionInteraction {
     Bid,
+    BidInactive,
     CloseCycle,
 }
 
@@ -168,6 +169,7 @@ pub fn check_status(
                 return Err(AuctionContractError::AuctionCycleEnded);
             }
         }
+        AuctionInteraction::BidInactive => return Ok(()),
         AuctionInteraction::CloseCycle => {
             if current_timestamp < cycle_state.end_time {
                 return Err(AuctionContractError::AuctionIsInProgress);

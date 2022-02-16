@@ -12,7 +12,9 @@ pub fn process_bid(
     let auction_root_state_account = next_account_info(account_info_iter)?; // 3
     let auction_cycle_state_account = next_account_info(account_info_iter)?; // 4
     let top_bidder_account = next_account_info(account_info_iter)?; // 5
-    let system_program = next_account_info(account_info_iter)?; // 6
+    let auction_pool_account = next_account_info(account_info_iter)?; // 6
+    let secondary_pool_account = next_account_info(account_info_iter)?; // 7
+    let system_program = next_account_info(account_info_iter)?; // 8
 
     // Check if user is signer
     if !user_main_account.is_signer {
@@ -44,14 +46,49 @@ pub fn process_bid(
 
     let mut auction_cycle_state = AuctionCycleState::read(auction_cycle_state_account)?;
 
+    // check auction pools
+    SignerPda::check_owner(
+        &auction_pool_seeds(),
+        program_id,
+        program_id,
+        auction_pool_account,
+    )?;
+
+    SignerPda::check_owner(
+        &secondary_pool_seeds(),
+        program_id,
+        program_id,
+        secondary_pool_account,
+    )?;
+
+    let mut primary_pool = AuctionPool::read(auction_pool_account)?;
+
     // Check status and bid amount
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
+
+    let interaction_type = if primary_pool.pool.binary_search(&auction_id).is_ok() {
+        AuctionInteraction::Bid
+    } else {
+        let mut secondary_pool = AuctionPool::read(secondary_pool_account)?;
+        secondary_pool.remove(&auction_id);
+        primary_pool.try_insert_sorted(auction_id)?;
+
+        primary_pool.write(auction_pool_account)?;
+        secondary_pool.write(secondary_pool_account)?;
+
+        auction_cycle_state.end_time = current_timestamp
+            .checked_add(auction_root_state.auction_config.cycle_period)
+            .ok_or(AuctionContractError::ArithmeticError)?;
+
+        AuctionInteraction::BidInactive
+    };
+
     check_status(
         &auction_root_state,
         &auction_cycle_state,
         current_timestamp,
-        AuctionInteraction::Bid,
+        interaction_type,
     )?;
     check_bid_amount(&auction_root_state, &auction_cycle_state, amount)?;
 
