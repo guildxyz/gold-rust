@@ -38,7 +38,9 @@ pub fn process_modify_auction(
     }
 
     if let Some(new_encore_period) = modify_data.new_encore_period {
-        if new_encore_period < 0 {
+        if new_encore_period < 0
+            || new_encore_period > auction_root_state.auction_config.cycle_period / 2
+        {
             return Err(AuctionContractError::InvalidEncorePeriod.into());
         }
         auction_root_state.auction_config.encore_period = new_encore_period;

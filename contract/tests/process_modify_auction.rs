@@ -2,6 +2,7 @@
 mod test_factory;
 use test_factory::*;
 
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::ID as CONTRACT_ID;
@@ -46,6 +47,23 @@ async fn test_process_modify_auction() {
         new_encore_period: None,
     };
 
+    // Invalid use case
+    // Try to modify auction without admin signature
+    let payer = testbench.clone_payer();
+    let no_owner_signature_error = modify_auction_transaction(
+        &mut testbench,
+        auction_id,
+        &payer,
+        modify_data.clone(),
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(no_owner_signature_error, AuctionContractError::AuctionOwnerMismatch);
+    
+    // Now with correct signature
     let balance_change = modify_auction_transaction(
         &mut testbench,
         auction_id,
@@ -115,11 +133,34 @@ async fn test_process_modify_auction() {
         );
     }
 
-    // modify socials
+    // modify encore period
+
+    // Invalid use case
+    // encore period exceeds cycle_period/2
     let modify_data = ModifyAuctionData {
         new_description: None,
         new_socials: None,
         new_encore_period: Some(20000),
+    };
+
+    let invalid_new_encore_period_error = modify_auction_transaction(
+        &mut testbench,
+        auction_id,
+        &auction_owner.keypair,
+        modify_data.clone(),
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(invalid_new_encore_period_error, AuctionContractError::InvalidEncorePeriod);
+
+    // now with valid encore period 
+    let modify_data = ModifyAuctionData {
+        new_description: None,
+        new_socials: None,
+        new_encore_period: Some(0),
     };
 
     modify_auction_transaction(
