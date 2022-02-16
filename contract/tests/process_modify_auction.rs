@@ -2,9 +2,9 @@
 mod test_factory;
 use test_factory::*;
 
-use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
@@ -50,19 +50,18 @@ async fn test_process_modify_auction() {
     // Invalid use case
     // Try to modify auction without admin signature
     let payer = testbench.clone_payer();
-    let no_owner_signature_error = modify_auction_transaction(
-        &mut testbench,
-        auction_id,
-        &payer,
-        modify_data.clone(),
-    )
-    .await
-    .unwrap()
-    .err()
-    .unwrap();
+    let no_owner_signature_error =
+        modify_auction_transaction(&mut testbench, auction_id, &payer, modify_data.clone())
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
 
-    assert_eq!(no_owner_signature_error, AuctionContractError::AuctionOwnerMismatch);
-    
+    assert_eq!(
+        no_owner_signature_error,
+        AuctionContractError::AuctionOwnerMismatch
+    );
+
     // Now with correct signature
     let balance_change = modify_auction_transaction(
         &mut testbench,
@@ -154,9 +153,12 @@ async fn test_process_modify_auction() {
     .err()
     .unwrap();
 
-    assert_eq!(invalid_new_encore_period_error, AuctionContractError::InvalidEncorePeriod);
+    assert_eq!(
+        invalid_new_encore_period_error,
+        AuctionContractError::InvalidEncorePeriod
+    );
 
-    // now with valid encore period 
+    // now with valid encore period
     let modify_data = ModifyAuctionData {
         new_description: None,
         new_socials: None,
