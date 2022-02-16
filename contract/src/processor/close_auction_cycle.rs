@@ -36,8 +36,6 @@ pub fn close_auction_cycle(
     let payer_account = next_account_info(account_info_iter)?;
 
     // contract state accounts
-    let auction_bank_account = next_account_info(account_info_iter)?;
-    let auction_owner_account = next_account_info(account_info_iter)?;
     let auction_pool_account = next_account_info(account_info_iter)?;
     let secondary_pool_account = next_account_info(account_info_iter)?;
     let auction_root_state_account = next_account_info(account_info_iter)?;
@@ -74,21 +72,6 @@ pub fn close_auction_cycle(
     // Accounts created in this instruction:
     //   next_auction_cycle_state_account
 
-    // check pool pdas
-    SignerPda::check_owner(
-        &auction_pool_seeds(),
-        program_id,
-        program_id,
-        auction_pool_account,
-    )?;
-
-    SignerPda::check_owner(
-        &secondary_pool_seeds(),
-        program_id,
-        program_id,
-        secondary_pool_account,
-    )?;
-
     // check root and cycle states
     SignerPda::check_owner(
         &auction_root_state_seeds(&auction_id),
@@ -114,10 +97,6 @@ pub fn close_auction_cycle(
     let mut current_auction_cycle_state =
         AuctionCycleState::read(current_auction_cycle_state_account)?;
 
-    if auction_owner_account.key != &auction_root_state.auction_owner {
-        return Err(AuctionContractError::AuctionOwnerMismatch.into());
-    }
-
     // Check auction status (frozen, active, able to end cycle)
     let clock = Clock::get()?;
     let current_timestamp = clock.unix_timestamp;
@@ -126,13 +105,6 @@ pub fn close_auction_cycle(
         &current_auction_cycle_state,
         current_timestamp,
         AuctionInteraction::CloseCycle,
-    )?;
-    // check auction_bank
-    SignerPda::check_owner(
-        &auction_bank_seeds(&auction_id),
-        program_id,
-        program_id,
-        auction_bank_account,
     )?;
 
     // If there were no bids, just reset auction cycle
@@ -152,6 +124,21 @@ pub fn close_auction_cycle(
             .ok_or(AuctionContractError::ArithmeticError)?;
         auction_root_state.write(auction_root_state_account)?;
     } else {
+        // check pool pdas
+        SignerPda::check_owner(
+            &auction_pool_seeds(),
+            program_id,
+            program_id,
+            auction_pool_account,
+        )?;
+
+        SignerPda::check_owner(
+            &secondary_pool_seeds(),
+            program_id,
+            program_id,
+            secondary_pool_account,
+        )?;
+
         increment_idle_streak(
             &auction_id,
             &mut current_auction_cycle_state,
@@ -163,20 +150,6 @@ pub fn close_auction_cycle(
         )?;
         return Ok(());
     }
-
-    let next_cycle_num_bytes = (auction_root_state
-        .status
-        .current_auction_cycle
-        .checked_add(1)
-        .ok_or(AuctionContractError::ArithmeticError)?)
-    .to_le_bytes();
-    let next_auction_cycle_state_seeds =
-        auction_cycle_state_seeds(auction_root_state_account.key, &next_cycle_num_bytes);
-    let next_cycle_state_pda = SignerPda::new_checked(
-        &next_auction_cycle_state_seeds,
-        program_id,
-        next_auction_cycle_state_account,
-    )?;
 
     let contract_pda_seeds = contract_pda_seeds();
     let contract_signer_pda =
@@ -303,6 +276,7 @@ pub fn close_auction_cycle(
                 rent_program,
             )?;
 
+            msg!("Minting nft");
             let mint_ix = spl_token::instruction::mint_to(
                 token_program.key,
                 child_mint_account.key,
@@ -324,6 +298,7 @@ pub fn close_auction_cycle(
             )?;
 
             // turn single child token into nft
+            msg!("Creating child nft");
             let mint_child_ix = meta_instruction::mint_new_edition_from_master_edition_via_token(
                 *metadata_program.key,
                 *child_metadata_account.key,
@@ -363,6 +338,7 @@ pub fn close_auction_cycle(
             // change master metadata so that child can inherit it
             // if last cycle is being closed, set increments to 0 (#0 and 0.jpg)
             if !nft_data.is_repeating {
+                msg!("Updating metadata account");
                 let mut new_master_metadata = try_from_slice_unchecked::<MetadataStateData>(
                     &master_metadata_account.data.borrow_mut()[METADATA_DATA_START_POS..],
                 )
@@ -452,6 +428,21 @@ pub fn close_auction_cycle(
 
     // Reset auction cycle
     if is_last_auction_cycle(&auction_root_state) {
+        // check pool pdas
+        SignerPda::check_owner(
+            &auction_pool_seeds(),
+            program_id,
+            program_id,
+            auction_pool_account,
+        )?;
+
+        SignerPda::check_owner(
+            &secondary_pool_seeds(),
+            program_id,
+            program_id,
+            secondary_pool_account,
+        )?;
+
         auction_root_state.status.is_finished = true;
         auction_root_state.available_funds = auction_root_state
             .available_funds
@@ -464,6 +455,20 @@ pub fn close_auction_cycle(
         auction_pool.write(auction_pool_account)?;
         secondary_pool.write(secondary_pool_account)?;
     } else {
+        let next_cycle_num_bytes = (auction_root_state
+            .status
+            .current_auction_cycle
+            .checked_add(1)
+            .ok_or(AuctionContractError::ArithmeticError)?)
+        .to_le_bytes();
+        let next_auction_cycle_state_seeds =
+            auction_cycle_state_seeds(auction_root_state_account.key, &next_cycle_num_bytes);
+        let next_cycle_state_pda = SignerPda::new_checked(
+            &next_auction_cycle_state_seeds,
+            program_id,
+            next_auction_cycle_state_account,
+        )?;
+
         create_state_account(
             payer_account,
             next_auction_cycle_state_account,

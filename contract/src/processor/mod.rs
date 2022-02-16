@@ -7,6 +7,7 @@ mod filter_auction;
 mod initialize_auction;
 mod initialize_contract;
 mod reallocate_pool;
+mod set_protocol_fee;
 mod verify_auction;
 
 use crate::assertions::*;
@@ -108,5 +109,8 @@ pub fn process(
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
+        AuctionInstruction::SetProtocolFee { new_fee } => {
+            set_protocol_fee::process_set_protocol_fee(program_id, accounts, new_fee)
+        }
     }
 }

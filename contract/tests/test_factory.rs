@@ -18,11 +18,11 @@ use agsol_gold_contract::pda::{
 };
 use agsol_gold_contract::state::{
     AuctionConfig, AuctionCycleState, AuctionDescription, AuctionRootState, BidData,
-    CreateTokenArgs, NftData, TokenConfig, TokenData, TokenType,
+    CreateTokenArgs, NftData, ProtocolFeeState, TokenConfig, TokenData, TokenType,
 };
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
-use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
+use agsol_gold_contract::{DEFAULT_PROTOCOL_FEE, RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL};
 
 use agsol_common::MaxLenString;
 use agsol_testbench::solana_program_test::{self, processor};
@@ -41,7 +41,8 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
         //_ => unimplemented!(),
         _ => {
             dbg!(program_err);
-            unimplemented!();
+            AuctionContractError::InvalidAccountOwner
+            //unimplemented!();
         }
     }
 }
@@ -311,6 +312,68 @@ pub async fn verify_auction_transaction(
         .process_transaction(&[verify_instruction], contract_admin_keypair, None)
         .await
         .map(|transaction_result| transaction_result.map_err(to_auction_error))
+}
+
+pub async fn set_protocol_fee_transaction(
+    testbench: &mut Testbench,
+    contract_admin_keypair: &Keypair,
+    new_fee: u8,
+) -> AuctionTransactionResult {
+    let set_fee_args = SetProtocolFeeArgs {
+        contract_admin_pubkey: contract_admin_keypair.pubkey(),
+        new_fee,
+    };
+    let set_fee_ix = set_protocol_fee(&set_fee_args);
+
+    testbench
+        .process_transaction(&[set_fee_ix], contract_admin_keypair, None)
+        .await
+        .map(|transaction_result| transaction_result.map_err(to_auction_error))
+}
+
+pub async fn claim_and_assert_split(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+    auction_owner_keypair: &Keypair,
+    claim_amount: u64,
+    contract_bank_pubkey: &Pubkey,
+    protocol_fee_state_pubkey: &Pubkey,
+    expected_split: u8,
+) {
+    let contract_balance_before = testbench
+        .get_account_lamports(contract_bank_pubkey)
+        .await
+        .unwrap();
+    let owner_balance_change =
+        claim_funds_transaction(testbench, auction_id, auction_owner_keypair, claim_amount)
+            .await
+            .unwrap()
+            .unwrap();
+    let contract_balance_after = testbench
+        .get_account_lamports(contract_bank_pubkey)
+        .await
+        .unwrap();
+
+    let fee_state = testbench
+        .get_and_deserialize_account_data::<ProtocolFeeState>(protocol_fee_state_pubkey)
+        .await
+        .unwrap_or(ProtocolFeeState {
+            fee: DEFAULT_PROTOCOL_FEE,
+        });
+
+    assert_eq!(expected_split, fee_state.fee);
+
+    let fee_float = fee_state.fee as f64 / 1_000.0;
+    let protocol_fee = claim_amount as f64 * fee_float;
+
+    assert_eq!(
+        claim_amount - protocol_fee as u64 - TRANSACTION_FEE,
+        owner_balance_change as u64
+    );
+    assert_eq!(
+        protocol_fee as u64,
+        contract_balance_after - contract_balance_before
+    );
 }
 
 pub async fn claim_funds_transaction(

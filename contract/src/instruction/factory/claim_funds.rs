@@ -22,12 +22,16 @@ pub fn claim_funds(args: &ClaimFundsArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);
 
+    let (protocol_fee_state_pubkey, _) =
+        Pubkey::find_program_address(&protocol_fee_state_seeds(), &crate::ID);
+
     let accounts = vec![
         AccountMeta::new(args.auction_owner_pubkey, true),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(auction_cycle_state_pubkey, false),
         AccountMeta::new(contract_bank_pubkey, false),
+        AccountMeta::new_readonly(protocol_fee_state_pubkey, false),
     ];
 
     let instruction = AuctionInstruction::ClaimFunds {

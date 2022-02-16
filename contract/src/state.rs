@@ -240,6 +240,15 @@ pub struct ContractBankState {
     pub withdraw_authority: Pubkey,
 }
 
+#[repr(C)]
+#[derive(BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone)]
+pub struct ProtocolFeeState {
+    /// The protocol fee collected on all claimed funds.
+    ///
+    /// Expressed in thousandths, max 5% (50)
+    pub fee: u8,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

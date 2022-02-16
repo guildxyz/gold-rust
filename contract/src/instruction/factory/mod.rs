@@ -7,6 +7,7 @@ mod initialize_auction;
 mod initialize_contract;
 mod place_bid;
 mod reallocate_pool;
+mod set_protocol_fee;
 mod verify_auction;
 
 pub use admin_withdraw::*;
@@ -18,6 +19,7 @@ pub use initialize_auction::*;
 pub use initialize_contract::*;
 pub use place_bid::*;
 pub use reallocate_pool::*;
+pub use set_protocol_fee::*;
 pub use verify_auction::*;
 
 use super::AuctionInstruction;
