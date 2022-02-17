@@ -211,7 +211,7 @@ async fn test_process_close_auction_cycle() {
 }
 
 #[tokio::test]
-async fn test_ended_close_cycle_on_auction() {
+async fn test_close_cycle_on_finished_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
