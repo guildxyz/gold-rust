@@ -1,7 +1,9 @@
 #[cfg(feature = "client")]
 pub mod factory;
 
-use crate::state::{AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs};
+use crate::state::{
+    AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs, ModifyAuctionData,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::clock::UnixTimestamp;
 use solana_program::pubkey::Pubkey;
@@ -58,5 +60,9 @@ pub enum AuctionInstruction {
     },
     SetProtocolFee {
         new_fee: u8,
+    },
+    ModifyAuction {
+        id: AuctionId,
+        modify_data: ModifyAuctionData,
     },
 }

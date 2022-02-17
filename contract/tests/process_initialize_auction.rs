@@ -26,7 +26,7 @@ async fn test_process_initialize_auction() {
 
     let mut auction_config = AuctionConfig {
         cycle_period: 86400,
-        encore_period: 300,
+        encore_period: 30,
         minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };

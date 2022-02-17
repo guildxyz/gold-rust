@@ -5,6 +5,7 @@ mod delete_auction;
 mod filter_auction;
 mod initialize_auction;
 mod initialize_contract;
+mod modify_auction;
 mod place_bid;
 mod reallocate_pool;
 mod set_protocol_fee;
@@ -17,6 +18,7 @@ pub use delete_auction::*;
 pub use filter_auction::*;
 pub use initialize_auction::*;
 pub use initialize_contract::*;
+pub use modify_auction::*;
 pub use place_bid::*;
 pub use reallocate_pool::*;
 pub use set_protocol_fee::*;
@@ -25,7 +27,8 @@ pub use verify_auction::*;
 use super::AuctionInstruction;
 use crate::pda::*;
 use crate::state::{
-    AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs, TokenType,
+    AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs, ModifyAuctionData,
+    TokenType,
 };
 use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
 use agsol_token_metadata::state::EDITION_MARKER_BIT_SIZE;
