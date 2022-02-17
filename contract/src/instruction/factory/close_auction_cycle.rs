@@ -11,8 +11,6 @@ pub struct CloseAuctionCycleArgs {
 }
 
 pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
-    let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
@@ -44,8 +42,6 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
 
     let mut accounts = vec![
         AccountMeta::new(args.payer_pubkey, true),
-        AccountMeta::new(auction_bank_pubkey, false),
-        AccountMeta::new(args.auction_owner_pubkey, false),
         AccountMeta::new(auction_pool_pubkey, false),
         AccountMeta::new(secondary_pool_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),

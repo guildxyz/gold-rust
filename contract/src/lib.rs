@@ -54,6 +54,8 @@ pub const UNIVERSAL_BID_FLOOR: u64 = 50_000_000;
 pub const MIN_CYCLE_PERIOD: UnixTimestamp = 60; // one minute
 /// Minimum length of an auction cycle period in seconds.
 pub const MAX_CYCLE_PERIOD: UnixTimestamp = 31_557_600; // one year
+/// Default protocol fee in thousandths for all claimed funds.
+pub const DEFAULT_PROTOCOL_FEE: u8 = 50; // 5 %
 
 /// The recommended number of state accounts that can be safely wiped via a
 /// `DeleteAuction` contract call without exceeding the allotted compute units.

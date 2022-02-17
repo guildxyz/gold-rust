@@ -39,6 +39,7 @@ pub enum AuctionContractError {
     TokenAuctionInconsistency = 530,  // 212
     StringTooLong = 531,              // 213
     InvalidEncorePeriod = 532,        // 214
+    InvalidProtocolFee = 533,         // 215
 }
 
 impl From<AuctionContractError> for ProgramError {

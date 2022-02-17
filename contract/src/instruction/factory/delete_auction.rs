@@ -24,6 +24,9 @@ pub fn delete_auction(args: &DeleteAuctionArgs) -> Instruction {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
 
+    let (protocol_fee_state_pubkey, _) =
+        Pubkey::find_program_address(&protocol_fee_state_seeds(), &crate::ID);
+
     let top_bidder = if let Some(bidder) = args.top_bidder_pubkey {
         bidder
     } else {
@@ -38,6 +41,7 @@ pub fn delete_auction(args: &DeleteAuctionArgs) -> Instruction {
         AccountMeta::new(contract_bank_pubkey, false),
         AccountMeta::new(auction_pool_pubkey, false),
         AccountMeta::new(secondary_pool_pubkey, false),
+        AccountMeta::new_readonly(protocol_fee_state_pubkey, false),
     ];
 
     let cycles_to_include = std::cmp::min(args.current_auction_cycle, args.num_of_cycles_to_delete);

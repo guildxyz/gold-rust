@@ -58,6 +58,9 @@ pub enum AuctionInstruction {
     ReallocatePool {
         new_max_auction_num: u32,
     },
+    SetProtocolFee {
+        new_fee: u8,
+    },
     ModifyAuction {
         id: AuctionId,
         modify_data: ModifyAuctionData,
