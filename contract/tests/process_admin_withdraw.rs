@@ -74,8 +74,9 @@ async fn test_process_admin_withdraw() {
     let claim_amount = 1_000_000;
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
@@ -86,10 +87,7 @@ async fn test_process_admin_withdraw() {
         .await
         .unwrap();
 
-    assert_eq!(
-        claim_amount / 20 * 19 - TRANSACTION_FEE,
-        owner_balance_change as u64
-    );
+    assert_eq!(claim_amount / 20 * 19, owner_balance_change as u64);
 
     assert_eq!(
         claim_amount - (claim_amount / 20 * 19),

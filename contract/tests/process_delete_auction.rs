@@ -222,8 +222,9 @@ async fn test_delete_claimed_auction() {
 
     claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_all,
     )
     .await

@@ -43,6 +43,8 @@ async fn test_process_claim_funds() {
     .unwrap()
     .unwrap();
 
+    let payer = testbench.clone_payer();
+
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
     let (auction_bank_pubkey, _) =
@@ -53,8 +55,9 @@ async fn test_process_claim_funds() {
     let claim_amount = 1_000_000;
     let not_enough_funds_to_claim_error = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
@@ -78,8 +81,9 @@ async fn test_process_claim_funds() {
     // Trying to claim funds from the current auction cycle
     let current_bid_claim_error = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
@@ -120,8 +124,9 @@ async fn test_process_claim_funds() {
 
     let error = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_all,
     )
     .await
@@ -141,18 +146,16 @@ async fn test_process_claim_funds() {
     // This should be successful because the auction cycle of the bid has ended
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
     .unwrap()
     .unwrap();
 
-    assert_eq!(
-        claim_amount / 20 * 19 - TRANSACTION_FEE,
-        owner_balance_change as u64
-    );
+    assert_eq!(claim_amount / 20 * 19, owner_balance_change as u64);
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
@@ -182,18 +185,16 @@ async fn test_process_claim_funds() {
     // Claim funds from the ended auction
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
     .unwrap()
     .unwrap();
 
-    assert_eq!(
-        claim_amount / 20 * 19 - TRANSACTION_FEE,
-        owner_balance_change as u64
-    );
+    assert_eq!(claim_amount / 20 * 19, owner_balance_change as u64);
 
     // Claiming ALL funds from the auction should be an error because it has not ended yet.
     let claim_all = testbench
@@ -202,8 +203,9 @@ async fn test_process_claim_funds() {
         .unwrap();
     let error = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_all,
     )
     .await
@@ -220,8 +222,9 @@ async fn test_process_claim_funds() {
         .unwrap();
     let owner_balance_change = claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
     )
     .await
@@ -232,10 +235,7 @@ async fn test_process_claim_funds() {
         .await
         .unwrap();
 
-    assert_eq!(
-        claim_amount / 20 * 19 - TRANSACTION_FEE,
-        owner_balance_change as u64
-    );
+    assert_eq!(claim_amount / 20 * 19, owner_balance_change as u64);
 
     assert_eq!(
         claim_amount - (claim_amount / 20 * 19),
@@ -278,8 +278,9 @@ async fn test_process_claim_funds() {
 
     claim_funds_transaction(
         &mut testbench,
+        &payer,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_all,
     )
     .await

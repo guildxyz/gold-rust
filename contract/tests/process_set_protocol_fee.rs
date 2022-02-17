@@ -70,7 +70,7 @@ async fn test_process_set_protocol_fee() {
     claim_and_assert_split(
         &mut testbench,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
         &contract_bank_pubkey,
         &protocol_fee_state_pubkey,
@@ -104,7 +104,7 @@ async fn test_process_set_protocol_fee() {
     claim_and_assert_split(
         &mut testbench,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
         &contract_bank_pubkey,
         &protocol_fee_state_pubkey,
@@ -123,7 +123,7 @@ async fn test_process_set_protocol_fee() {
     claim_and_assert_split(
         &mut testbench,
         auction_id,
-        &auction_owner.keypair,
+        &auction_owner.keypair.pubkey(),
         claim_amount,
         &contract_bank_pubkey,
         &protocol_fee_state_pubkey,
