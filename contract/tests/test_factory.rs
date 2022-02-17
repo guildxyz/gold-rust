@@ -354,7 +354,7 @@ pub async fn modify_auction_transaction(
 pub async fn claim_and_assert_split(
     testbench: &mut Testbench,
     auction_id: [u8; 32],
-    auction_owner_keypair: &Keypair,
+    auction_owner_pubkey: &Pubkey,
     claim_amount: u64,
     contract_bank_pubkey: &Pubkey,
     protocol_fee_state_pubkey: &Pubkey,
@@ -364,11 +364,17 @@ pub async fn claim_and_assert_split(
         .get_account_lamports(contract_bank_pubkey)
         .await
         .unwrap();
-    let owner_balance_change =
-        claim_funds_transaction(testbench, auction_id, auction_owner_keypair, claim_amount)
-            .await
-            .unwrap()
-            .unwrap();
+    let payer = testbench.clone_payer();
+    let owner_balance_change = claim_funds_transaction(
+        testbench,
+        &payer,
+        auction_id,
+        auction_owner_pubkey,
+        claim_amount,
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let contract_balance_after = testbench
         .get_account_lamports(contract_bank_pubkey)
         .await
@@ -387,7 +393,7 @@ pub async fn claim_and_assert_split(
     let protocol_fee = claim_amount as f64 * fee_float;
 
     assert_eq!(
-        claim_amount - protocol_fee as u64 - TRANSACTION_FEE,
+        claim_amount - protocol_fee as u64,
         owner_balance_change as u64
     );
     assert_eq!(
@@ -398,15 +404,17 @@ pub async fn claim_and_assert_split(
 
 pub async fn claim_funds_transaction(
     testbench: &mut Testbench,
+    caller_keypair: &Keypair,
     auction_id: [u8; 32],
-    auction_owner: &Keypair,
+    auction_owner_pubkey: &Pubkey,
     amount: u64,
 ) -> AuctionTransactionResult {
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     let claim_funds_args = ClaimFundsArgs {
-        auction_owner_pubkey: auction_owner.pubkey(),
+        caller_pubkey: caller_keypair.pubkey(),
+        auction_owner_pubkey: *auction_owner_pubkey,
         auction_id,
         cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
         amount,
@@ -414,10 +422,19 @@ pub async fn claim_funds_transaction(
 
     let claim_funds_ix = claim_funds(&claim_funds_args);
 
-    testbench
-        .process_transaction(&[claim_funds_ix], auction_owner, None)
+    let owner_balance_before = testbench.get_account_lamports(auction_owner_pubkey).await?;
+
+    let testbench_result = testbench
+        .process_transaction(&[claim_funds_ix], caller_keypair, None)
         .await
-        .map(|transaction_result| transaction_result.map_err(to_auction_error))
+        .map(|transaction_result| transaction_result.map_err(to_auction_error));
+
+    let owner_balance_after = testbench.get_account_lamports(auction_owner_pubkey).await?;
+    let owner_balance_change = owner_balance_after as i64 - owner_balance_before as i64;
+
+    testbench_result.map(|transaction_result| {
+        transaction_result.map(|_signer_balance_change| owner_balance_change)
+    })
 }
 
 pub async fn place_bid_transaction(
