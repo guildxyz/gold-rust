@@ -2,8 +2,8 @@ use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState, TokenConfig};
-use agsol_gold_contract::utils::unpuff_metadata;
+use agsol_gold_contract::state::*;
+use agsol_gold_contract::utils::{unpad_id, unpuff_metadata};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_token_metadata::state::Metadata;
 use agsol_token_metadata::ID as META_ID;
@@ -12,18 +12,82 @@ use agsol_wasm_client::RpcClient;
 use anyhow::bail;
 use std::convert::TryFrom;
 
+const LAMPORTS: f32 = 1e9;
+
+async fn get_auction_base(
+    client: &mut RpcClient,
+    id: &AuctionId,
+    root_state_pubkey: &Pubkey,
+) -> Result<FrontendAuctionBase, anyhow::Error> {
+    let root_state: AuctionRootState = client
+        .get_and_deserialize_account_data(root_state_pubkey)
+        .await?;
+
+    if root_state.status.is_filtered {
+        bail!("this auction is filtered")
+    }
+
+    let goal_treasury_amount = if let Some(amount) = root_state.description.goal_treasury_amount {
+        (amount as f32 / LAMPORTS).to_string()
+    } else {
+        "0".to_owned()
+    }
+    .try_into()
+    .map_err(anyhow::Error::msg)?;
+    let all_time_treasury_amount = (root_state.all_time_treasury as f32 / LAMPORTS)
+        .to_string()
+        .try_into()
+        .map_err(anyhow::Error::msg)?;
+    Ok(FrontendAuctionBase {
+        id: unpad_id(id).try_into().map_err(anyhow::Error::msg)?,
+        name: unpad_id(&root_state.auction_name)
+            .try_into()
+            .map_err(anyhow::Error::msg)?,
+        owner: root_state
+            .auction_owner
+            .to_string()
+            .try_into()
+            .map_err(anyhow::Error::msg)?,
+        goal_treasury_amount,
+        all_time_treasury_amount,
+        is_verified: root_state.status.is_verified,
+    })
+}
+
+pub async fn get_auctions(
+    client: &mut RpcClient,
+    secondary: bool,
+) -> Result<Vec<FrontendAuctionBase>, anyhow::Error> {
+    let seeds = if secondary {
+        secondary_pool_seeds()
+    } else {
+        auction_pool_seeds()
+    };
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
+    let auction_pool: AuctionPool = client
+        .get_and_deserialize_account_data(&auction_pool_pubkey)
+        .await?;
+    let mut auction_base_vec = Vec::with_capacity(auction_pool.pool.len());
+    for id in &auction_pool.pool {
+        let (root_state_pubkey, _) =
+            Pubkey::find_program_address(&auction_root_state_seeds(id), &GOLD_ID);
+        if let Ok(auction_base) = get_auction_base(client, id, &root_state_pubkey).await {
+            auction_base_vec.push(auction_base);
+        } // else we are skipping stuff
+    }
+    Ok(auction_base_vec)
+}
+
 pub async fn get_auction(
     client: &mut RpcClient,
     auction_id: &AuctionId,
 ) -> Result<FrontendAuction, anyhow::Error> {
-    // read root state
     let (root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
 
     let root_state: AuctionRootState = client
         .get_and_deserialize_account_data(&root_state_pubkey)
         .await?;
-
     let token_config = match root_state.token_config {
         TokenConfig::Nft(ref data) => {
             let (master_mint_pubkey, _) =
@@ -92,7 +156,7 @@ fn strip_uri(uri: &mut String) {
 
 #[cfg(test)]
 mod test {
-    use super::{get_auction, get_auction_cycle_state, strip_uri, RpcClient};
+    use super::*;
     use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
 
     #[tokio::test]
@@ -104,6 +168,13 @@ mod test {
         get_auction_cycle_state(&mut client, &auction.root_state_pubkey, 1)
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn auction_base_array() {
+        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+        get_auctions(&mut client, true).await.unwrap();
+        get_auctions(&mut client, false).await.unwrap();
     }
 
     #[test]

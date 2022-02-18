@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct PlaceBidArgs {
-    pub user_main_pubkey: Pubkey,
+    pub bidder_pubkey: Pubkey,
     #[alias([u8; 32])]
     pub auction_id: AuctionId,
     pub cycle_number: u64,
@@ -30,7 +30,7 @@ pub fn place_bid(args: &PlaceBidArgs) -> Instruction {
     };
 
     let accounts = vec![
-        AccountMeta::new(args.user_main_pubkey, true),
+        AccountMeta::new(args.bidder_pubkey, true),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(auction_cycle_state_pubkey, false),

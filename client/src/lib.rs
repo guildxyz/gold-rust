@@ -2,20 +2,14 @@
 // on the wasm_bindgen expressions
 #![allow(clippy::unused_unit)]
 
+mod auction_exists;
 mod get_auction;
-mod get_current_cycle;
-mod get_top_bidder;
-mod is_id_unique;
 mod utils;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{
-    auction_pool_seeds, auction_root_state_seeds, secondary_pool_seeds,
-};
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::utils::pad_to_32_bytes;
-use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{wasm_instruction, Net, RpcClient};
 use borsh::BorshSerialize;
@@ -51,6 +45,16 @@ pub async fn get_auction_wasm(auction_id: String) -> Result<Uint8Array, JsValue>
     Ok(Uint8Array::from(auction.try_to_vec().unwrap().as_slice()))
 }
 
+#[wasm_bindgen(js_name = "getAuctionsWasm")]
+pub async fn get_auctions_wasm(secondary: bool) -> Result<Uint8Array, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auctions = get_auction::get_auctions(&mut client, secondary)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    Ok(Uint8Array::from(auctions.try_to_vec().unwrap().as_slice()))
+}
+
 #[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
 pub async fn get_auction_cycle_state_wasm(
     root_state_pubkey: Pubkey,
@@ -67,52 +71,11 @@ pub async fn get_auction_cycle_state_wasm(
     ))
 }
 
-#[wasm_bindgen(js_name = "getTopBidderPubkeyWasm")]
-pub async fn get_top_bidder_pubkey_wasm(auction_id: String) -> Result<Pubkey, JsValue> {
-    let id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
-    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-    get_top_bidder::get_top_bidder(&mut client, &id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
-}
-
-#[wasm_bindgen(js_name = "getCurrentCycleWasm")]
-pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> {
-    let id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
-    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-    get_current_cycle::get_current_cycle(&mut client, &id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
-}
-
-#[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn auction_pool_pubkey_wasm(secondary: bool) -> Pubkey {
-    let seeds = if secondary {
-        secondary_pool_seeds()
-    } else {
-        auction_pool_seeds()
-    };
-    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
-    auction_pool_pubkey
-}
-
-#[wasm_bindgen(js_name = "getAuctionRootStatePubkeyWasm")]
-pub fn auction_root_state_pubkey_wasm(auction_id: &[u8]) -> Pubkey {
-    let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-    auction_root_state_pubkey
-}
-
-#[wasm_bindgen(js_name = "isIdUniqueWasm")]
-pub async fn is_id_unique_wasm(auction_id: String) -> Result<bool, JsValue> {
+#[wasm_bindgen(js_name = "auctionExistsWasm")]
+pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
     let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
     let auction_id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
-    is_id_unique::is_id_unique(&mut client, &auction_id)
+    auction_exists::auction_exists(&mut client, &auction_id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))
-}
-
-#[wasm_bindgen(js_name = "getNetWasm")]
-pub fn get_net_wasm() -> String {
-    NET.to_url().to_owned()
 }

@@ -29,3 +29,13 @@ pub struct FrontendAuction {
     pub root_state: AuctionRootState,
     pub token_config: FrontendTokenConfig,
 }
+
+#[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
+pub struct FrontendAuctionBase {
+    pub id: MaxLenString<32>,
+    pub name: MaxLenString<32>,
+    pub owner: MaxLenString<45>,
+    pub goal_treasury_amount: MaxLenString<32>,
+    pub all_time_treasury_amount: MaxLenString<32>,
+    pub is_verified: bool,
+}
