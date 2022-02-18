@@ -46,6 +46,10 @@ pub enum AuctionInstruction {
         id: AuctionId,
         amount: u64,
     },
+    ClaimRewards {
+        id: AuctionId,
+        cycle_number: u64,
+    },
     VerifyAuction {
         id: AuctionId,
     },

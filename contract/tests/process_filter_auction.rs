@@ -4,9 +4,18 @@ use test_factory::*;
 
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
+
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Filtering and unfiltering an auction
+//
+// Invalid use cases:
+//   - Filtering without contract admin signature
 
 #[tokio::test]
 async fn test_process_filter_auction() {
@@ -44,6 +53,20 @@ async fn test_process_filter_auction() {
         .await
         .unwrap();
     assert!(!auction_root_state.status.is_filtered);
+
+    // Invalid use case
+    // Filtering without contract admin signature
+    let random_user = TestUser::new(&mut testbench).await.unwrap().unwrap();
+    let filter_without_admin_signature_error =
+        filter_auction_transaction(&mut testbench, auction_id, true, &random_user.keypair)
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
+    assert_eq!(
+        filter_without_admin_signature_error,
+        AuctionContractError::ContractAdminMismatch
+    );
 
     // filter auction
     let payer = testbench.clone_payer();

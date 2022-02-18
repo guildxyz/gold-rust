@@ -1,5 +1,6 @@
 mod admin_withdraw;
 mod claim_funds;
+mod claim_rewards;
 mod close_auction_cycle;
 mod delete_auction;
 mod filter_auction;
@@ -13,6 +14,7 @@ mod verify_auction;
 
 pub use admin_withdraw::*;
 pub use claim_funds::*;
+pub use claim_rewards::*;
 pub use close_auction_cycle::*;
 pub use delete_auction::*;
 pub use filter_auction::*;

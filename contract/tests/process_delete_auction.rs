@@ -7,14 +7,28 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 
-use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 
 use agsol_testbench::tokio;
 use agsol_testbench::Testbench;
+
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Deleting an auction immediately after creating it
+//   - Deleting an auction with less than RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL cycles
+//   - Deleting an auction with exactly RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL cycles
+//   - Deleting an auction with more than RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL cycles
+//   - Deleting an auction with its bank deallocated by claiming all its funds
+//   - Deleting finished and ongoing auctions
+//   - Claiming funds on deleting auctions
+//
+// Invalid use cases:
+//   - Deleting an auction without the owner's signature
 
 #[tokio::test]
 async fn test_delete_auction_immediately() {
@@ -46,38 +60,21 @@ async fn test_delete_auction_immediately() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    let auction_root_state = testbench
-        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
-        .await
-        .unwrap();
-
-    let (auction_cycle_state_pubkey, _) = Pubkey::find_program_address(
-        &auction_cycle_state_seeds(
-            &auction_root_state_pubkey,
-            &auction_root_state
-                .status
-                .current_auction_cycle
-                .to_le_bytes(),
-        ),
-        &CONTRACT_ID,
+    // Invalid use case
+    // Deleting an auction without the owner's signature
+    let random_user = TestUser::new(&mut testbench).await.unwrap().unwrap();
+    let delete_without_owner_signature_error =
+        delete_auction_transaction(&mut testbench, &random_user.keypair, auction_id)
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
+    assert_eq!(
+        delete_without_owner_signature_error,
+        AuctionContractError::AuctionOwnerMismatch
     );
 
-    let delete_auction_args = DeleteAuctionArgs {
-        auction_owner_pubkey: auction_owner.keypair.pubkey(),
-        top_bidder_pubkey: get_top_bidder_pubkey(&mut testbench, &auction_cycle_state_pubkey)
-            .await
-            .unwrap(),
-        auction_id,
-        current_auction_cycle: get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
-            .await
-            .unwrap(),
-        num_of_cycles_to_delete: RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
-    };
-
-    let delete_auction_ix = delete_auction(&delete_auction_args);
-
-    testbench
-        .process_transaction(&[delete_auction_ix], &auction_owner.keypair, None)
+    delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
         .await
         .unwrap()
         .unwrap();
@@ -177,11 +174,14 @@ async fn test_delete_claimed_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
+    let number_of_cycles = Some(3);
+    assert!(number_of_cycles.unwrap() < RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL);
+
     let auction_config = AuctionConfig {
         cycle_period: 60,
         encore_period: 0,
         minimum_bid_amount: 50_000_000, // lamports
-        number_of_cycles: Some(3),
+        number_of_cycles,
     };
 
     let payer = testbench.clone_payer();
@@ -356,9 +356,6 @@ async fn test_delete_just_long_enough_finished_auction() {
         .await
         .unwrap();
 
-    dbg!(contract_balance_before);
-    dbg!(contract_balance_after);
-
     // Test that auction is removed from the pool
     let secondary_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&secondary_pool_pubkey)
@@ -380,12 +377,14 @@ async fn test_delete_just_long_enough_finished_auction() {
     );
 
     // Test that all state balances are claimed correctly
+    let fee_multiplier = get_protocol_fee_multiplier(&mut testbench).await;
+    let protocol_fee = (auction_bank_balance as f64 * fee_multiplier) as u64;
     assert_eq!(
-        auction_bank_balance - (auction_bank_balance / 20 * 19) + auction_cycle_balance_sum,
+        protocol_fee + auction_cycle_balance_sum,
         contract_balance_after - contract_balance_before
     );
     assert_eq!(
-        auction_bank_balance / 20 * 19 + auction_root_balance - TRANSACTION_FEE,
+        auction_bank_balance - protocol_fee + auction_root_balance - TRANSACTION_FEE,
         owner_balance_change as u64
     );
 }
@@ -422,7 +421,17 @@ async fn test_delete_long_ongoing_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    close_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 30, 1000).await;
+    // There will be RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL closed
+    // plus one active cycle on chain so it needs two instruction calls
+    close_n_cycles(
+        &mut testbench,
+        auction_id,
+        &auction_owner,
+        &payer,
+        RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
+        1000,
+    )
+    .await;
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
