@@ -1,16 +1,15 @@
-use crate::{NET, RPC_CONFIG};
 use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState};
-use agsol_gold_contract::utils::pad_to_32_bytes;
+use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
 
-pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error> {
-    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-    let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
+pub async fn get_top_bidder(
+    client: &mut RpcClient,
+    auction_id: &AuctionId,
+) -> Result<Pubkey, anyhow::Error> {
     let (root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
 
     let root_state: AuctionRootState = client
         .get_and_deserialize_account_data(&root_state_pubkey)
@@ -27,8 +26,8 @@ pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error>
         .get_and_deserialize_account_data(&cycle_state_pubkey)
         .await?;
 
-    if let Some(bid) = cycle_state.bid_history.get_last_element() {
-        Ok(bid.bidder_pubkey)
+    if let Some(bid_data) = cycle_state.bid_history.get_last_element() {
+        Ok(bid_data.bidder_pubkey)
     } else {
         Ok(Pubkey::default())
     }
@@ -36,10 +35,13 @@ pub async fn get_top_bidder(auction_id: String) -> Result<Pubkey, anyhow::Error>
 
 #[cfg(test)]
 mod test {
-    use super::get_top_bidder;
+    use super::{get_top_bidder, RpcClient};
+    use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
     #[tokio::test]
     async fn top_bidder_test() {
-        let result = get_top_bidder("goldxyz-dao".to_string()).await;
-        println!("{:?}", result);
+        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+        let auction_id = pad_to_32_bytes(TEST_AUCTION_ID).unwrap();
+        let result = get_top_bidder(&mut client, &auction_id).await;
+        assert!(result.is_ok());
     }
 }

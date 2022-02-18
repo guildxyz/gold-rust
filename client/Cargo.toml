@@ -7,8 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [features]
-Devnet = []
-Mainnet = [] # default
+mainnet = []
 
 [dependencies]
 agsol-common = "0.2.1"

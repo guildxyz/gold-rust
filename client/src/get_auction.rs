@@ -1,10 +1,9 @@
-use crate::{NET, RPC_CONFIG};
 use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::{AuctionCycleState, AuctionRootState, TokenConfig};
-use agsol_gold_contract::utils::{pad_to_32_bytes, unpuff_metadata};
+use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState, TokenConfig};
+use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_token_metadata::state::Metadata;
 use agsol_token_metadata::ID as META_ID;
@@ -13,13 +12,13 @@ use agsol_wasm_client::RpcClient;
 use anyhow::bail;
 use std::convert::TryFrom;
 
-pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::Error> {
-    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-    let auction_id = pad_to_32_bytes(&auction_id).map_err(anyhow::Error::msg)?;
-
+pub async fn get_auction(
+    client: &mut RpcClient,
+    auction_id: &AuctionId,
+) -> Result<FrontendAuction, anyhow::Error> {
     // read root state
     let (root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &GOLD_ID);
+        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
 
     let root_state: AuctionRootState = client
         .get_and_deserialize_account_data(&root_state_pubkey)
@@ -28,7 +27,7 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
     let token_config = match root_state.token_config {
         TokenConfig::Nft(ref data) => {
             let (master_mint_pubkey, _) =
-                Pubkey::find_program_address(&master_mint_seeds(&auction_id), &GOLD_ID);
+                Pubkey::find_program_address(&master_mint_seeds(auction_id), &GOLD_ID);
             let (metadata_pubkey, _) =
                 Pubkey::find_program_address(&metadata_seeds(&master_mint_pubkey), &META_ID);
             let mut metadata: Metadata = client
@@ -71,12 +70,11 @@ pub async fn get_auction(auction_id: String) -> Result<FrontendAuction, anyhow::
 }
 
 pub async fn get_auction_cycle_state(
+    client: &mut RpcClient,
     root_state_pubkey: &Pubkey,
     cycle_num: u64,
 ) -> Result<AuctionCycleState, anyhow::Error> {
-    // read cycle state
     anyhow::ensure!(cycle_num != 0);
-    let mut client = RpcClient::new(NET);
     let (cycle_state_pubkey, _) = Pubkey::find_program_address(
         &auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
         &GOLD_ID,
@@ -94,15 +92,18 @@ fn strip_uri(uri: &mut String) {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{get_auction, get_auction_cycle_state, strip_uri, RpcClient};
+    use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
+
     #[tokio::test]
     async fn query_auction() {
-        let auction_result = get_auction("goldxyz-dao".to_string()).await;
-        println!("{:#?}", auction_result);
-        if let Ok(auction) = auction_result {
-            let cycle_result = get_auction_cycle_state(&auction.root_state_pubkey, 1).await;
-            println!("{:#?}", cycle_result);
-        }
+        // unwraps ensure that the accounts are properly deserialized
+        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+        let auction_id = pad_to_32_bytes(TEST_AUCTION_ID).unwrap();
+        let auction = get_auction(&mut client, &auction_id).await.unwrap();
+        get_auction_cycle_state(&mut client, &auction.root_state_pubkey, 1)
+            .await
+            .unwrap();
     }
 
     #[test]
