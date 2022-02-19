@@ -7,10 +7,24 @@ use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::{AuctionConfig, ContractBankState, TokenType};
 use agsol_gold_contract::AuctionContractError;
+use agsol_gold_contract::DEFAULT_PROTOCOL_FEE;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
+
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Withdrawing funds from the contract bank with withdraw authority signature
+//   - Reassigning withdraw authority
+//   - Withdrawing with reassigned authority signature
+//
+// Invalid use cases:
+//   - Withdrawing funds with invalid signature
+//   - Withdrawing too much funds
+//   - (Reassign withdraw authority with invalid signature - commented test because it panics)
+//   - Withdrawing using the old authority signature after it was reassigned
 
 #[tokio::test]
 async fn test_process_admin_withdraw() {
@@ -42,6 +56,12 @@ async fn test_process_admin_withdraw() {
     .await
     .unwrap()
     .unwrap();
+
+    let (protocol_fee_state_pubkey, _) =
+        Pubkey::find_program_address(&protocol_fee_state_seeds(), &CONTRACT_ID);
+    let (contract_bank_pubkey, _) =
+        Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
+
     // Place bid
     let bid_amount = 100_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
@@ -49,10 +69,10 @@ async fn test_process_admin_withdraw() {
         .unwrap()
         .unwrap();
 
-    // Close second cycle
+    // Close cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let _balance_change = close_cycle_transaction(
+    close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
         auction_id,
@@ -63,38 +83,20 @@ async fn test_process_admin_withdraw() {
     .unwrap()
     .unwrap();
 
-    // claim funds
-    let (contract_bank_pubkey, _) =
-        Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
-    let contract_balance_before = testbench
-        .get_account_lamports(&contract_bank_pubkey)
-        .await
-        .unwrap();
-
-    let claim_amount = 1_000_000;
-    let owner_balance_change = claim_funds_transaction(
+    // Claim funds
+    claim_and_assert_split(
         &mut testbench,
-        &payer,
         auction_id,
         &auction_owner.keypair.pubkey(),
-        claim_amount,
+        bid_amount,
+        &contract_bank_pubkey,
+        &protocol_fee_state_pubkey,
+        DEFAULT_PROTOCOL_FEE,
     )
-    .await
-    .unwrap()
-    .unwrap();
-    let contract_balance_after = testbench
-        .get_account_lamports(&contract_bank_pubkey)
-        .await
-        .unwrap();
+    .await;
 
-    assert_eq!(claim_amount / 20 * 19, owner_balance_change as u64);
-
-    assert_eq!(
-        claim_amount - (claim_amount / 20 * 19),
-        contract_balance_after - contract_balance_before
-    );
-
-    // attempt to withdraw without authority
+    // Invalid use case
+    // Trying to withdraw without authority
     let admin_withdraw_args = AdminWithdrawArgs {
         withdraw_authority: user_1.keypair.pubkey(),
         amount: 5000,
@@ -112,6 +114,7 @@ async fn test_process_admin_withdraw() {
         AuctionContractError::WithdrawAuthorityMismatch
     );
 
+    // Check contract admin and withdraw authority
     let contract_bank_state = testbench
         .get_and_deserialize_account_data::<ContractBankState>(&contract_bank_pubkey)
         .await
@@ -125,12 +128,19 @@ async fn test_process_admin_withdraw() {
         testbench.payer().pubkey()
     );
 
+    // Invalid use case
+    // Trying to withdraw too much funds
     let rent_program = testbench.client().get_rent().await.unwrap();
     let minimum_bank_rent = rent_program.minimum_balance(ContractBankState::MAX_SERIALIZED_LEN);
 
+    let contract_bank_balance = testbench
+        .get_account_lamports(&contract_bank_pubkey)
+        .await
+        .unwrap();
+
     let mut admin_withdraw_args = AdminWithdrawArgs {
         withdraw_authority: payer.pubkey(), // payer is the contract admin
-        amount: contract_balance_after - minimum_bank_rent + 10, // slightly more than the max allowed amount
+        amount: contract_bank_balance - minimum_bank_rent + 10, // slightly more than the max allowed amount
     };
     let withdraw_instruction = admin_withdraw(&admin_withdraw_args);
     let error = testbench
@@ -145,36 +155,36 @@ async fn test_process_admin_withdraw() {
         AuctionContractError::InvalidClaimAmount
     );
 
+    // Valid withdraw
     let withdraw_authority_balance_before = testbench
         .get_account_lamports(&payer.pubkey())
         .await
         .unwrap();
 
-    // withdraw proper amount
     admin_withdraw_args.amount = TRANSACTION_FEE + 100;
     let withdraw_instruction = admin_withdraw(&admin_withdraw_args);
-    let result = testbench
+    testbench
         .process_transaction(&[withdraw_instruction.clone()], &payer, None)
         .await
+        .unwrap()
         .unwrap();
-
-    assert!(result.is_ok());
 
     let withdraw_authority_balance_after = testbench
         .get_account_lamports(&payer.pubkey())
         .await
         .unwrap();
-    let contract_bank_balance_after_2 = testbench
+    let contract_bank_balance_after = testbench
         .get_account_lamports(&contract_bank_pubkey)
         .await
         .unwrap();
 
+    // Check withdrawn amount
     assert_eq!(
         withdraw_authority_balance_after - withdraw_authority_balance_before,
         admin_withdraw_args.amount - TRANSACTION_FEE
     );
     assert_eq!(
-        contract_balance_after - contract_bank_balance_after_2,
+        contract_bank_balance - contract_bank_balance_after,
         admin_withdraw_args.amount
     );
 
@@ -189,13 +199,12 @@ async fn test_process_admin_withdraw() {
     //    .process_transaction(&[reassign_instruction.clone()], &user_1.keypair, None)
     //    .await;
 
-    // reassign signed by true authority
-    let result = testbench
+    // reassign signed by current withdraw authority
+    testbench
         .process_transaction(&[reassign_instruction], &payer, None)
         .await
+        .unwrap()
         .unwrap();
-
-    assert!(result.is_ok());
 
     let contract_bank_state = testbench
         .get_and_deserialize_account_data::<ContractBankState>(&contract_bank_pubkey)
@@ -207,7 +216,8 @@ async fn test_process_admin_withdraw() {
         user_1.keypair.pubkey(),
     );
 
-    // attempt to withdraw as old withraw authority
+    // Invalid use case
+    // Trying to withdraw as old withraw authority
     let error = testbench
         .process_transaction(&[withdraw_instruction], &payer, None)
         .await
@@ -220,7 +230,7 @@ async fn test_process_admin_withdraw() {
         AuctionContractError::WithdrawAuthorityMismatch
     );
 
-    // withdraw as new withdraw authority
+    // Withdraw as new withdraw authority
     admin_withdraw_args.withdraw_authority = user_1.keypair.pubkey();
     let withdraw_instruction = admin_withdraw(&admin_withdraw_args);
 

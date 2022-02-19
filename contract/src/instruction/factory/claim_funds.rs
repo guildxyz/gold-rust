@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct ClaimFundsArgs {
-    pub caller_pubkey: Pubkey,
+    pub payer_pubkey: Pubkey,
     pub auction_owner_pubkey: Pubkey,
     #[alias([u8; 32])]
     pub auction_id: AuctionId,
@@ -27,7 +27,7 @@ pub fn claim_funds(args: &ClaimFundsArgs) -> Instruction {
         Pubkey::find_program_address(&protocol_fee_state_seeds(), &crate::ID);
 
     let accounts = vec![
-        AccountMeta::new(args.caller_pubkey, true),
+        AccountMeta::new(args.payer_pubkey, true),
         AccountMeta::new(args.auction_owner_pubkey, false),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),

@@ -1,7 +1,6 @@
 use super::*;
 
 use agsol_token_metadata::state::Data as MetadataStateData;
-use agsol_token_metadata::state::MasterEditionV2;
 use solana_program::clock::UnixTimestamp;
 use solana_program::sysvar::rent::Rent;
 
@@ -155,272 +154,86 @@ pub fn close_auction_cycle(
     let contract_signer_pda =
         SignerPda::new_checked(&contract_pda_seeds, program_id, contract_pda)?;
 
-    match auction_root_state.token_config {
-        TokenConfig::Nft(ref nft_data) => {
-            let metadata_program = next_account_info(account_info_iter)?;
-            // nft child accounts
-            let child_edition_account = next_account_info(account_info_iter)?;
-            let child_edition_marker_account = next_account_info(account_info_iter)?;
-            let child_metadata_account = next_account_info(account_info_iter)?;
-            let child_mint_account = next_account_info(account_info_iter)?;
-            let child_holding_account = next_account_info(account_info_iter)?;
-            // master accounts
-            let master_edition_account = next_account_info(account_info_iter)?;
-            let master_metadata_account = next_account_info(account_info_iter)?;
-            let master_mint_account = next_account_info(account_info_iter)?;
-            let master_holding_account = next_account_info(account_info_iter)?;
+    if let TokenConfig::Nft(ref nft_data) = auction_root_state.token_config {
+        let metadata_program = next_account_info(account_info_iter)?;
+        // master accounts
+        let master_edition_account = next_account_info(account_info_iter)?;
+        let master_metadata_account = next_account_info(account_info_iter)?;
+        let master_mint_account = next_account_info(account_info_iter)?;
+        let master_holding_account = next_account_info(account_info_iter)?;
 
-            // Check account ownership
-            // Accounts created in this instruction:
-            //   child_edition_account
-            //   child_metadata_account
-            //   child_mint_account
-            //   child_holding_account
+        // Check account ownership
+        if *master_edition_account.owner != META_ID {
+            return Err(AuctionContractError::InvalidAccountOwner.into());
+        }
+        assert_token_account_owner(master_holding_account, contract_pda.key)?;
+        assert_mint_authority(master_mint_account, master_edition_account.key)?;
 
-            if !child_edition_marker_account.data_is_empty()
-                && *child_edition_marker_account.owner != META_ID
-            {
-                return Err(AuctionContractError::InvalidAccountOwner.into());
-            }
-            if *master_edition_account.owner != META_ID {
-                return Err(AuctionContractError::InvalidAccountOwner.into());
-            }
-            assert_token_account_owner(master_holding_account, contract_pda.key)?;
-            assert_mint_authority(master_mint_account, master_edition_account.key)?;
+        // Check cross-program invocation addresses
+        assert_metaplex_program(metadata_program.key)?;
 
-            // Check cross-program invocation addresses
-            assert_metaplex_program(metadata_program.key)?;
+        // Check pda addresses
+        // Not checking the following pdas since these are checked (and owned) by metaplex
+        // master_edition_account
+        // master_metadata_account
+        let next_edition = auction_root_state.status.current_auction_cycle;
 
-            // Check pda addresses
-            // Not checking the following pdas since these are checked (and owned) by metaplex
-            // child_edition_account
-            // child_metadata_account
-            // child_edition_marker_account
-            // master_edition_account
-            // master_metadata_account
-            let next_edition = auction_root_state.status.current_auction_cycle;
-            let next_edition_bytes = next_edition.to_le_bytes();
+        SignerPda::check_owner(
+            &master_mint_seeds(&auction_id),
+            program_id,
+            &TOKEN_ID,
+            master_mint_account,
+        )?;
 
-            let child_mint_seeds = child_mint_seeds(&next_edition_bytes, &auction_id);
-            let child_mint_pda =
-                SignerPda::new_checked(&child_mint_seeds, program_id, child_mint_account)?;
+        SignerPda::check_owner(
+            &master_holding_seeds(&auction_id),
+            program_id,
+            &TOKEN_ID,
+            master_holding_account,
+        )?;
 
-            let child_holding_seeds = child_holding_seeds(&next_edition_bytes, &auction_id);
-            let child_holding_pda =
-                SignerPda::new_checked(&child_holding_seeds, program_id, child_holding_account)?;
+        SignerPda::check_owner(
+            &metadata_seeds(master_mint_account.key),
+            &META_ID,
+            &META_ID,
+            master_metadata_account,
+        )?;
 
-            SignerPda::check_owner(
-                &master_mint_seeds(&auction_id),
-                program_id,
-                &TOKEN_ID,
-                master_mint_account,
+        // check nft validity
+        if &nft_data.master_edition != master_edition_account.key {
+            return Err(AuctionContractError::MasterEditionMismatch.into());
+        }
+
+        if auction_root_state.status.current_auction_cycle != next_edition {
+            return Err(AuctionContractError::ChildEditionNumberMismatch.into());
+        }
+
+        // change master metadata so that child can inherit it
+        // if last cycle is being closed, set increments to 0 (#0 and 0.jpg)
+        if !nft_data.is_repeating {
+            msg!("Updating metadata account");
+            let mut new_master_metadata = try_from_slice_unchecked::<MetadataStateData>(
+                &master_metadata_account.data.borrow_mut()[METADATA_DATA_START_POS..],
+            )
+            .unwrap();
+
+            increment_uri(
+                &mut new_master_metadata.uri,
+                is_last_auction_cycle(&auction_root_state),
             )?;
 
-            SignerPda::check_owner(
-                &master_holding_seeds(&auction_id),
-                program_id,
-                &TOKEN_ID,
-                master_holding_account,
-            )?;
-
-            SignerPda::check_owner(
-                &metadata_seeds(master_mint_account.key),
-                &META_ID,
-                &META_ID,
-                master_metadata_account,
-            )?;
-
-            // check nft validity
-            if &nft_data.master_edition != master_edition_account.key {
-                return Err(AuctionContractError::MasterEditionMismatch.into());
-            } else {
-                let master_edition_data: MasterEditionV2 =
-                    try_from_slice_unchecked(&master_edition_account.data.borrow()[..])?;
-
-                let current_edition = next_edition
-                    .checked_sub(1)
-                    .ok_or(AuctionContractError::ArithmeticError)?;
-                if master_edition_data.supply != current_edition {
-                    return Err(AuctionContractError::ChildEditionNumberMismatch.into());
-                }
-            }
-
-            if !child_metadata_account.data_is_empty() {
-                return Err(AuctionContractError::NftAlreadyExists.into());
-            }
-
-            // Mint child nft to highest bidder
-            // create child nft mint account
-            msg!("Mint account creation");
-            create_mint_account(
-                payer_account,
-                child_mint_account,
-                contract_pda,
-                child_mint_pda.signer_seeds(),
-                rent_program,
-                system_program,
-                token_program,
-                0,
-            )?;
-
-            msg!("Holding account creation");
-            // create child nft holding account
-            create_token_holding_account(
-                payer_account,
-                top_bidder_account,
-                child_holding_account,
-                child_mint_account,
-                child_holding_pda.signer_seeds(),
-                system_program,
-                token_program,
-                rent_program,
-            )?;
-
-            msg!("Minting nft");
-            let mint_ix = spl_token::instruction::mint_to(
-                token_program.key,
-                child_mint_account.key,
-                child_holding_account.key,
-                contract_pda.key,
-                &[contract_pda.key],
-                1,
-            )?;
-
-            invoke_signed(
-                &mint_ix,
-                &[
-                    contract_pda.to_owned(),
-                    token_program.to_owned(),
-                    child_holding_account.to_owned(),
-                    child_mint_account.to_owned(),
-                ],
-                &[&contract_signer_pda.signer_seeds()],
-            )?;
-
-            // turn single child token into nft
-            msg!("Creating child nft");
-            let mint_child_ix = meta_instruction::mint_new_edition_from_master_edition_via_token(
+            let change_master_metadata_ix = meta_instruction::update_metadata_accounts(
                 *metadata_program.key,
-                *child_metadata_account.key,
-                *child_edition_account.key,
-                *master_edition_account.key,
-                *child_mint_account.key,
-                *contract_pda.key,
-                *payer_account.key,
-                *contract_pda.key,
-                *master_holding_account.key,
-                *contract_pda.key,
                 *master_metadata_account.key,
-                *master_mint_account.key,
-                next_edition,
+                *contract_pda.key,
+                None,
+                Some(new_master_metadata),
+                None,
             );
 
             invoke_signed(
-                &mint_child_ix,
-                &[
-                    master_edition_account.clone(),
-                    master_holding_account.clone(),
-                    master_metadata_account.clone(),
-                    child_edition_account.clone(),
-                    child_edition_marker_account.clone(),
-                    child_holding_account.clone(),
-                    child_metadata_account.clone(),
-                    child_mint_account.clone(),
-                    payer_account.clone(),
-                    contract_pda.clone(),
-                    rent_program.clone(),
-                    system_program.clone(),
-                    token_program.clone(),
-                ],
-                &[&contract_signer_pda.signer_seeds()],
-            )?;
-
-            // change master metadata so that child can inherit it
-            // if last cycle is being closed, set increments to 0 (#0 and 0.jpg)
-            if !nft_data.is_repeating {
-                msg!("Updating metadata account");
-                let mut new_master_metadata = try_from_slice_unchecked::<MetadataStateData>(
-                    &master_metadata_account.data.borrow_mut()[METADATA_DATA_START_POS..],
-                )
-                .unwrap();
-
-                increment_uri(
-                    &mut new_master_metadata.uri,
-                    is_last_auction_cycle(&auction_root_state),
-                )?;
-
-                let change_master_metadata_ix = meta_instruction::update_metadata_accounts(
-                    *metadata_program.key,
-                    *master_metadata_account.key,
-                    *contract_pda.key,
-                    None,
-                    Some(new_master_metadata),
-                    None,
-                );
-
-                invoke_signed(
-                    &change_master_metadata_ix,
-                    &[master_metadata_account.clone(), contract_pda.clone()],
-                    &[&contract_signer_pda.signer_seeds()],
-                )?;
-            }
-        }
-        TokenConfig::Token(ref token_data) => {
-            // Token mint account
-            let token_mint_account = next_account_info(account_info_iter)?;
-            // User's token holding account
-            let token_holding_account = next_account_info(account_info_iter)?;
-
-            // Check account ownership
-            // Accounts created in this instruction:
-            //   token_holding_account
-            assert_token_mint(&token_data.mint, token_mint_account)?;
-            assert_mint_authority(token_mint_account, contract_pda.key)?;
-            assert_owner(token_mint_account, &TOKEN_ID)?;
-
-            // SignerPda check is not required due to the previous checks
-
-            if token_mint_account.key != &token_data.mint {
-                return Err(AuctionContractError::InvalidSeeds.into());
-            }
-
-            let token_holding_seeds =
-                token_holding_seeds(token_mint_account.key, top_bidder_account.key);
-            let token_holding_pda =
-                SignerPda::new_checked(&token_holding_seeds, program_id, token_holding_account)?;
-
-            // create token holding account (if needed)
-            if token_holding_account.data_is_empty() {
-                create_token_holding_account(
-                    payer_account,
-                    top_bidder_account,
-                    token_holding_account,
-                    token_mint_account,
-                    token_holding_pda.signer_seeds(),
-                    system_program,
-                    token_program,
-                    rent_program,
-                )?;
-            }
-
-            // mint tokens to the highest bidder
-            let mint_ix = spl_token::instruction::mint_to(
-                token_program.key,
-                token_mint_account.key,
-                token_holding_account.key,
-                contract_pda.key,
-                &[contract_pda.key],
-                token_data.per_cycle_amount,
-            )?;
-
-            invoke_signed(
-                &mint_ix,
-                &[
-                    contract_pda.to_owned(),
-                    token_program.to_owned(),
-                    token_holding_account.to_owned(),
-                    token_mint_account.to_owned(),
-                ],
+                &change_master_metadata_ix,
+                &[master_metadata_account.clone(), contract_pda.clone()],
                 &[&contract_signer_pda.signer_seeds()],
             )?;
         }
@@ -455,6 +268,7 @@ pub fn close_auction_cycle(
         auction_pool.write(auction_pool_account)?;
         secondary_pool.write(secondary_pool_account)?;
     } else {
+        // Check next cycle state account
         let next_cycle_num_bytes = (auction_root_state
             .status
             .current_auction_cycle
@@ -469,6 +283,7 @@ pub fn close_auction_cycle(
             next_auction_cycle_state_account,
         )?;
 
+        // Create next cycle state account
         create_state_account(
             payer_account,
             next_auction_cycle_state_account,

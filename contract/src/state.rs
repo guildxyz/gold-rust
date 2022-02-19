@@ -104,7 +104,7 @@ pub enum CreateTokenArgs {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
 pub enum TokenType {
     Nft,
     Token,
