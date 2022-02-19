@@ -194,7 +194,7 @@ pub fn process_claim_rewards(
 
             // Mint child nft to highest bidder
             // create child nft mint account
-            msg!("Mint account creation");
+            //msg!("Mint account creation");
             create_mint_account(
                 payer_account,
                 child_mint_account,
@@ -206,7 +206,7 @@ pub fn process_claim_rewards(
                 0,
             )?;
 
-            msg!("Holding account creation");
+            //msg!("Holding account creation");
             // create child nft holding account
             create_token_holding_account(
                 payer_account,
@@ -219,7 +219,7 @@ pub fn process_claim_rewards(
                 rent_program,
             )?;
 
-            msg!("Minting nft");
+            //msg!("Minting nft");
             let mint_ix = spl_token::instruction::mint_to(
                 token_program.key,
                 child_mint_account.key,
@@ -241,7 +241,7 @@ pub fn process_claim_rewards(
             )?;
 
             // change master metadata so that child can inherit it
-            msg!("Updating metadata account");
+            //msg!("Updating metadata account");
             let mut new_master_metadata = try_from_slice_unchecked::<MetadataStateData>(
                 &master_metadata_account.data.borrow_mut()[METADATA_DATA_START_POS..],
             )
@@ -272,7 +272,7 @@ pub fn process_claim_rewards(
             )?;
 
             // turn single child token into nft
-            msg!("Creating child nft");
+            //msg!("Creating child nft");
             let mint_child_ix = meta_instruction::mint_new_edition_from_master_edition_via_token(
                 *metadata_program.key,
                 *child_metadata_account.key,
