@@ -1,7 +1,9 @@
 use super::*;
 
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Debug)]
 pub struct ModifyAuctionArgs {
     pub auction_owner_pubkey: Pubkey,
+    #[alias([u8; 32])]
     pub auction_id: AuctionId,
     pub modify_data: ModifyAuctionData,
 }

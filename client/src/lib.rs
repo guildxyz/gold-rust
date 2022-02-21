@@ -33,6 +33,7 @@ wasm_instruction!(claim_funds);
 wasm_instruction!(claim_rewards);
 wasm_instruction!(delete_auction);
 wasm_instruction!(initialize_auction);
+wasm_instruction!(modify_auction);
 wasm_instruction!(place_bid);
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
