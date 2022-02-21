@@ -16,6 +16,6 @@ fi
 echo $FEATURES
 echo $TARGET
 
-cargo install agsol-glue
+cargo install agsol-glue --version 0.1.2-alpha
 agsol-glue schema contract
-agsol-glue wasm client --target $TARGET $FEATURES
+RUST_LOG=debug agsol-glue wasm client --target $TARGET $FEATURES
