@@ -1,13 +1,13 @@
 #!/bin/sh
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [[ $BRANCH == "main" ]]; then
+if [ $BRANCH == "main" ]; then
 	FEATURES="--features mainnet"
 else
 	FEATURES=""
 fi
 
-if [[ $1 ]]; then
+if [ $1 ]; then
 	TARGET=$1
 else
 	TARGET="web"
