@@ -72,12 +72,14 @@ jobs:
         #- name: test-bpf
         #  run: ./ci/cargo-test-bpf.sh contract
   build-glue:
-    name: build wasm + schema
+    name: build and push wasm + schema
     runs-on: ubuntu-latest
+    env:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - run: |
           #cargo install agsol-glue wasm-pack
-          git config --global user.name "github-action-bot"
-          git config --global user.email "gh-bot@noreply.agora.xyz"
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
           ./build-wasm.sh ${{ github.event.push.base.ref }}
