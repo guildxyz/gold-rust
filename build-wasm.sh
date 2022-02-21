@@ -26,6 +26,7 @@ echo "Wasm build features: ${WASM_FEATURES}"
 #agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
 
 git clone "https://github.com/agoraxyz/borsh-glue-template" glue
+rm -rf glue/.git
 cd glue
 git init
 git add -A
