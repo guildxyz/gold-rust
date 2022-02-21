@@ -39,7 +39,7 @@ pub const MAX_SOCIALS_NUM: usize = 5;
 /// Additional bytes allocated to the
 /// [`AuctionRootState`](state::AuctionRootState) account for future
 /// development.
-pub const EXTRA_ROOT_STATE_BYTES: usize = 32;
+pub const EXTRA_ROOT_STATE_BYTES: usize = 30;
 /// Allowed time period for an auction to go without a bid placed on it before
 /// it is automatically filtered at cycle closing.
 /// Currently set for a week of inactivity.
