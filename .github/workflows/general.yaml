@@ -17,6 +17,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
+      - uses: actions/checkout@v2
       - name: Set env vars
         run: |
           source ci/rust-version.sh nightly
