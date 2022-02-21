@@ -2,8 +2,9 @@ name: general code check
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
+    branches: [main, dev]
 
 jobs:
   fmt:
@@ -18,10 +19,10 @@ jobs:
       RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
       - uses: actions/checkout@v2
-      - run: ./build-wasm.sh
+      - run: RUST_LOG=info ./build-wasm.sh
       - uses: actions/upload-artifact@v2
         with:
-          name: glue-artifact
+          name: glue-artifact-${{ github.event.pull_request.base.ref }} # TODO set this to push event
           path: ./glue
 
         #- name: Set env vars

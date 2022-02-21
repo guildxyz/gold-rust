@@ -18,4 +18,4 @@ echo $TARGET
 
 cargo install agsol-glue
 agsol-glue schema contract
-#agsol-glue wasm client --target $TARGET $FEATURES
+agsol-glue wasm client --target $TARGET $FEATURES
