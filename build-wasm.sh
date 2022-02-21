@@ -16,5 +16,6 @@ fi
 echo $PWD
 
 cargo install agsol-glue --version 0.1.2-alpha.1
+cargo install wasm-pack
 agsol-glue schema contract
 RUST_LOG=debug agsol-glue wasm client --target $TARGET $FEATURES
