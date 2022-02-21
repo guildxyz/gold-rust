@@ -18,14 +18,11 @@ jobs:
       RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
       - uses: actions/checkout@v2
-      - run: |
-          git clone https://github.com/agoraxyz/borsh-glue-template.git glue
-          ls glue
-        #- run: ./build-wasm.sh
-        #- uses: actions/upload-artifact@v2
-        #  with:
-        #    name: glue-artifact
-        #    path: ./glue
+      - run: ./build-wasm.sh
+      - uses: actions/upload-artifact@v2
+        with:
+          name: glue-artifact
+          path: ./glue
 
         #- name: Set env vars
         #  run: |
