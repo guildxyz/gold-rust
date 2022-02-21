@@ -417,6 +417,7 @@ pub fn initialize_auction(
         all_time_treasury: 0,
         available_funds: 0,
         start_time,
+        unclaimed_rewards: 0,
     };
     root_state.write(auction_root_state_account)?;
 

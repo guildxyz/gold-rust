@@ -42,10 +42,10 @@ pub fn to_auction_error(program_err: TransactionError) -> AuctionContractError {
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
             FromPrimitive::from_u32(code).unwrap()
         }
-        //_ => unimplemented!(),
         _ => {
             dbg!(program_err);
-            AuctionContractError::InvalidAccountOwner
+            // Return some error instead of panicking
+            AuctionContractError::ShrinkingPoolIsNotAllowed
             //unimplemented!();
         }
     }

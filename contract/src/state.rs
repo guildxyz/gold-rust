@@ -161,6 +161,8 @@ pub struct AuctionRootState {
     pub available_funds: u64,
     /// Start timestamp of the auction (in seconds)
     pub start_time: UnixTimestamp,
+    /// Number of unclaimed rewards
+    pub unclaimed_rewards: u16,
 }
 
 /// State respective to a given auction cycle.
@@ -340,6 +342,7 @@ mod test {
             all_time_treasury: 0,
             available_funds: 0,
             start_time: 0,
+            unclaimed_rewards: 0,
         };
 
         assert_eq!(

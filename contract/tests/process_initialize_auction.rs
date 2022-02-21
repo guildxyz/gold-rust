@@ -272,6 +272,7 @@ async fn test_process_initialize_auction() {
     assert_eq!(auction_root_state.status.current_auction_cycle, 1);
     assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
+    assert_eq!(auction_root_state.unclaimed_rewards, 0);
 
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);

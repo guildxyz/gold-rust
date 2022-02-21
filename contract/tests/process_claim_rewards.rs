@@ -7,7 +7,9 @@ use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::AuctionContractError;
 
+use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
+use solana_program::pubkey::Pubkey;
 
 use solana_sdk::signer::Signer;
 
@@ -54,6 +56,9 @@ async fn test_process_claim_rewards_nft() {
     .await
     .unwrap()
     .unwrap();
+
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
 
     // Close first cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
@@ -133,6 +138,12 @@ async fn test_process_claim_rewards_nft() {
     .unwrap()
     .unwrap();
 
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 1);
+
     // Invalid use case
     // Try claiming rewards to invalid top bidder account
     let claim_reward_invalid_top_bidder_error = claim_rewards_transaction(
@@ -170,6 +181,12 @@ async fn test_process_claim_rewards_nft() {
         -balance_change as u64,
         CLAIM_REWARDS_COST_NFT + TRANSACTION_FEE
     );
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 0);
 
     // Check if asset holding is created and asset is minted
     let child_edition = EditionPda::new(EditionType::Child(1), &auction_id);
@@ -244,6 +261,9 @@ async fn test_process_claim_rewards_nft_non_chronological() {
     .unwrap()
     .unwrap();
 
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+
     // Place bid on first cycle
     let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_1.keypair, bid_amount)
@@ -265,6 +285,12 @@ async fn test_process_claim_rewards_nft_non_chronological() {
     .unwrap()
     .unwrap();
 
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 1);
+
     // Place bid on second cycle
     let bid_amount = 50_000_000;
     place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, bid_amount)
@@ -285,6 +311,12 @@ async fn test_process_claim_rewards_nft_non_chronological() {
     .await
     .unwrap()
     .unwrap();
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 2);
 
     // Check that no child nfts have been claimed yet
     let first_child_edition = EditionPda::new(EditionType::Child(1), &auction_id);
@@ -313,6 +345,12 @@ async fn test_process_claim_rewards_nft_non_chronological() {
     .await
     .unwrap()
     .unwrap();
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 1);
 
     // Check if asset holding is created and asset is minted
     let user_2_nft_account = testbench
@@ -355,6 +393,12 @@ async fn test_process_claim_rewards_nft_non_chronological() {
     .await
     .unwrap()
     .unwrap();
+
+    let auction_root_state = testbench
+        .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_root_state.unclaimed_rewards, 0);
 
     // Check if asset holding is created and asset is minted
     let user_1_nft_account = testbench
