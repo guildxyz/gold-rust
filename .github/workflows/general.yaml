@@ -76,7 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
+          cargo install agsol-glue #wasm-pack
           git config user.name "github-action-bot"
           git config user.email "gh-bot@noreply.agora.xyz"
           ./build-wasm.sh ${{ github.event.push.base.ref }}

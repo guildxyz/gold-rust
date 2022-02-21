@@ -22,8 +22,6 @@ echo "Target branch: ${TARGET_BRANCH}"
 echo "Wasm build target: ${WASM_TARGET}"
 echo "Wasm build features: ${WASM_FEATURES}"
 
-cargo install agsol-glue
-#cargo install wasm-pack
 agsol-glue schema contract
 #agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
 
