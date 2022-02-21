@@ -2,9 +2,8 @@ name: general code check
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
 
 jobs:
   fmt:
@@ -13,73 +12,60 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: cargo fmt -- --check
-  #test:
-  #  runs-on: ubuntu-latest
-  #  env:
-  #    RUSTFLAGS: -Dwarnings # fails on warnings as well
-  #  steps:
-        #- name: Set env vars
-        #  run: |
-        #    source ci/rust-version.sh nightly
-        #    echo "RUST_NIGHTLY=$rust_nightly" >> $GITHUB_ENV
-        #    source ci/solana-version.sh
-        #    echo "SOLANA_VERSION=$solana_version" >> $GITHUB_ENV
-
-        #- uses: actions-rs/toolchain@v1
-        #  with:
-        #    toolchain: ${{ env.RUST_NIGHTLY }}
-        #    override: true
-        #    profile: minimal
-
-        #- uses: actions/cache@v2
-        #  with:
-        #    path: |
-        #      ~/.cargo/registry
-        #      ~/.cargo/git
-        #    key: cargo-build-${{ hashFiles('**/Cargo.lock') }}-${{ env.RUST_NIGHTLY}}
-
-        #- uses: actions/cache@v2
-        #  with:
-        #    path: |
-        #      ~/.cargo/bin/rustfilt
-        #    key: cargo-bpf-bins-${{ runner.os }}
-
-        #- uses: actions/cache@v2
-        #  with:
-        #    path: |
-        #      ~/.cache
-        #    key: solana-${{ env.SOLANA_VERSION }}
-        #
-        #- name: Install dependencies
-        #  run: |
-        #    cargo install wasm-pack
-        #    ./ci/install-build-deps.sh
-        #    ./ci/install-program-deps.sh
-        #    echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-
-        #- name: add-nightly-clippy
-        #  run: rustup component add clippy --toolchain ${{ env.RUST_NIGHTLY }}-x86_64-unknown-linux-gnu
-
-        #- name: build
-        #  run: cargo build --color=always --all-targets --all-features
-
-        #- name: clippy
-        #  run: cargo clippy --color=always --all-targets --all-features --examples --tests
-
-        #- name: test-rust
-        #  run: cargo t --color=always
-
-        #- name: test-bpf
-        #  run: ./ci/cargo-test-bpf.sh contract
-  build-glue:
-    name: build and push wasm + schema
+  test:
     runs-on: ubuntu-latest
     env:
-      ACCESS_HEADER: user:${{ secrets.GH_ACTIONS_AUTH }}@
+      RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
-      - uses: actions/checkout@v2
-      - run: |
-          cargo install agsol-glue wasm-pack
-          git config --global user.name "PopcornPaws"
-          git config --global user.email "mark@gold.xyz"
-          ./build-wasm.sh ${{ github.event.push.base.ref }}
+      - name: Set env vars
+        run: |
+          source ci/rust-version.sh nightly
+          echo "RUST_NIGHTLY=$rust_nightly" >> $GITHUB_ENV
+          source ci/solana-version.sh
+          echo "SOLANA_VERSION=$solana_version" >> $GITHUB_ENV
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+          profile: minimal
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-build-${{ hashFiles('**/Cargo.lock') }}-${{ env.RUST_NIGHTLY}}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/bin/rustfilt
+          key: cargo-bpf-bins-${{ runner.os }}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache
+          key: solana-${{ env.SOLANA_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          ./ci/install-build-deps.sh
+          ./ci/install-program-deps.sh
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: add-nightly-clippy
+        run: rustup component add clippy --toolchain ${{ env.RUST_NIGHTLY }}-x86_64-unknown-linux-gnu
+
+      - name: build
+        run: cargo build --color=always --all-targets --all-features
+
+      - name: clippy
+        run: cargo clippy --color=always --all-targets --all-features --examples --tests
+
+      - name: test-rust
+        run: cargo t --color=always
+
+      - name: test-bpf
+        run: ./ci/cargo-test-bpf.sh contract
