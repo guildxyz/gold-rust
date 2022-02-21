@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          #cargo install agsol-glue wasm-pack
+          cargo install agsol-glue wasm-pack
           git config --global user.name "PopcornPaws"
           git config --global user.email "mark@gold.xyz"
           ./build-wasm.sh ${{ github.event.push.base.ref }}
