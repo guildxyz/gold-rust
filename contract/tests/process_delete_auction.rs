@@ -31,6 +31,7 @@ use std::str::FromStr;
 //
 // Invalid use cases:
 //   - Deleting an auction without the owner's signature
+//   - Deleting an auction with unclaimed rewards
 
 #[tokio::test]
 async fn test_delete_auction_immediately() {
@@ -76,6 +77,107 @@ async fn test_delete_auction_immediately() {
         AuctionContractError::AuctionOwnerMismatch
     );
 
+    delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let auction_pool = testbench
+        .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(auction_pool.pool.len(), 0);
+
+    // Test if state accounts are deleted
+    assert!(
+        !is_existing_account(&mut testbench, &auction_root_state_pubkey)
+            .await
+            .unwrap()
+    );
+    assert!(!is_existing_account(&mut testbench, &auction_bank_pubkey)
+        .await
+        .unwrap());
+    assert!(are_given_cycle_states_deleted(&mut testbench, &auction_root_state_pubkey, 1, 1).await);
+}
+
+#[tokio::test]
+async fn test_delete_auction_with_unclaimed_rewards() {
+    let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
+
+    let auction_id = [1; 32];
+    let auction_config = AuctionConfig {
+        cycle_period: 60,
+        encore_period: 0,
+        minimum_bid_amount: 50_000_000, // lamports
+        number_of_cycles: Some(1),
+    };
+
+    initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    let (auction_pool_pubkey, _) =
+        Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
+    let (auction_root_state_pubkey, _) =
+        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
+    let (auction_bank_pubkey, _) =
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
+
+    let user = TestUser::new(&mut testbench).await.unwrap().unwrap();
+
+    // Close a cycle with a bid
+    place_bid_transaction(&mut testbench, auction_id, &user.keypair, 50_000_000)
+        .await
+        .unwrap()
+        .unwrap();
+
+    warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
+
+    close_cycle_transaction(
+        &mut testbench,
+        &user.keypair,
+        auction_id,
+        &auction_owner.keypair.pubkey(),
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    // Invalid use case
+    // Deleting an auction with unclaimed rewards
+    let delete_without_owner_signature_error =
+        delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
+    assert_eq!(
+        delete_without_owner_signature_error,
+        AuctionContractError::UnclaimedRewards
+    );
+
+    // Claiming the rewards to be able to delete the auction
+    claim_rewards_transaction(
+        &mut testbench,
+        &user.keypair,
+        auction_id,
+        &user.keypair.pubkey(),
+        1,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    // Delete should be successful now
     delete_auction_transaction(&mut testbench, &auction_owner.keypair, auction_id)
         .await
         .unwrap()
