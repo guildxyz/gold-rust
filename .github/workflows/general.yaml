@@ -75,7 +75,7 @@ jobs:
     name: build and push wasm + schema
     runs-on: ubuntu-latest
     env:
-      ACCESS_HEADER: x-access-token${{ secrets.GH_ACTIONS_AUTH }}@
+      ACCESS_HEADER: user:${{ secrets.GH_ACTIONS_AUTH }}@
     steps:
       - uses: actions/checkout@v2
       - run: |
