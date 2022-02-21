@@ -15,7 +15,7 @@ use agsol_token_metadata::ID as META_ID;
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
 
-const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_116_400 + TRANSACTION_FEE;
 
 // This file includes the following tests:
 //
@@ -272,6 +272,7 @@ async fn test_process_initialize_auction() {
     assert_eq!(auction_root_state.status.current_auction_cycle, 1);
     assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
+    assert_eq!(auction_root_state.unclaimed_rewards, 0);
 
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);

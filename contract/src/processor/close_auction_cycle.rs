@@ -312,6 +312,10 @@ pub fn close_auction_cycle(
     }
 
     auction_root_state.status.current_idle_cycle_streak = 0;
+    auction_root_state.unclaimed_rewards = auction_root_state
+        .unclaimed_rewards
+        .checked_add(1)
+        .ok_or(AuctionContractError::ArithmeticError)?;
     auction_root_state.write(auction_root_state_account)?;
 
     Ok(())
@@ -429,7 +433,8 @@ pub fn increment_uri(uri: &mut String, is_last_cycle: bool) -> Result<(), Auctio
         return Err(AuctionContractError::MetadataManipulationError);
     }
 
-    let integer = u64::from_str(&uri[slash_pos..dot_pos]).unwrap();
+    let integer = u64::from_str(&uri[slash_pos..dot_pos])
+        .map_err(|_| AuctionContractError::MetadataManipulationError)?;
     uri.truncate(last_pos);
     if is_last_cycle {
         uri.replace_range(slash_pos..dot_pos, &0.to_string());

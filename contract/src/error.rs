@@ -41,6 +41,7 @@ pub enum AuctionContractError {
     InvalidEncorePeriod = 532,        // 214
     InvalidProtocolFee = 533,         // 215
     RewardAlreadyClaimed = 534,       // 216
+    UnclaimedRewards = 535,           // 217
 }
 
 impl From<AuctionContractError> for ProgramError {

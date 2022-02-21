@@ -24,7 +24,7 @@ pub fn claim_rewards(args: &ClaimRewardsArgs) -> Instruction {
     let mut accounts = vec![
         AccountMeta::new(args.payer_pubkey, true),
         AccountMeta::new_readonly(args.top_bidder_pubkey, false),
-        AccountMeta::new_readonly(auction_root_state_pubkey, false),
+        AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(auction_cycle_state_pubkey, false),
         AccountMeta::new_readonly(contract_pda, false),
         AccountMeta::new_readonly(RENT_ID, false),

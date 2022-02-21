@@ -16,6 +16,8 @@ use agsol_gold_contract::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL;
 use agsol_testbench::tokio;
 use agsol_testbench::Testbench;
 
+use std::str::FromStr;
+
 // This file includes the following tests:
 //
 // Valid use cases:
@@ -129,7 +131,7 @@ async fn test_delete_small_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    close_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 3, 100).await;
+    close_and_claim_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 3).await;
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
@@ -204,7 +206,7 @@ async fn test_delete_claimed_auction() {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
 
-    close_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 3, 100).await;
+    close_and_claim_n_cycles(&mut testbench, auction_id, &auction_owner, &payer, 3).await;
 
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
@@ -297,13 +299,12 @@ async fn test_delete_just_long_enough_finished_auction() {
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &CONTRACT_ID);
 
-    close_n_cycles(
+    close_and_claim_n_cycles(
         &mut testbench,
         auction_id,
         &auction_owner,
         &payer,
         RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
-        1000,
     )
     .await;
 
@@ -423,13 +424,12 @@ async fn test_delete_long_ongoing_auction() {
 
     // There will be RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL closed
     // plus one active cycle on chain so it needs two instruction calls
-    close_n_cycles(
+    close_and_claim_n_cycles(
         &mut testbench,
         auction_id,
         &auction_owner,
         &payer,
         RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
-        1000,
     )
     .await;
 
@@ -533,15 +533,14 @@ async fn are_given_cycle_states_deleted(
     true
 }
 
-async fn close_n_cycles(
+async fn close_and_claim_n_cycles(
     testbench: &mut Testbench,
     auction_id: AuctionId,
     auction_owner: &TestUser,
     payer: &Keypair,
     n: u64,
-    _current_slot_estimate: u64,
 ) {
-    for _ in 0..n {
+    for i in 0..n {
         place_bid_transaction(testbench, auction_id, payer, 50_000_000)
             .await
             .unwrap()
@@ -559,5 +558,60 @@ async fn close_n_cycles(
         .await
         .unwrap()
         .unwrap();
+
+        claim_rewards_transaction(
+            testbench,
+            payer,
+            auction_id,
+            &payer.pubkey(),
+            i + 1,
+            TokenType::Nft,
+        )
+        .await
+        .unwrap()
+        .unwrap();
     }
+}
+
+pub fn increment_uri(uri: &mut String, is_last_cycle: bool) -> Result<(), AuctionContractError> {
+    let uri_len = uri.len();
+    let mut last_pos = uri_len;
+    let mut dot_pos = uri_len;
+    let mut slash_pos = uri_len;
+
+    let str_bytes = uri.as_bytes();
+    for i in (0..uri_len).rev() {
+        if str_bytes[i] == 0 {
+            last_pos = i;
+        }
+
+        // ".".as_bytes() == [46]
+        if str_bytes[i] == 46 {
+            dot_pos = i;
+        }
+
+        // "/".as_bytes() == [47]
+        if str_bytes[i] == 47 {
+            slash_pos = i + 1;
+            break;
+        }
+    }
+
+    if last_pos == 0 || dot_pos == 0 || slash_pos == 0 || dot_pos < slash_pos {
+        return Err(AuctionContractError::MetadataManipulationError);
+    }
+
+    let integer = u64::from_str(&uri[slash_pos..dot_pos])
+        .map_err(|_| AuctionContractError::MetadataManipulationError)?;
+    uri.truncate(last_pos);
+    if is_last_cycle {
+        uri.replace_range(slash_pos..dot_pos, &0.to_string());
+    } else {
+        let incremented_integer = integer
+            .checked_add(1)
+            .ok_or(AuctionContractError::ArithmeticError)?;
+        uri.replace_range(slash_pos..dot_pos, &(incremented_integer).to_string());
+    };
+
+    Ok(())
 }

@@ -110,7 +110,7 @@ pub fn process_claim_rewards(
         return Err(AuctionContractError::AuctionIsInProgress.into());
     }
 
-    let auction_root_state = AuctionRootState::read(auction_root_state_account)?;
+    let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
     match auction_root_state.token_config {
         TokenConfig::Nft(ref nft_data) => {
             let metadata_program = next_account_info(account_info_iter)?;
@@ -254,7 +254,7 @@ pub fn process_claim_rewards(
 
             new_master_metadata
                 .uri
-                .replace_range(edition_number_range.clone(), &(cycle_number).to_string());
+                .replace_range(edition_number_range, &(cycle_number).to_string());
 
             let change_master_metadata_ix = meta_instruction::update_metadata_accounts(
                 *metadata_program.key,
@@ -310,6 +310,8 @@ pub fn process_claim_rewards(
             )?;
 
             // Change metadata back to live edition number
+            let edition_number_range =
+                find_edition_number_range_in_uri(&mut new_master_metadata.uri)?;
             new_master_metadata
                 .uri
                 .replace_range(edition_number_range, &(current_edition_number).to_string());
@@ -391,6 +393,12 @@ pub fn process_claim_rewards(
 
     auction_cycle_state.end_time = 0;
     auction_cycle_state.write(auction_cycle_state_account)?;
+
+    auction_root_state.unclaimed_rewards = auction_root_state
+        .unclaimed_rewards
+        .checked_sub(1)
+        .ok_or(AuctionContractError::ArithmeticError)?;
+    auction_root_state.write(auction_root_state_account)?;
 
     Ok(())
 }
