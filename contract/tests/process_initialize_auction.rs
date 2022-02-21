@@ -15,7 +15,7 @@ use agsol_token_metadata::ID as META_ID;
 use solana_program::program_option::COption;
 use solana_program::pubkey::Pubkey;
 
-const AUCTION_CREATION_COST: u64 = 24_116_400 + TRANSACTION_FEE;
+const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
 // This file includes the following tests:
 //
