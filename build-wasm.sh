@@ -13,8 +13,7 @@ else
 	TARGET="web"
 fi
 
-echo $FEATURES
-echo $TARGET
+echo $PWD
 
 cargo install agsol-glue --version 0.1.2-alpha.1
 agsol-glue schema contract
