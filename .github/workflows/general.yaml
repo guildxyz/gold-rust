@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          repository: https://github.com/agoraxyz/borsh-glue-template.git
+          repository: agoraxyz/borsh-glue-template
           path: ./glue
           ref: main
 
