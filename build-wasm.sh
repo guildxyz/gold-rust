@@ -31,7 +31,7 @@ cd glue
 git init
 git add -A
 git commit -m "Auto-generated wasm code"
-git remote add origin https://github.com/agoraxyz/gold-glue.git
+git remote add origin https://${ACCESS_HEADER}github.com/agoraxyz/gold-glue.git
 git branch -M $TARGET_BRANCH
 git push -uf origin $TARGET_BRANCH
 
