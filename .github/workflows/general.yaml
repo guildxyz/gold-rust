@@ -13,17 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: cargo fmt -- --check
-  test:
-    runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -Dwarnings # fails on warnings as well
-    steps:
-      - uses: actions/checkout@v2
-      - run: |
-          git config user.name "github-action-bot"
-          git config user.email "gh-bot@noreply.agora.xyz"
-          ./build-wasm.sh ${{ github.event.push.base.ref }}
-
+  #test:
+  #  runs-on: ubuntu-latest
+  #  env:
+  #    RUSTFLAGS: -Dwarnings # fails on warnings as well
+  #  steps:
         #- name: Set env vars
         #  run: |
         #    source ci/rust-version.sh nightly
@@ -77,3 +71,10 @@ jobs:
 
         #- name: test-bpf
         #  run: ./ci/cargo-test-bpf.sh contract
+  build-glue:
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          git config user.name "github-action-bot"
+          git config user.email "gh-bot@noreply.agora.xyz"
+          ./build-wasm.sh ${{ github.event.push.base.ref }}
