@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, dev]
   pull_request:
+    branches: [main, dev]
 
 jobs:
   fmt:
@@ -71,6 +72,8 @@ jobs:
         #- name: test-bpf
         #  run: ./ci/cargo-test-bpf.sh contract
   build-glue:
+    name: build wasm + schema
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: |
