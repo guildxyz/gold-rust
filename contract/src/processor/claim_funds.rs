@@ -10,7 +10,7 @@ pub fn process_claim_funds(
     amount: u64,
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
-    let caller_account = next_account_info(account_info_iter)?;
+    let payer_account = next_account_info(account_info_iter)?;
     let auction_owner_account = next_account_info(account_info_iter)?;
     let auction_bank_account = next_account_info(account_info_iter)?;
     let auction_root_state_account = next_account_info(account_info_iter)?;
@@ -18,8 +18,8 @@ pub fn process_claim_funds(
     let contract_bank_account = next_account_info(account_info_iter)?;
     let protocol_fee_state_account = next_account_info(account_info_iter)?;
 
-    if !caller_account.is_signer {
-        msg!("caller signature is missing");
+    if !payer_account.is_signer {
+        msg!("payer signature is missing");
         return Err(ProgramError::MissingRequiredSignature);
     }
 

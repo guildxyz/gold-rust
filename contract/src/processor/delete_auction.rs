@@ -73,6 +73,11 @@ pub fn process_delete_auction(
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
     }
 
+    // Check unclaimed rewards
+    if auction_root_state.unclaimed_rewards != 0 {
+        return Err(AuctionContractError::UnclaimedRewards.into());
+    }
+
     let removable_cycle_states_num = std::cmp::min(
         auction_root_state.status.current_auction_cycle,
         num_of_cycles_to_delete,

@@ -10,6 +10,17 @@ use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::signature::Signer;
 
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Setting the protocol fee with admin signature in valid interval (0% < x <= 5%)
+//   - Claiming funds without SetProtocolFee instruction called beforehand
+//   - Claiming funds after SetProtocolFee instruction was called
+//
+// Invalid use cases:
+//   - Setting the protocol fee without admin signature
+//   - Setting the protocol fee above 5%
+
 #[tokio::test]
 async fn test_process_set_protocol_fee() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
@@ -77,6 +88,21 @@ async fn test_process_set_protocol_fee() {
         50,
     )
     .await;
+
+    // Invalid use case
+    // Setting protocol fee without admin signature
+    let new_fee = 52;
+    let set_fee_without_admin_signature =
+        set_protocol_fee_transaction(&mut testbench, &auction_owner.keypair, new_fee)
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
+
+    assert_eq!(
+        set_fee_without_admin_signature,
+        AuctionContractError::ContractAdminMismatch
+    );
 
     // Invalid use case
     // Setting protocol fee to higher than 5%

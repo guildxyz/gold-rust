@@ -4,20 +4,30 @@ mod test_factory;
 use test_factory::*;
 
 use agsol_gold_contract::pda::*;
-use agsol_gold_contract::processor::increment_uri;
 use agsol_gold_contract::state::*;
-use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ALLOWED_CONSECUTIVE_IDLE_CYCLES;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::{tokio, TestbenchError};
 use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
-use agsol_token_metadata::state::Metadata;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
-const CLOSE_AUCTION_CYCLE_LAST_CYCLE: u64 = 12_799_440;
-const CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER: u64 = 16_557_840;
+const CLOSE_CYCLE_COST: u64 = 3_758_400;
+const CLOSE_LAST_CYCLE_COST: u64 = 0;
+
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Closing cycles on nft auctions after they ended
+//   - Closing cycles on repeating and non-repeating nft auctions
+//   - Closing cycle on auction with no bid placed
+//   - Closing cycles until auction is moved to the secondary pool
+//   - Bidding on idle auction which is consequently moved to the primary pool
+//
+// Invalid use cases:
+//   - Bidding on finished auction
+//   - Closing cycle on finished auction
 
 #[tokio::test]
 async fn test_process_close_auction_cycle() {
@@ -142,13 +152,8 @@ async fn test_process_close_auction_cycle() {
         .unwrap()
         .unwrap();
 
-    // Close second cycle
+    // Close first cycle after bid
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
-
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
 
     let balance_change = close_cycle_transaction(
         &mut testbench,
@@ -161,10 +166,7 @@ async fn test_process_close_auction_cycle() {
     .unwrap()
     .unwrap();
 
-    assert_eq!(
-        -balance_change as u64,
-        CLOSE_AUCTION_CYCLE_COST_EXISTING_MARKER + TRANSACTION_FEE,
-    );
+    assert_eq!(-balance_change as u64, CLOSE_CYCLE_COST + TRANSACTION_FEE,);
 
     // Check if idle cycle streak has been reset
     let auction_root_state = testbench
@@ -181,33 +183,40 @@ async fn test_process_close_auction_cycle() {
         get_auction_cycle_state(&mut testbench, &auction_root_state_pubkey)
             .await
             .unwrap();
-
-    // Check if asset holding is created and asset is minted
-    assert_eq!(next_edition, 1);
-    let child_edition = EditionPda::new(EditionType::Child(next_edition), &auction_id);
-
-    let user_1_nft_account = testbench
-        .get_token_account(&child_edition.holding)
-        .await
-        .unwrap();
-    let child_mint_account = testbench
-        .get_mint_account(&child_edition.mint)
-        .await
-        .unwrap();
-    assert_eq!(user_1_nft_account.mint, child_edition.mint);
-    assert_eq!(user_1_nft_account.owner, user_1.keypair.pubkey());
-    assert_eq!(user_1_nft_account.amount, 1);
-    assert_eq!(child_mint_account.supply, 1);
-
-    assert!(auction_cycle_state.bid_history.get_last_element().is_none());
     assert!(auction_cycle_state.end_time >= new_cycle_min_end_time);
 
+    // Check if fund information is correctly updated
     let auction_root_state = testbench
         .get_and_deserialize_account_data::<AuctionRootState>(&auction_root_state_pubkey)
         .await
         .unwrap();
     assert_eq!(auction_root_state.available_funds, bid_amount);
     assert_eq!(auction_root_state.all_time_treasury, bid_amount);
+
+    // Check no nft was minted
+    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(next_edition, 1);
+    let child_edition = EditionPda::new(EditionType::Child(next_edition), &auction_id);
+
+    assert_eq!(
+        testbench
+            .get_token_account(&child_edition.holding)
+            .await
+            .err()
+            .unwrap(),
+        TestbenchError::AccountNotFound
+    );
+    assert_eq!(
+        testbench
+            .get_mint_account(&child_edition.mint)
+            .await
+            .err()
+            .unwrap(),
+        TestbenchError::AccountNotFound
+    );
 }
 
 #[tokio::test]
@@ -264,7 +273,7 @@ async fn test_close_cycle_on_finished_auction() {
 
     assert_eq!(
         -balance_change as u64,
-        CLOSE_AUCTION_CYCLE_LAST_CYCLE + TRANSACTION_FEE,
+        CLOSE_LAST_CYCLE_COST + TRANSACTION_FEE,
     );
 
     let (auction_root_state_pubkey, _auction_cycle_state_pubkey) =
@@ -327,9 +336,6 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
         .unwrap()
         .keypair;
 
-    let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(&auction_id), &CONTRACT_ID);
-
     initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -340,6 +346,10 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .await
     .unwrap()
     .unwrap();
+
+    // Check initial master metadata
+    let master_edition = EditionPda::new(EditionType::Master, &auction_id);
+    assert_metadata_uri(&mut testbench, &master_edition, "1.json").await;
 
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
@@ -368,17 +378,6 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     // Close the first cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let master_edition = EditionPda::new(EditionType::Master, &auction_id);
-    let master_metadata_before = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
-        .await
-        .unwrap();
-
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -390,25 +389,8 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 1);
-    let child_edition = EditionPda::new(EditionType::Child(next_edition), &auction_id);
-
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
-        .await
-        .unwrap();
-    let child_metadata = testbench
-        .get_and_deserialize_account_data::<Metadata>(&child_edition.metadata)
-        .await
-        .unwrap();
-
-    check_metadata_update(
-        &master_metadata_before,
-        &master_metadata_after,
-        &child_metadata,
-        false,
-    );
+    // Check master metadata is incremented
+    assert_metadata_uri(&mut testbench, &master_edition, "2.json").await;
 
     // Place bid on second cycle
     let bid_amount = 50_000_000;
@@ -420,12 +402,6 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     // Close the second cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-    let master_metadata_before = master_metadata_after.clone();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -437,25 +413,8 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 2);
-    let child_edition = EditionPda::new(EditionType::Child(next_edition), &auction_id);
-
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
-        .await
-        .unwrap();
-    let child_metadata = testbench
-        .get_and_deserialize_account_data::<Metadata>(&child_edition.metadata)
-        .await
-        .unwrap();
-
-    check_metadata_update(
-        &master_metadata_before,
-        &master_metadata_after,
-        &child_metadata,
-        false,
-    );
+    // Check master metadata is incremented
+    assert_metadata_uri(&mut testbench, &master_edition, "3.json").await;
 
     // Place bid on last cycle
     let bid_amount = 50_000_000;
@@ -467,12 +426,6 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     // Close the third (last) cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-    let master_metadata_before = master_metadata_after.clone();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -484,25 +437,8 @@ async fn test_close_cycle_child_metadata_change_not_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 3);
-    let child_edition = EditionPda::new(EditionType::Child(next_edition), &auction_id);
-
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
-        .await
-        .unwrap();
-    let child_metadata = testbench
-        .get_and_deserialize_account_data::<Metadata>(&child_edition.metadata)
-        .await
-        .unwrap();
-
-    check_metadata_update(
-        &master_metadata_before,
-        &master_metadata_after,
-        &child_metadata,
-        true,
-    );
+    // Check master metadata is reset after closing last cycle
+    assert_metadata_uri(&mut testbench, &master_edition, "0.json").await;
 
     let auction_pool = testbench
         .get_and_deserialize_account_data::<AuctionPool>(&auction_pool_pubkey)
@@ -562,6 +498,16 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     .unwrap()
     .unwrap();
 
+    // Check initial master metadata
+    let master_edition = EditionPda::new(EditionType::Master, &auction_id);
+    assert_metadata_uri(&mut testbench, &master_edition, "0.json").await;
+
+    // Check initial cycle number
+    let current_cycle = get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
+        .await
+        .unwrap();
+    assert_eq!(current_cycle, 1);
+
     // bid to first cycle
     let user_1 = TestUser::new(&mut testbench).await.unwrap().unwrap();
     let bid_amount = 50_000_000;
@@ -573,17 +519,6 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     // Close the first cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let master_edition = EditionPda::new(EditionType::Master, &auction_id);
-    let master_metadata_before = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
-        .await
-        .unwrap();
-
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -595,22 +530,14 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 1);
-
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
+    // Check current cycle
+    let current_cycle = get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
         .await
         .unwrap();
+    assert_eq!(current_cycle, 2);
 
-    assert_eq!(
-        master_metadata_after.data.name,
-        master_metadata_before.data.name
-    );
-    assert_eq!(
-        master_metadata_after.data.uri,
-        master_metadata_before.data.uri
-    );
+    // Check master metadata uri is unchanged
+    assert_metadata_uri(&mut testbench, &master_edition, "0.json").await;
 
     // bid to second cycle
     let bid_amount = 50_000_000;
@@ -622,12 +549,6 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     // Close the second cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-    let master_metadata_before = master_metadata_after.clone();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -639,22 +560,14 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 2);
-
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
+    // Check current cycle
+    let current_cycle = get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
         .await
         .unwrap();
+    assert_eq!(current_cycle, 3);
 
-    assert_eq!(
-        master_metadata_after.data.name,
-        master_metadata_before.data.name
-    );
-    assert_eq!(
-        master_metadata_after.data.uri,
-        master_metadata_before.data.uri
-    );
+    // Check master metadata uri is unchanged
+    assert_metadata_uri(&mut testbench, &master_edition, "0.json").await;
 
     // bid to the last cycle
     let bid_amount = 50_000_000;
@@ -666,11 +579,6 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     // Close the third (last) cycle
     warp_to_cycle_end(&mut testbench, auction_id).await.unwrap();
 
-    let next_edition = get_next_child_edition(&mut testbench, &auction_root_state_pubkey)
-        .await
-        .unwrap()
-        .unwrap();
-
     close_cycle_transaction(
         &mut testbench,
         &auction_cycle_payer,
@@ -682,40 +590,14 @@ async fn test_child_close_cycle_metadata_change_repeating() {
     .unwrap()
     .unwrap();
 
-    // Check minted nft
-    assert_eq!(next_edition, 3);
-    let master_metadata_after = testbench
-        .get_and_deserialize_account_data::<Metadata>(&master_edition.metadata)
+    // Check current cycle
+    let current_cycle = get_current_cycle_number(&mut testbench, &auction_root_state_pubkey)
         .await
         .unwrap();
+    assert_eq!(current_cycle, 3);
 
-    assert_eq!(
-        master_metadata_after.data.name,
-        master_metadata_before.data.name
-    );
-    assert_eq!(
-        master_metadata_after.data.uri,
-        master_metadata_before.data.uri
-    );
-}
-
-fn check_metadata_update(
-    master_metadata_before: &Metadata,
-    master_metadata_after: &Metadata,
-    child_metadata: &Metadata,
-    is_last_cycle: bool,
-) {
-    let mut master_metadata_before = master_metadata_before.data.clone();
-    let mut master_metadata_after = master_metadata_after.data.clone();
-    let child_metadata = child_metadata.data.clone();
-
-    assert_eq!(master_metadata_before.name, child_metadata.name);
-
-    increment_uri(&mut master_metadata_before.uri, is_last_cycle).unwrap();
-    unpuff_metadata(&mut master_metadata_before);
-    unpuff_metadata(&mut master_metadata_after);
-
-    assert_eq!(master_metadata_before, master_metadata_after);
+    // Check master metadata uri is unchanged
+    assert_metadata_uri(&mut testbench, &master_edition, "0.json").await;
 }
 
 #[tokio::test]
@@ -802,7 +684,7 @@ async fn test_process_close_idle_rapid_auction() {
     assert_eq!(primary_pool.pool.len(), 0);
     assert_eq!(secondary_pool.pool.len(), 1);
 
-    // Warp well over expiration perios
+    // Warp well over expiration period
     testbench
         .warp_n_seconds(auction_config.cycle_period * 2)
         .await

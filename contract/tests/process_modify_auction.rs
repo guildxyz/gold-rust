@@ -9,6 +9,17 @@ use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
 
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Modifying auction description
+//   - Modifying auction socials
+//   - Modifying auction encore period within valid bounds
+//
+// Invalid use cases:
+//   - Modifying auction without owner signature
+//   - Modifying auction encore period to invalid value
+
 #[tokio::test]
 async fn test_process_modify_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
@@ -135,7 +146,7 @@ async fn test_process_modify_auction() {
     // modify encore period
 
     // Invalid use case
-    // encore period exceeds cycle_period/2
+    // Trying to modify encore period over cycle_period/2
     let modify_data = ModifyAuctionData {
         new_description: None,
         new_socials: None,

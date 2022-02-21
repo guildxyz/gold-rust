@@ -1,6 +1,7 @@
 mod admin_withdraw;
 mod bid;
 mod claim_funds;
+mod claim_rewards;
 mod close_auction_cycle;
 mod delete_auction;
 mod filter_auction;
@@ -93,6 +94,9 @@ pub fn process(
         ),
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
+        }
+        AuctionInstruction::ClaimRewards { id, cycle_number } => {
+            claim_rewards::process_claim_rewards(program_id, accounts, id, cycle_number)
         }
         AuctionInstruction::VerifyAuction { id } => {
             verify_auction::process_verify_auction(program_id, accounts, id)
