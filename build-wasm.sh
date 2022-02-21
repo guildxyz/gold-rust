@@ -22,9 +22,10 @@ echo "Target branch: ${TARGET_BRANCH}"
 echo "Wasm build target: ${WASM_TARGET}"
 echo "Wasm build features: ${WASM_FEATURES}"
 
-agsol-glue schema contract
+#agsol-glue schema contract
 #agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
 
+git clone "https://github.com/agoraxyz/borsh-glue-template" glue
 cd glue
 git init
 git add -A
