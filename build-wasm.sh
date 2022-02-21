@@ -1,21 +1,39 @@
 #!/bin/sh
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ $BRANCH == "main" ]; then
-	FEATURES="--features mainnet"
+if [ $1 == "main" ]; then
+	WASM_FEATURES="--features mainnet"
+	TARGET_BRANCH=$1
 else
-	FEATURES=""
+	WASM_FEATURES=""
+	TARGET_BRANCH="dev"
 fi
 
-if [ $1 ]; then
-	TARGET=$1
+# if a second argument is present that means
+# we would like to build wasm to a different target from "web"
+if [ $2 ]; then
+	WASM_TARGET=$2
+	# target branch name + wasm target (e.g. dev-nodejs)
+	TARGET_BRANCH="${TARGET_BRANCH}-${WASM_TARGET}"
 else
-	TARGET="web"
+	WASM_TARGET="web"
 fi
 
-echo $PWD
+echo "Target branch: ${TARGET_BRANCH}"
+echo "Wasm build target: ${WASM_TARGET}"
+echo "Wasm build features: ${WASM_FEATURES}"
 
-cargo install agsol-glue --version 0.1.2-alpha.1
+cargo install agsol-glue
 cargo install wasm-pack
 agsol-glue schema contract
-RUST_LOG=debug agsol-glue wasm client --target $TARGET $FEATURES
+agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
+
+cd glue
+git init
+git add -A
+git commit -m "Auto-generated wasm code"
+git remote add origin https://github.com/agoraxyz/gold-glue.git
+git branch -M $TARGET_BRANCH
+git push -uf origin $TARGET_BRANCH
+
+cd ..
+rm -rf glue
