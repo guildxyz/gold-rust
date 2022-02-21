@@ -75,11 +75,11 @@ jobs:
     name: build and push wasm + schema
     runs-on: ubuntu-latest
     env:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.GH_ACTIONS_AUTH }}
     steps:
       - uses: actions/checkout@v2
       - run: |
           #cargo install agsol-glue wasm-pack
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "PopcornPaws"
+          git config --global user.email "lipschitz77@gmail.com"
           ./build-wasm.sh ${{ github.event.push.base.ref }}
