@@ -19,7 +19,10 @@ jobs:
       RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
       - uses: actions/checkout@v2
-      - run: ./build-wasm.sh ${{ github.event.push.base.ref }}
+      - run: |
+          git config user.name "github-action-bot"
+          git config user.email "gh-bot@noreply.agora.xyz"
+          ./build-wasm.sh ${{ github.event.push.base.ref }}
 
         #- name: Set env vars
         #  run: |
