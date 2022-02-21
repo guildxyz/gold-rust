@@ -139,4 +139,4 @@ jobs:
         run: docker push $IMAGE_ID:$VERSION
 
       - name: Push container image to External Container Registry
-            run: docker push $IMAGE_ID_2:$VERSION
+        run: docker push $IMAGE_ID_2:$VERSION
