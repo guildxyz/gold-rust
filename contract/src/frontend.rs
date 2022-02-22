@@ -32,10 +32,15 @@ pub struct FrontendAuction {
 
 #[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct FrontendAuctionBase {
+    #[alias(String)]
     pub id: MaxLenString<32>,
+    #[alias(String)]
     pub name: MaxLenString<32>,
+    #[alias(String)]
     pub owner: MaxLenString<45>,
+    #[alias(String)]
     pub goal_treasury_amount: MaxLenString<32>,
+    #[alias(String)]
     pub all_time_treasury_amount: MaxLenString<32>,
     pub is_verified: bool,
 }
