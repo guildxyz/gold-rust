@@ -1,4 +1,3 @@
-use agsol_common::MaxLenString;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
@@ -10,7 +9,6 @@ use agsol_token_metadata::ID as META_ID;
 use agsol_wasm_client::account::TokenAccount;
 use agsol_wasm_client::RpcClient;
 use anyhow::bail;
-use std::convert::TryFrom;
 
 const LAMPORTS: f32 = 1e9;
 
@@ -31,23 +29,12 @@ async fn get_auction_base(
         (amount as f32 / LAMPORTS).to_string()
     } else {
         "0".to_owned()
-    }
-    .try_into()
-    .map_err(anyhow::Error::msg)?;
-    let all_time_treasury_amount = (root_state.all_time_treasury as f32 / LAMPORTS)
-        .to_string()
-        .try_into()
-        .map_err(anyhow::Error::msg)?;
+    };
+    let all_time_treasury_amount = (root_state.all_time_treasury as f32 / LAMPORTS).to_string();
     Ok(FrontendAuctionBase {
-        id: unpad_id(id).try_into().map_err(anyhow::Error::msg)?,
-        name: unpad_id(&root_state.auction_name)
-            .try_into()
-            .map_err(anyhow::Error::msg)?,
-        owner: root_state
-            .auction_owner
-            .to_string()
-            .try_into()
-            .map_err(anyhow::Error::msg)?,
+        id: unpad_id(id),
+        name: unpad_id(&root_state.auction_name),
+        owner: root_state.auction_owner.to_string(),
         goal_treasury_amount,
         all_time_treasury_amount,
         is_verified: root_state.status.is_verified,
@@ -102,9 +89,9 @@ pub async fn get_auction(
             strip_uri(&mut metadata.data.uri);
 
             FrontendTokenConfig::Nft {
-                name: MaxLenString::try_from(metadata.data.name).unwrap(),
-                symbol: MaxLenString::try_from(metadata.data.symbol).unwrap(),
-                uri: MaxLenString::try_from(metadata.data.uri).unwrap(),
+                name: metadata.data.name,
+                symbol: metadata.data.symbol,
+                uri: metadata.data.uri,
                 is_repeating: data.is_repeating,
             }
         }

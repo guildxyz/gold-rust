@@ -1,19 +1,14 @@
 use crate::state::AuctionRootState;
 use agsol_borsh_schema::BorshSchema;
-use agsol_common::{MaxLenString, MaxSerializedLen};
-use agsol_token_metadata::state::{MAX_NAME_LENGTH, MAX_SYMBOL_LENGTH, MAX_URI_LENGTH};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
-#[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub enum FrontendTokenConfig {
     Nft {
-        #[alias(String)]
-        name: MaxLenString<MAX_NAME_LENGTH>,
-        #[alias(String)]
-        symbol: MaxLenString<MAX_SYMBOL_LENGTH>,
-        #[alias(String)]
-        uri: MaxLenString<MAX_URI_LENGTH>,
+        name: String,
+        symbol: String,
+        uri: String,
         is_repeating: bool,
     },
     Token {
@@ -23,24 +18,24 @@ pub enum FrontendTokenConfig {
     },
 }
 
-#[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct FrontendAuction {
     pub root_state_pubkey: Pubkey,
     pub root_state: AuctionRootState,
     pub token_config: FrontendTokenConfig,
 }
 
-#[derive(BorshSchema, MaxSerializedLen, BorshSerialize, BorshDeserialize, Clone, Debug)]
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct FrontendAuctionBase {
-    #[alias(String)]
-    pub id: MaxLenString<32>,
-    #[alias(String)]
-    pub name: MaxLenString<32>,
-    #[alias(String)]
-    pub owner: MaxLenString<45>,
-    #[alias(String)]
-    pub goal_treasury_amount: MaxLenString<32>,
-    #[alias(String)]
-    pub all_time_treasury_amount: MaxLenString<32>,
+    pub id: String,
+    pub name: String,
+    pub owner: String,
+    pub goal_treasury_amount: String,
+    pub all_time_treasury_amount: String,
     pub is_verified: bool,
+}
+
+#[derive(BorshSchema, BorshSerialize, BorshDeserialize, Clone, Debug)]
+pub struct FrontendAuctionBaseArray {
+    array: Vec<FrontendAuctionBase>,
 }
