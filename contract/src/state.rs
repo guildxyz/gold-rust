@@ -38,6 +38,18 @@ pub struct AuctionDescription {
     pub goal_treasury_amount: Option<u64>,
 }
 
+/// Contains which information to modify on a ModifyAuction call.
+/// If a member is set to `None` it will be unchanged.
+#[repr(C)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct ModifyAuctionData {
+    #[alias(Option<String>)]
+    pub new_description: Option<DescriptionString>,
+    #[alias(Option<Vec<String>>)]
+    pub new_socials: Option<SocialsVec>,
+    pub new_encore_period: Option<UnixTimestamp>,
+}
+
 /// The main configuration parameters of an auction.
 #[repr(C)]
 #[derive(BorshSchema, BorshDeserialize, BorshSerialize, MaxSerializedLen, Debug, Clone, Copy)]
@@ -186,16 +198,6 @@ pub struct AuctionPool {
     pub max_len: u32,
     #[alias(Vec<[u8; 32]>)]
     pub pool: Vec<AuctionId>,
-}
-
-/// Contains which information to modify on a ModifyAuction call.
-/// If a member is set to `None` it will be unchanged.
-#[repr(C)]
-#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
-pub struct ModifyAuctionData {
-    pub new_description: Option<DescriptionString>,
-    pub new_socials: Option<SocialsVec>,
-    pub new_encore_period: Option<UnixTimestamp>,
 }
 
 impl AuctionPool {

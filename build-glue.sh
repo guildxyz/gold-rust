@@ -26,6 +26,8 @@ agsol-glue schema contract
 agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
 
 cd glue
+npm i
+tsc -p tsconfig.json
 git init
 git add -A
 git commit -m "Auto-generated wasm code"

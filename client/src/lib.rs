@@ -7,9 +7,11 @@ mod get_auction;
 mod utils;
 
 use agsol_gold_contract::instruction::factory::*;
+use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::utils::pad_to_32_bytes;
+use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{wasm_instruction, Net, RpcClient};
 use borsh::BorshSerialize;
@@ -80,4 +82,21 @@ pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
     auction_exists::auction_exists(&mut client, &auction_id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
+pub async fn get_auction_pool_pubkey_wasm(secondary: bool) -> Pubkey {
+    let seeds = if secondary {
+        secondary_pool_seeds()
+    } else {
+        auction_pool_seeds()
+    };
+    let (pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
+    pubkey
+}
+
+#[wasm_bindgen(js_name = "getRootStatePubkeyWasm")]
+pub fn get_root_state_pubkey_wasm(auction_id: &[u8]) -> Pubkey {
+    let (pubkey, _) = Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
+    pubkey
 }
