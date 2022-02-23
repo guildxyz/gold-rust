@@ -8,15 +8,12 @@ mod types;
 mod utils;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::utils::pad_to_32_bytes;
-use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{wasm_instruction, Net, RpcClient};
 use borsh::BorshSerialize;
-use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(feature = "mainnet"))]
@@ -47,57 +44,38 @@ pub async fn get_auction_wasm(auction_id: String) -> Result<JsValue, JsValue> {
         .await
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    todo!()
+    JsValue::from_serde(&auction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-//#[wasm_bindgen(js_name = "getAuctionsWasm")]
-//pub async fn get_auctions_wasm(secondary: bool) -> Result<Uint8Array, JsValue> {
-//    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-//    let auctions = get_auction::get_auctions(&mut client, secondary)
-//        .await
-//        .map_err(|e| JsValue::from(e.to_string()))?;
-//
-//    Ok(Uint8Array::from(auctions.try_to_vec().unwrap().as_slice()))
-//}
-//
-//#[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
-//pub async fn get_auction_cycle_state_wasm(
-//    root_state_pubkey: Pubkey,
-//    cycle_num: u64,
-//) -> Result<Uint8Array, JsValue> {
-//    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-//    let auction_cycle_state =
-//        get_auction::get_auction_cycle_state(&mut client, &root_state_pubkey, cycle_num)
-//            .await
-//            .map_err(|e| JsValue::from(e.to_string()))?;
-//
-//    Ok(Uint8Array::from(
-//        auction_cycle_state.try_to_vec().unwrap().as_slice(),
-//    ))
-//}
-//
-//#[wasm_bindgen(js_name = "auctionExistsWasm")]
-//pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
-//    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-//    let auction_id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
-//    auction_exists::auction_exists(&mut client, &auction_id)
-//        .await
-//        .map_err(|e| JsValue::from(e.to_string()))
-//}
-//
-//#[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-//pub async fn get_auction_pool_pubkey_wasm(secondary: bool) -> Pubkey {
-//    let seeds = if secondary {
-//        secondary_pool_seeds()
-//    } else {
-//        auction_pool_seeds()
-//    };
-//    let (pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
-//    pubkey
-//}
-//
-//#[wasm_bindgen(js_name = "getRootStatePubkeyWasm")]
-//pub fn get_root_state_pubkey_wasm(auction_id: &[u8]) -> Pubkey {
-//    let (pubkey, _) = Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-//    pubkey
-//}
+#[wasm_bindgen(js_name = "getAuctionsWasm")]
+pub async fn get_auctions_wasm(secondary: bool) -> Result<JsValue, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auctions = get_auction::get_auctions(&mut client, secondary)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    JsValue::from_serde(&auctions).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "getAuctionCycleWasm")]
+pub async fn get_auction_cycle_wasm(
+    root_state_pubkey: Pubkey,
+    cycle_num: u64,
+) -> Result<JsValue, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_cycle =
+        get_auction::get_auction_cycle_state(&mut client, &root_state_pubkey, cycle_num)
+            .await
+            .map_err(|e| JsValue::from(e.to_string()))?;
+
+    JsValue::from_serde(&auction_cycle).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "auctionExistsWasm")]
+pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
+    auction_exists::auction_exists(&mut client, &auction_id)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))
+}

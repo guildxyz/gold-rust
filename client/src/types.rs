@@ -1,5 +1,5 @@
-use crate::Pubkey;
 use crate::solana_program::clock::UnixTimestamp;
+use crate::Pubkey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -21,23 +21,25 @@ pub enum FrontendTokenConfig {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendAuctionConfig {
-    description: String,
-    socials: Vec<String>,
-    asset: FrontendTokenConfig,
-    encore_period: Option<UnixTimestamp>,
-    cycle_period: UnixTimestamp,
-    number_of_cycles: u64,
-    start_time: Option<UnixTimestamp>,
-    min_bid: Option<f32>,
+    pub description: String,
+    pub socials: Vec<String>,
+    pub asset: FrontendTokenConfig,
+    pub encore_period: Option<UnixTimestamp>,
+    pub cycle_period: UnixTimestamp,
+    pub number_of_cycles: u64,
+    pub start_time: Option<UnixTimestamp>,
+    pub min_bid: Option<f32>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendAuction {
+    #[serde(flatten)]
     pub base: FrontendAuctionBase,
+    #[serde(flatten)]
     pub config: FrontendAuctionConfig,
     pub available_treasury_amount: f32,
-    pub current_cycle: f32,
+    pub current_cycle: u64,
     pub is_finished: bool,
     pub is_frozen: bool,
     pub is_filtered: bool,
@@ -56,7 +58,9 @@ pub struct FrontendAuctionBaseConfig {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendAuctionBase {
-    pub all_time_treasury_amount: String,
+    #[serde(flatten)]
+    pub config: FrontendAuctionBaseConfig,
+    pub all_time_treasury_amount: f32,
     pub is_verified: bool,
 }
 

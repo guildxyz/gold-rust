@@ -9,72 +9,63 @@ use agsol_token_metadata::ID as META_ID;
 use agsol_wasm_client::account::TokenAccount;
 use agsol_wasm_client::RpcClient;
 use anyhow::bail;
+use futures::stream::{self, StreamExt};
 
 const LAMPORTS: f32 = 1e9;
 
-//async fn get_auction_base(
-//    client: &mut RpcClient,
-//    id: &AuctionId,
-//    root_state_pubkey: &Pubkey,
-//) -> Result<FrontendAuctionBase, anyhow::Error> {
-//    let root_state: AuctionRootState = client
-//        .get_and_deserialize_account_data(root_state_pubkey)
-//        .await?;
-//
-//    if root_state.status.is_filtered {
-//        bail!("this auction is filtered")
-//    }
-//
-//    let goal_treasury_amount = if let Some(amount) = root_state.description.goal_treasury_amount {
-//        (amount as f32 / LAMPORTS).to_string()
-//    } else {
-//        "0".to_owned()
-//    };
-//    let all_time_treasury_amount = (root_state.all_time_treasury as f32 / LAMPORTS).to_string();
-//    Ok(FrontendAuctionBase {
-//        id: unpad_id(id),
-//        name: unpad_id(&root_state.auction_name),
-//        owner: root_state.auction_owner.to_string(),
-//        goal_treasury_amount,
-//        all_time_treasury_amount,
-//        is_verified: root_state.status.is_verified,
-//    })
-//}
-//
-//pub async fn get_auctions(
-//    client: &mut RpcClient,
-//    secondary: bool,
-//) -> Result<Vec<FrontendAuctionBase>, anyhow::Error> {
-//    let seeds = if secondary {
-//        secondary_pool_seeds()
-//    } else {
-//        auction_pool_seeds()
-//    };
-//    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
-//    let auction_pool: AuctionPool = client
-//        .get_and_deserialize_account_data(&auction_pool_pubkey)
-//        .await?;
-//    let mut auction_base_vec = Vec::with_capacity(auction_pool.pool.len());
-//    for id in &auction_pool.pool {
-//        let (root_state_pubkey, _) =
-//            Pubkey::find_program_address(&auction_root_state_seeds(id), &GOLD_ID);
-//        if let Ok(auction_base) = get_auction_base(client, id, &root_state_pubkey).await {
-//            auction_base_vec.push(auction_base);
-//        } // else we are skipping stuff
-//    }
-//    Ok(auction_base_vec)
-//}
+fn to_ui_amount(amount: u64) -> f32 {
+    amount as f32 / LAMPORTS
+}
+
+struct RootState {
+    state: AuctionRootState,
+    pubkey: Pubkey,
+}
+
+pub async fn get_auctions(
+    client: &mut RpcClient,
+    secondary: bool,
+) -> Result<Vec<FrontendAuctionBase>, anyhow::Error> {
+    let seeds = if secondary {
+        secondary_pool_seeds()
+    } else {
+        auction_pool_seeds()
+    };
+    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
+    let auction_pool: AuctionPool = client
+        .get_and_deserialize_account_data(&auction_pool_pubkey)
+        .await?;
+
+    let base_stream = stream::iter(auction_pool.pool.into_iter());
+    let base_vec = base_stream
+        .filter_map(|id| async move {
+            let mut client = RpcClient::new_with_config(crate::NET, crate::RPC_CONFIG);
+            if let Ok(root_state) = get_root_state(&mut client, &id).await {
+                if root_state.state.status.is_filtered {
+                    None
+                } else {
+                    Some(get_auction_base(&id, &root_state.state))
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<FrontendAuctionBase>>()
+        .await;
+    Ok(base_vec)
+}
 
 pub async fn get_auction(
     client: &mut RpcClient,
     auction_id: &AuctionId,
 ) -> Result<FrontendAuction, anyhow::Error> {
-    let (root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-
-    let root_state: AuctionRootState = client
-        .get_and_deserialize_account_data(&root_state_pubkey)
-        .await?;
+    let RootState {
+        state: root_state,
+        pubkey: root_state_pubkey,
+    } = get_root_state(client, auction_id).await?;
+    if root_state.status.is_filtered {
+        bail!("this auction is filtered")
+    }
     let token_config = match root_state.token_config {
         TokenConfig::Nft(ref data) => {
             let (master_mint_pubkey, _) =
@@ -113,44 +104,65 @@ pub async fn get_auction(
         }
     };
 
-    let base = FrontendAuctionBase {
-        all_time_treasury_amount: root_state.all_time_treasury_amount,
-        is_verified: root_state.status.is_verified,
-    };
+    let base = get_auction_base(auction_id, &root_state);
 
+    let socials: Vec<SocialsString> = root_state.description.socials.into();
     let config = FrontendAuctionConfig {
         description: root_state.description.description.into(),
-        socials: root_state.socials.into(),
+        socials: socials
+            .into_iter()
+            .map(|x| x.into())
+            .collect::<Vec<String>>(),
         asset: token_config,
         encore_period: Some(root_state.auction_config.encore_period),
         cycle_period: root_state.auction_config.cycle_period,
-        number_of_cycles: root_state.auction_config.number_of_cycles.unwrap_or_default(),
+        number_of_cycles: root_state
+            .auction_config
+            .number_of_cycles
+            .unwrap_or_default(),
         start_time: Some(root_state.start_time),
-        min_bid: Some(root_state.auction_config.minimum_bid_amount as f32 / LAMPORTS),
+        min_bid: Some(to_ui_amount(root_state.auction_config.minimum_bid_amount)),
     };
 
-    todo!()
-    //Ok(FrontendAuction {
-    //    root_state_pubkey,
-    //    root_state,
-    //    token_config,
-    //})
+    Ok(FrontendAuction {
+        base,
+        config,
+        available_treasury_amount: to_ui_amount(root_state.available_funds),
+        current_cycle: root_state.status.current_auction_cycle,
+        is_finished: root_state.status.is_finished,
+        is_frozen: root_state.status.is_frozen,
+        is_filtered: root_state.status.is_filtered,
+        root_state_pubkey,
+    })
 }
 
-//pub async fn get_auction_cycle_state(
-//    client: &mut RpcClient,
-//    root_state_pubkey: &Pubkey,
-//    cycle_num: u64,
-//) -> Result<AuctionCycleState, anyhow::Error> {
-//    anyhow::ensure!(cycle_num != 0);
-//    let (cycle_state_pubkey, _) = Pubkey::find_program_address(
-//        &auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
-//        &GOLD_ID,
-//    );
-//    client
-//        .get_and_deserialize_account_data(&cycle_state_pubkey)
-//        .await
-//}
+pub async fn get_auction_cycle_state(
+    client: &mut RpcClient,
+    root_state_pubkey: &Pubkey,
+    cycle_num: u64,
+) -> Result<FrontendCycle, anyhow::Error> {
+    anyhow::ensure!(cycle_num > 0);
+    let (cycle_state_pubkey, _) = Pubkey::find_program_address(
+        &auction_cycle_state_seeds(root_state_pubkey, &cycle_num.to_le_bytes()),
+        &GOLD_ID,
+    );
+    let cycle_state: AuctionCycleState = client
+        .get_and_deserialize_account_data(&cycle_state_pubkey)
+        .await?;
+
+    let bid_history: Vec<BidData> = cycle_state.bid_history.into();
+    let bids = bid_history
+        .into_iter()
+        .map(|bid| FrontendBid {
+            bidder_pubkey: bid.bidder_pubkey,
+            amount: to_ui_amount(bid.bid_amount),
+        })
+        .collect::<Vec<FrontendBid>>();
+    Ok(FrontendCycle {
+        bids,
+        end_timestamp: cycle_state.end_time,
+    })
+}
 
 fn strip_uri(uri: &mut String) {
     if let Some(index) = uri.rfind('/') {
@@ -158,38 +170,70 @@ fn strip_uri(uri: &mut String) {
     }
 }
 
-//#[cfg(test)]
-//mod test {
-//    use super::*;
-//    use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
-//
-//    #[tokio::test]
-//    async fn query_auction() {
-//        // unwraps ensure that the accounts are properly deserialized
-//        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-//        let auction_id = pad_to_32_bytes(TEST_AUCTION_ID).unwrap();
-//        let auction = get_auction(&mut client, &auction_id).await.unwrap();
-//        get_auction_cycle_state(&mut client, &auction.root_state_pubkey, 1)
-//            .await
-//            .unwrap();
-//    }
-//
-//    #[tokio::test]
-//    async fn auction_base_array() {
-//        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-//        get_auctions(&mut client, true).await.unwrap();
-//        get_auctions(&mut client, false).await.unwrap();
-//    }
-//
-//    #[test]
-//    fn strip_uri_test() {
-//        let mut uri = "https://hello/this-is-a-dir/file.json".to_string();
-//        strip_uri(&mut uri);
-//        assert_eq!(uri, "https://hello/this-is-a-dir");
-//        let mut uri = "https://hello/this-is-a-dir/0/file.json".to_string();
-//        strip_uri(&mut uri);
-//        assert_eq!(uri, "https://hello/this-is-a-dir/0");
-//        strip_uri(&mut uri);
-//        assert_eq!(uri, "https://hello/this-is-a-dir");
-//    }
-//}
+fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> FrontendAuctionBase {
+    let base_config = FrontendAuctionBaseConfig {
+        id: unpad_id(auction_id),
+        name: unpad_id(&root_state.auction_name),
+        owner_pubkey: root_state.auction_owner,
+        goal_treasury_amount: to_ui_amount(
+            root_state
+                .description
+                .goal_treasury_amount
+                .unwrap_or_default(),
+        ),
+    };
+
+    FrontendAuctionBase {
+        config: base_config,
+        all_time_treasury_amount: to_ui_amount(root_state.all_time_treasury),
+        is_verified: root_state.status.is_verified,
+    }
+}
+
+async fn get_root_state(
+    client: &mut RpcClient,
+    id: &AuctionId,
+) -> Result<RootState, anyhow::Error> {
+    let (pubkey, _) = Pubkey::find_program_address(&auction_root_state_seeds(id), &GOLD_ID);
+
+    let state: AuctionRootState = client.get_and_deserialize_account_data(&pubkey).await?;
+
+    Ok(RootState { state, pubkey })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
+
+    #[tokio::test]
+    async fn query_auction() {
+        // unwraps ensure that the accounts are properly deserialized
+        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+        let auction_id = pad_to_32_bytes(TEST_AUCTION_ID).unwrap();
+        let auction = get_auction(&mut client, &auction_id).await.unwrap();
+        get_auction_cycle_state(&mut client, &auction.root_state_pubkey, 1)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn auction_base_array() {
+        let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+        let x = get_auctions(&mut client, true).await.unwrap();
+        println!("{:#?}", x);
+        get_auctions(&mut client, false).await.unwrap();
+    }
+
+    #[test]
+    fn strip_uri_test() {
+        let mut uri = "https://hello/this-is-a-dir/file.json".to_string();
+        strip_uri(&mut uri);
+        assert_eq!(uri, "https://hello/this-is-a-dir");
+        let mut uri = "https://hello/this-is-a-dir/0/file.json".to_string();
+        strip_uri(&mut uri);
+        assert_eq!(uri, "https://hello/this-is-a-dir/0");
+        strip_uri(&mut uri);
+        assert_eq!(uri, "https://hello/this-is-a-dir");
+    }
+}
