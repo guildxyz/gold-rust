@@ -94,7 +94,7 @@ pub async fn get_auction(
 
             match mint_data {
                 Ok(TokenAccount::Mint(mint)) => FrontendTokenConfig::Token {
-                    mint: data.mint,
+                    mint: data.mint.to_string(),
                     decimals: mint.decimals,
                     per_cycle_amount: data.per_cycle_amount,
                 },
@@ -132,7 +132,7 @@ pub async fn get_auction(
         is_finished: root_state.status.is_finished,
         is_frozen: root_state.status.is_frozen,
         is_filtered: root_state.status.is_filtered,
-        root_state_pubkey,
+        root_state_pubkey: root_state_pubkey.to_string(),
     })
 }
 
@@ -154,7 +154,7 @@ pub async fn get_auction_cycle_state(
     let bids = bid_history
         .into_iter()
         .map(|bid| FrontendBid {
-            bidder_pubkey: bid.bidder_pubkey,
+            bidder_pubkey: bid.bidder_pubkey.to_string(),
             amount: to_ui_amount(bid.bid_amount),
         })
         .collect::<Vec<FrontendBid>>();
@@ -174,7 +174,7 @@ fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> Fr
     let base_config = FrontendAuctionBaseConfig {
         id: unpad_id(auction_id),
         name: unpad_id(&root_state.auction_name),
-        owner_pubkey: root_state.auction_owner,
+        owner_pubkey: root_state.auction_owner.to_string(),
         goal_treasury_amount: to_ui_amount(
             root_state
                 .description

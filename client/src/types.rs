@@ -1,5 +1,4 @@
 use crate::solana_program::clock::UnixTimestamp;
-use crate::Pubkey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -12,7 +11,7 @@ pub enum FrontendTokenConfig {
         is_repeating: bool,
     },
     Token {
-        mint: Pubkey,
+        mint: String,
         decimals: u8,
         per_cycle_amount: u64,
     },
@@ -23,6 +22,7 @@ pub enum FrontendTokenConfig {
 pub struct FrontendAuctionConfig {
     pub description: String,
     pub socials: Vec<String>,
+    #[serde(flatten)]
     pub asset: FrontendTokenConfig,
     pub encore_period: Option<UnixTimestamp>,
     pub cycle_period: UnixTimestamp,
@@ -43,7 +43,7 @@ pub struct FrontendAuction {
     pub is_finished: bool,
     pub is_frozen: bool,
     pub is_filtered: bool,
-    pub root_state_pubkey: Pubkey,
+    pub root_state_pubkey: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -51,7 +51,7 @@ pub struct FrontendAuction {
 pub struct FrontendAuctionBaseConfig {
     pub id: String,
     pub name: String,
-    pub owner_pubkey: Pubkey,
+    pub owner_pubkey: String,
     pub goal_treasury_amount: f32,
 }
 
@@ -67,7 +67,7 @@ pub struct FrontendAuctionBase {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendBid {
-    pub bidder_pubkey: Pubkey,
+    pub bidder_pubkey: String,
     pub amount: f32,
 }
 
