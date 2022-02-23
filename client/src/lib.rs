@@ -8,14 +8,13 @@ mod types;
 mod utils;
 
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
-use agsol_wasm_client::{wasm_instruction, Net, RpcClient};
-use borsh::BorshSerialize;
+use agsol_wasm_client::{Net, RpcClient};
 use wasm_bindgen::prelude::*;
 
+const LAMPORTS: f32 = 1e9;
 #[cfg(not(feature = "mainnet"))]
 const NET: Net = Net::Devnet;
 #[cfg(feature = "mainnet")]
@@ -28,13 +27,6 @@ const RPC_CONFIG: RpcConfig = RpcConfig {
 
 #[cfg(test)]
 const TEST_AUCTION_ID: &str = "teletubbies";
-
-//wasm_instruction!(claim_funds);
-//wasm_instruction!(claim_rewards);
-//wasm_instruction!(delete_auction);
-//wasm_instruction!(initialize_auction);
-//wasm_instruction!(modify_auction);
-//wasm_instruction!(place_bid);
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
 pub async fn get_auction_wasm(auction_id: String) -> Result<JsValue, JsValue> {
@@ -79,3 +71,38 @@ pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
         .await
         .map_err(|e| JsValue::from(e.to_string()))
 }
+
+#[wasm_bindgen(js_name = "claimFundsWasm")]
+pub async fn claim_funds_wasm(
+    auction_id: String,
+    payer_pubkey: Pubkey,
+    auction_owner_pubkey: Pubkey,
+    cycle_number: u64,
+    amount: f32,
+) -> Result<JsValue, JsValue> {
+    let args = ClaimFundsArgs {
+        payer_pubkey,
+        auction_owner_pubkey,
+        auction_id: pad_to_32_bytes(&auction_id)?,
+        cycle_number,
+        amount: (amount * LAMPORTS) as u64,
+    };
+    let instruction = claim_funds(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "initializeAuctionWasm")]
+pub async fn initialize_auction_wasm(config: JsValue) -> Result<Instruction, JsValue> {
+    let config: FrontendAuctionConfig = config
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    let args = config.into_initialize_auction_args();
+    let instruction = initialize_auction(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+// TODO
+//wasm_instruction!(claim_rewards);
+//wasm_instruction!(delete_auction);
+//wasm_instruction!(modify_auction);
+//wasm_instruction!(place_bid);

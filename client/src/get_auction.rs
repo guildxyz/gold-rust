@@ -1,4 +1,5 @@
 use crate::types::*;
+use crate::utils::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::*;
@@ -10,12 +11,6 @@ use agsol_wasm_client::account::TokenAccount;
 use agsol_wasm_client::RpcClient;
 use anyhow::bail;
 use futures::stream::{self, StreamExt};
-
-const LAMPORTS: f32 = 1e9;
-
-fn to_ui_amount(amount: u64) -> f32 {
-    amount as f32 / LAMPORTS
-}
 
 struct RootState {
     state: AuctionRootState,
@@ -108,6 +103,7 @@ pub async fn get_auction(
 
     let socials: Vec<SocialsString> = root_state.description.socials.into();
     let config = FrontendAuctionConfig {
+        base,
         description: root_state.description.description.into(),
         socials: socials
             .into_iter()
@@ -125,7 +121,6 @@ pub async fn get_auction(
     };
 
     Ok(FrontendAuction {
-        base,
         config,
         available_treasury_amount: to_ui_amount(root_state.available_funds),
         current_cycle: root_state.status.current_auction_cycle,
@@ -162,12 +157,6 @@ pub async fn get_auction_cycle_state(
         bids,
         end_timestamp: cycle_state.end_time,
     })
-}
-
-fn strip_uri(uri: &mut String) {
-    if let Some(index) = uri.rfind('/') {
-        uri.drain(index..);
-    }
 }
 
 fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> FrontendAuctionBase {
@@ -223,17 +212,5 @@ mod test {
         let x = get_auctions(&mut client, true).await.unwrap();
         println!("{:#?}", x);
         get_auctions(&mut client, false).await.unwrap();
-    }
-
-    #[test]
-    fn strip_uri_test() {
-        let mut uri = "https://hello/this-is-a-dir/file.json".to_string();
-        strip_uri(&mut uri);
-        assert_eq!(uri, "https://hello/this-is-a-dir");
-        let mut uri = "https://hello/this-is-a-dir/0/file.json".to_string();
-        strip_uri(&mut uri);
-        assert_eq!(uri, "https://hello/this-is-a-dir/0");
-        strip_uri(&mut uri);
-        assert_eq!(uri, "https://hello/this-is-a-dir");
     }
 }
