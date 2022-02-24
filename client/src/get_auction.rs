@@ -164,12 +164,7 @@ fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> Fr
         id: unpad_id(auction_id),
         name: unpad_id(&root_state.auction_name),
         owner_pubkey: root_state.auction_owner.to_string(),
-        goal_treasury_amount: to_sol(
-            root_state
-                .description
-                .goal_treasury_amount
-                .unwrap_or_default(),
-        ),
+        goal_treasury_amount: root_state.description.goal_treasury_amount.map(to_sol),
     };
 
     FrontendAuctionBase {
