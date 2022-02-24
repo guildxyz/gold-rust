@@ -7,6 +7,10 @@ mod get_auction;
 mod types;
 mod utils;
 
+use types::FrontendAuctionConfig;
+use types::Scalar;
+use utils::to_lamports;
+
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::utils::pad_to_32_bytes;
@@ -14,7 +18,6 @@ use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{Net, RpcClient};
 use wasm_bindgen::prelude::*;
 
-const LAMPORTS: f32 = 1e9;
 #[cfg(not(feature = "mainnet"))]
 const NET: Net = Net::Devnet;
 #[cfg(feature = "mainnet")]
@@ -78,26 +81,28 @@ pub async fn claim_funds_wasm(
     payer_pubkey: Pubkey,
     auction_owner_pubkey: Pubkey,
     cycle_number: u64,
-    amount: f32,
+    amount: Scalar,
 ) -> Result<JsValue, JsValue> {
     let args = ClaimFundsArgs {
         payer_pubkey,
         auction_owner_pubkey,
         auction_id: pad_to_32_bytes(&auction_id)?,
         cycle_number,
-        amount: (amount * LAMPORTS) as u64,
+        amount: to_lamports(amount),
     };
     let instruction = claim_funds(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
 #[wasm_bindgen(js_name = "initializeAuctionWasm")]
-pub async fn initialize_auction_wasm(config: JsValue) -> Result<Instruction, JsValue> {
+pub async fn initialize_auction_wasm(config: JsValue) -> Result<JsValue, JsValue> {
     let config: FrontendAuctionConfig = config
         .into_serde()
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    let args = config.into_initialize_auction_args();
+    let args = config
+        .into_initialize_auction_args()
+        .map_err(JsValue::from)?;
     let instruction = initialize_auction(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }

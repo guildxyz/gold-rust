@@ -1,6 +1,8 @@
-use crate::LAMPORTS;
+use crate::Scalar;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_wasm_client::RpcClient;
+
+const LAMPORTS: Scalar = 1e9;
 
 pub async fn account_exists(
     client: &mut RpcClient,
@@ -10,8 +12,12 @@ pub async fn account_exists(
     Ok(balance != 0)
 }
 
-pub fn to_ui_amount(amount: u64) -> f32 {
-    amount as f32 / LAMPORTS
+pub fn to_sol(amount: u64) -> Scalar {
+    amount as Scalar / LAMPORTS
+}
+
+pub fn to_lamports(amount: Scalar) -> u64 {
+    (amount * LAMPORTS) as u64
 }
 
 pub fn strip_uri(uri: &mut String) {

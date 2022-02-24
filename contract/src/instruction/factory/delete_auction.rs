@@ -92,8 +92,11 @@ mod test {
     #[test]
     fn delete_all_no_rem() {
         let args = DeleteAuctionArgs {
-            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa").unwrap(),
-            top_bidder_pubkey: Some(Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap()),
+            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa")
+                .unwrap(),
+            top_bidder_pubkey: Some(
+                Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap(),
+            ),
             auction_id: [120; 32],
             current_auction_cycle: 80,
             num_of_cycles_to_delete: 40,
@@ -106,8 +109,11 @@ mod test {
     #[test]
     fn delete_all_with_rem() {
         let args = DeleteAuctionArgs {
-            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa").unwrap(),
-            top_bidder_pubkey: Some(Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap()),
+            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa")
+                .unwrap(),
+            top_bidder_pubkey: Some(
+                Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap(),
+            ),
             auction_id: [120; 32],
             current_auction_cycle: 33,
             num_of_cycles_to_delete: 20,
@@ -116,8 +122,11 @@ mod test {
         assert_eq!(instructions.len(), 2);
 
         let args = DeleteAuctionArgs {
-            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa").unwrap(),
-            top_bidder_pubkey: Some(Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap()),
+            auction_owner_pubkey: Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKHa")
+                .unwrap(),
+            top_bidder_pubkey: Some(
+                Pubkey::from_str("7Z8ftDAzMvoyXnGEJye8DurzgQQXLAbYCaeeesM7UKN1").unwrap(),
+            ),
             auction_id: [120; 32],
             current_auction_cycle: 8,
             num_of_cycles_to_delete: 20,

@@ -89,7 +89,7 @@ pub async fn get_auction(
 
             match mint_data {
                 Ok(TokenAccount::Mint(mint)) => FrontendTokenConfig::Token {
-                    mint: data.mint.to_string(),
+                    mint: Some(data.mint.to_string()),
                     decimals: mint.decimals,
                     per_cycle_amount: data.per_cycle_amount,
                 },
@@ -102,8 +102,7 @@ pub async fn get_auction(
     let base = get_auction_base(auction_id, &root_state);
 
     let socials: Vec<SocialsString> = root_state.description.socials.into();
-    let config = FrontendAuctionConfig {
-        base,
+    let config = FrontendAuctionConfigExtra {
         description: root_state.description.description.into(),
         socials: socials
             .into_iter()
@@ -117,12 +116,13 @@ pub async fn get_auction(
             .number_of_cycles
             .unwrap_or_default(),
         start_time: Some(root_state.start_time),
-        min_bid: Some(to_ui_amount(root_state.auction_config.minimum_bid_amount)),
+        min_bid: Some(to_sol(root_state.auction_config.minimum_bid_amount)),
     };
 
     Ok(FrontendAuction {
+        base,
         config,
-        available_treasury_amount: to_ui_amount(root_state.available_funds),
+        available_treasury_amount: to_sol(root_state.available_funds),
         current_cycle: root_state.status.current_auction_cycle,
         is_finished: root_state.status.is_finished,
         is_frozen: root_state.status.is_frozen,
@@ -150,7 +150,7 @@ pub async fn get_auction_cycle_state(
         .into_iter()
         .map(|bid| FrontendBid {
             bidder_pubkey: bid.bidder_pubkey.to_string(),
-            amount: to_ui_amount(bid.bid_amount),
+            amount: to_sol(bid.bid_amount),
         })
         .collect::<Vec<FrontendBid>>();
     Ok(FrontendCycle {
@@ -164,7 +164,7 @@ fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> Fr
         id: unpad_id(auction_id),
         name: unpad_id(&root_state.auction_name),
         owner_pubkey: root_state.auction_owner.to_string(),
-        goal_treasury_amount: to_ui_amount(
+        goal_treasury_amount: to_sol(
             root_state
                 .description
                 .goal_treasury_amount
@@ -174,7 +174,7 @@ fn get_auction_base(auction_id: &AuctionId, root_state: &AuctionRootState) -> Fr
 
     FrontendAuctionBase {
         config: base_config,
-        all_time_treasury_amount: to_ui_amount(root_state.all_time_treasury),
+        all_time_treasury_amount: to_sol(root_state.all_time_treasury),
         is_verified: root_state.status.is_verified,
     }
 }
@@ -194,6 +194,7 @@ async fn get_root_state(
 mod test {
     use super::*;
     use crate::{pad_to_32_bytes, NET, RPC_CONFIG, TEST_AUCTION_ID};
+    use std::str::FromStr;
 
     #[tokio::test]
     async fn query_auction() {
@@ -201,7 +202,8 @@ mod test {
         let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
         let auction_id = pad_to_32_bytes(TEST_AUCTION_ID).unwrap();
         let auction = get_auction(&mut client, &auction_id).await.unwrap();
-        get_auction_cycle_state(&mut client, &auction.root_state_pubkey, 1)
+        let owner_pubkey = Pubkey::from_str(&auction.root_state_pubkey).unwrap();
+        get_auction_cycle_state(&mut client, &owner_pubkey, 1)
             .await
             .unwrap();
     }
