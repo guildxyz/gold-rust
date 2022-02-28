@@ -10,6 +10,23 @@ pub struct PlaceBidArgs {
     pub amount: u64,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendPlaceBidArgs {
+    pub bidder_pubkey: String,
+    pub auction_id: String,
+    pub cycle_number: u64,
+    pub amount: f32,
+    pub top_bidder_pubkey: Option<String>,
+}
+
+impl TryFrom<FrontendPlaceBidArgs> for PlaceBidArgs {
+    type Error = String;
+    fn try_from(args: FrontendPlaceBidArgs) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
 pub fn place_bid(args: &PlaceBidArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);

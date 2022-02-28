@@ -4,15 +4,11 @@
 
 mod auction_exists;
 mod get_auction;
-mod types;
-mod utils;
 
-use types::FrontendAuctionConfig;
-use types::Scalar;
-use utils::to_lamports;
-
+use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
+use agsol_gold_contract::state::TokenType;
 use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{Net, RpcClient};
@@ -100,14 +96,63 @@ pub async fn initialize_auction_wasm(config: JsValue) -> Result<JsValue, JsValue
         .into_serde()
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    let args = config
-        .into_initialize_auction_args()
-        .map_err(JsValue::from)?;
+    let args = config.try_into().map_err(JsValue::from)?;
     let instruction = initialize_auction(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
-// TODO
-//wasm_instruction!(claim_rewards);
-//wasm_instruction!(delete_auction);
-//wasm_instruction!(modify_auction);
-//wasm_instruction!(place_bid);
+#[wasm_bindgen(js_name = "placeBidWasm")]
+pub async fn place_bid_wasm(
+    bidder_pubkey: Pubkey,
+    auction_id: String,
+    cycle_number: u64,
+    top_bidder_pubkey: Option<Pubkey>,
+    amount: Scalar,
+) -> Result<JsValue, JsValue> {
+    let args = PlaceBidArgs {};
+
+    let instruction = place_bid(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "claimRewardsWasm")]
+pub async fn claim_rewards_wasm(
+    payer_pubkey: Pubkey,
+    top_bidder_pubkey: Pubkey,
+    auction_id: String,
+    cycle_number: u64,
+    token_type: String,
+    existing_token_mint: Option<Pubkey>,
+) -> Result<JsValue, JsValue> {
+    let token_type = match token_type.to_lowercase().as_str() {
+        "nft" => TokenType::Nft,
+        "token" => TokenType::Token,
+        _ => return Err(JsValue::from(format!("Invalid token type {}", token_type))),
+    };
+    let args = ClaimRewardsArgs {
+        payer_pubkey,
+        top_bidder_pubkey,
+        auction_id: pad_to_32_bytes(&auction_id).map_err(JsValue::from)?,
+        cycle_number,
+        token_type,
+        existing_token_mint,
+    };
+    let instruction = claim_rewards(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "modifyAuctionWasm")]
+pub async fn modify_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendModifyAuctionArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into()?;
+    let instruction = modify_auction(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "deleteAuctionWasm")]
+pub async fn delete_auction_wasm() -> Result<JsValue, JsValue> {
+    let args = todo!(); //DeleteAuctionArgs {};
+    let instruction = delete_auction(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}

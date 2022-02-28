@@ -1,9 +1,16 @@
-use crate::utils::account_exists;
 use agsol_gold_contract::pda::master_mint_seeds;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::AuctionId;
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
+
+pub async fn account_exists(
+    client: &mut RpcClient,
+    pubkey: &Pubkey,
+) -> Result<bool, anyhow::Error> {
+    let balance = client.get_balance(pubkey).await?;
+    Ok(balance != 0)
+}
 
 pub async fn auction_exists(
     client: &mut RpcClient,

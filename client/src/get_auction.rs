@@ -1,5 +1,4 @@
-use crate::types::*;
-use crate::utils::*;
+use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
 use agsol_gold_contract::state::*;

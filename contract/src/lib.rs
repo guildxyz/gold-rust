@@ -5,6 +5,8 @@ mod error;
 
 /// Checks and assertions for validating inputs to the smart contract.
 pub mod assertions;
+#[cfg(feature = "client")]
+pub mod frontend;
 /// Smart contract instructions that can be called externally.
 pub mod instruction;
 /// Program Derived Addresses that can be modified only by this contract.

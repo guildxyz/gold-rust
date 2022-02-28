@@ -1,16 +1,9 @@
-use crate::Scalar;
-use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_wasm_client::RpcClient;
+mod types;
+pub use types::*;
 
+pub type Scalar = f64;
+pub const SELLER_FEE_BASIS_POINTS: u16 = 50;
 const LAMPORTS: Scalar = 1e9;
-
-pub async fn account_exists(
-    client: &mut RpcClient,
-    pubkey: &Pubkey,
-) -> Result<bool, anyhow::Error> {
-    let balance = client.get_balance(pubkey).await?;
-    Ok(balance != 0)
-}
 
 pub fn to_sol(amount: u64) -> Scalar {
     amount as Scalar / LAMPORTS

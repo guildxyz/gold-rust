@@ -1,17 +1,16 @@
-use crate::utils::to_lamports;
-use crate::{pad_to_32_bytes, InitializeAuctionArgs};
-use agsol_gold_contract::solana_program::clock::UnixTimestamp;
-use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::*;
-use agsol_gold_contract::UNIVERSAL_BID_FLOOR;
+use super::*;
+use crate::instruction::factory::InitializeAuctionArgs;
+use crate::state::*;
+use crate::utils::pad_to_32_bytes;
+use crate::UNIVERSAL_BID_FLOOR;
 use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
 use agsol_token_metadata::state::{Creator, Data as NftMetadata};
 use serde::{Deserialize, Serialize};
+use solana_program::clock::UnixTimestamp;
+use solana_program::pubkey::Pubkey;
 
+use std::convert::TryInto;
 use std::str::FromStr;
-
-pub type Scalar = f64;
-pub const SELLER_FEE_BASIS_POINTS: u16 = 50;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -100,8 +99,9 @@ pub struct FrontendCycle {
     pub end_timestamp: UnixTimestamp,
 }
 
-impl FrontendAuctionConfig {
-    pub fn into_initialize_auction_args(self) -> Result<InitializeAuctionArgs, String> {
+impl TryInto<InitializeAuctionArgs> for FrontendAuctionConfig {
+    type Error = String;
+    fn try_into(self) -> Result<InitializeAuctionArgs, Self::Error> {
         let auction_owner_pubkey =
             Pubkey::from_str(&self.base.owner_pubkey).map_err(|e| e.to_string())?;
         let creator = Creator {
@@ -183,6 +183,7 @@ impl FrontendAuctionConfig {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::utils::unpad_id;
 
     #[test]
     fn token_deserialization() {
@@ -213,12 +214,16 @@ mod test {
         let deserialized: FrontendAuctionConfig = serde_json::from_str(example_json).unwrap();
         assert_eq!(deserialized.base.id, "john-doe");
         match deserialized.extra.asset {
-            FrontendTokenConfig::Token { mint, decimals, per_cycle_amount } => {
+            FrontendTokenConfig::Token {
+                mint,
+                decimals,
+                per_cycle_amount,
+            } => {
                 assert!(mint.is_none());
                 assert_eq!(decimals, 5);
                 assert_eq!(per_cycle_amount, 100_000);
             }
-            _ => panic!("should be Token")
+            _ => panic!("should be Token"),
         }
         assert!(deserialized.extra.start_time.is_none());
         assert_eq!(deserialized.extra.min_bid, Some(0.07));
@@ -254,13 +259,18 @@ mod test {
         let deserialized: FrontendAuctionConfig = serde_json::from_str(example_json).unwrap();
         assert_eq!(deserialized.base.id, "john-doe");
         match deserialized.extra.asset {
-            FrontendTokenConfig::Nft { name, symbol, uri, is_repeating } => {
+            FrontendTokenConfig::Nft {
+                name,
+                symbol,
+                uri,
+                is_repeating,
+            } => {
                 assert_eq!(name, "aaa");
                 assert_eq!(symbol, "AAA");
                 assert_eq!(uri, "ipfs://nice/aaa");
                 assert!(!is_repeating);
             }
-            _ => panic!("should be NFT")
+            _ => panic!("should be NFT"),
         }
         assert!(deserialized.extra.start_time.is_none());
         assert_eq!(deserialized.extra.min_bid, Some(0.07));
@@ -299,16 +309,11 @@ mod test {
             base: base_config,
             extra: extra_config,
         };
-    
-        let init_args = frontend_auction_config
-            .into_initialize_auction_args()
-            .unwrap();
-    
+
+        let init_args: InitializeAuctionArgs = frontend_auction_config.try_into().unwrap();
+
         assert_eq!(&init_args.auction_owner_pubkey.to_string(), &owner);
-        assert_eq!(
-            agsol_gold_contract::utils::unpad_id(&init_args.auction_id),
-            "hello"
-        );
+        assert_eq!(unpad_id(&init_args.auction_id), "hello");
         assert_eq!(
             init_args.auction_description.description.contents(),
             "lollerkopter"
