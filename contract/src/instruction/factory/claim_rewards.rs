@@ -1,5 +1,11 @@
 use super::*;
 
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum TokenType {
+    Nft,
+    Token,
+}
+
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct ClaimRewardsArgs {
     pub payer_pubkey: Pubkey,
@@ -9,6 +15,37 @@ pub struct ClaimRewardsArgs {
     pub cycle_number: u64,
     pub token_type: TokenType,
     pub existing_token_mint: Option<Pubkey>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendClaimRewardsArgs {
+    pub payer_pubkey: String,
+    pub top_bidder_pubkey: String,
+    pub auction_id: String,
+    pub cycle_number: u64,
+    pub token_type: TokenType,
+    pub existing_token_mint: Option<String>,
+}
+
+impl TryFrom<FrontendClaimRewardsArgs> for ClaimRewardsArgs {
+    type Error = String;
+    fn try_from(args: FrontendClaimRewardsArgs) -> Result<Self, Self::Error> {
+        let existing_token_mint = if let Some(pubkey_string) = args.existing_token_mint {
+            Some(Pubkey::from_str(&pubkey_string).map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        Ok(Self {
+            payer_pubkey: Pubkey::from_str(&args.payer_pubkey).map_err(|e| e.to_string())?,
+            top_bidder_pubkey: Pubkey::from_str(&args.top_bidder_pubkey)
+                .map_err(|e| e.to_string())?,
+            auction_id: pad_to_32_bytes(&args.auction_id)?,
+            cycle_number: args.cycle_number,
+            token_type: args.token_type,
+            existing_token_mint,
+        })
+    }
 }
 
 pub fn claim_rewards(args: &ClaimRewardsArgs) -> Instruction {
@@ -88,4 +125,35 @@ pub fn claim_rewards(args: &ClaimRewardsArgs) -> Instruction {
         accounts,
         data: instruction.try_to_vec().unwrap(),
     }
+}
+
+#[test]
+fn deserialization_and_conversion() {
+    let example_json = r#"
+        {
+            "payerPubkey": "95b225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejT",
+            "topBidderPubkey": "95B225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejT",
+            "auctionId": "john-doe",
+            "cycleNumber": 13,
+            "tokenType": "Token",
+            "existingTokenMint": "95B225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejK"
+        }"#;
+
+    let ft: FrontendClaimRewardsArgs = serde_json::from_str(example_json).unwrap();
+    assert_eq!(
+        ft.existing_token_mint,
+        Some("95B225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejK".to_owned())
+    );
+    assert_eq!(ft.token_type, TokenType::Token);
+
+    let args = ClaimRewardsArgs::try_from(ft).unwrap();
+    assert_eq!(
+        args.payer_pubkey.to_string(),
+        "95b225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejT"
+    );
+    assert_eq!(
+        args.existing_token_mint.unwrap().to_string(),
+        "95B225CEtMmkRYUpg626DNqen55FgwEGbH5NKVXHUejK"
+    );
+    assert_eq!(args.token_type, TokenType::Token);
 }

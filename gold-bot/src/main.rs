@@ -7,9 +7,11 @@ use cli_utils::*;
 
 use agsol_gold_contract::utils::{pad_to_32_bytes, unpad_id};
 
-use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
+use agsol_gold_contract::instruction::factory::{
+    close_auction_cycle, CloseAuctionCycleArgs, TokenType,
+};
 use agsol_gold_contract::pda::auction_pool_seeds;
-use agsol_gold_contract::state::{AuctionPool, TokenConfig, TokenType};
+use agsol_gold_contract::state::{AuctionPool, TokenConfig};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::{Net, RpcClient};
 

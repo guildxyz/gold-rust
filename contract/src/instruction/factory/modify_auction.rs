@@ -37,7 +37,7 @@ impl TryFrom<FrontendModifyAuctionArgs> for ModifyAuctionArgs {
             None
         };
 
-        Ok(ModifyAuctionArgs {
+        Ok(Self {
             auction_owner_pubkey: Pubkey::from_str(&args.auction_owner_pubkey)
                 .map_err(|e| e.to_string())?,
             auction_id: pad_to_32_bytes(&args.auction_id).map_err(|e| e.to_string())?,

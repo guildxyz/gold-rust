@@ -8,7 +8,6 @@ mod get_auction;
 use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::state::TokenType;
 use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
 use agsol_wasm_client::{Net, RpcClient};
@@ -72,70 +71,43 @@ pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
 }
 
 #[wasm_bindgen(js_name = "claimFundsWasm")]
-pub async fn claim_funds_wasm(
-    auction_id: String,
-    payer_pubkey: Pubkey,
-    auction_owner_pubkey: Pubkey,
-    cycle_number: u64,
-    amount: Scalar,
-) -> Result<JsValue, JsValue> {
-    let args = ClaimFundsArgs {
-        payer_pubkey,
-        auction_owner_pubkey,
-        auction_id: pad_to_32_bytes(&auction_id)?,
-        cycle_number,
-        amount: to_lamports(amount),
-    };
+pub async fn claim_funds_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendClaimFundsArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
+
     let instruction = claim_funds(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
 #[wasm_bindgen(js_name = "initializeAuctionWasm")]
-pub async fn initialize_auction_wasm(config: JsValue) -> Result<JsValue, JsValue> {
-    let config: FrontendAuctionConfig = config
+pub async fn initialize_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendAuctionConfig = args
         .into_serde()
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    let args = config.try_into().map_err(JsValue::from)?;
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
     let instruction = initialize_auction(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 #[wasm_bindgen(js_name = "placeBidWasm")]
-pub async fn place_bid_wasm(
-    bidder_pubkey: Pubkey,
-    auction_id: String,
-    cycle_number: u64,
-    top_bidder_pubkey: Option<Pubkey>,
-    amount: Scalar,
-) -> Result<JsValue, JsValue> {
-    let args = PlaceBidArgs {};
-
+pub async fn place_bid_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendPlaceBidArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
     let instruction = place_bid(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
 #[wasm_bindgen(js_name = "claimRewardsWasm")]
-pub async fn claim_rewards_wasm(
-    payer_pubkey: Pubkey,
-    top_bidder_pubkey: Pubkey,
-    auction_id: String,
-    cycle_number: u64,
-    token_type: String,
-    existing_token_mint: Option<Pubkey>,
-) -> Result<JsValue, JsValue> {
-    let token_type = match token_type.to_lowercase().as_str() {
-        "nft" => TokenType::Nft,
-        "token" => TokenType::Token,
-        _ => return Err(JsValue::from(format!("Invalid token type {}", token_type))),
-    };
-    let args = ClaimRewardsArgs {
-        payer_pubkey,
-        top_bidder_pubkey,
-        auction_id: pad_to_32_bytes(&auction_id).map_err(JsValue::from)?,
-        cycle_number,
-        token_type,
-        existing_token_mint,
-    };
+pub async fn claim_rewards_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendClaimRewardsArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
     let instruction = claim_rewards(&args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
@@ -151,8 +123,11 @@ pub async fn modify_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen(js_name = "deleteAuctionWasm")]
-pub async fn delete_auction_wasm() -> Result<JsValue, JsValue> {
-    let args = todo!(); //DeleteAuctionArgs {};
-    let instruction = delete_auction(&args);
+pub async fn delete_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendDeleteAuctionArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into()?;
+    let instruction = delete_all(args);
     JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }

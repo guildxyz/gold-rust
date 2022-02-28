@@ -10,6 +10,34 @@ pub struct DeleteAuctionArgs {
     pub num_of_cycles_to_delete: u64,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendDeleteAuctionArgs {
+    pub auction_owner_pubkey: String,
+    pub top_bidder_pubkey: Option<String>,
+    pub auction_id: String,
+    pub current_auction_cycle: u64,
+}
+
+impl TryFrom<FrontendDeleteAuctionArgs> for DeleteAuctionArgs {
+    type Error = String;
+    fn try_from(args: FrontendDeleteAuctionArgs) -> Result<Self, Self::Error> {
+        let top_bidder_pubkey = if let Some(pubkey_string) = args.top_bidder_pubkey {
+            Some(Pubkey::from_str(&pubkey_string).map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        Ok(Self {
+            auction_owner_pubkey: Pubkey::from_str(&args.auction_owner_pubkey)
+                .map_err(|e| e.to_string())?,
+            top_bidder_pubkey,
+            auction_id: pad_to_32_bytes(&args.auction_id)?,
+            current_auction_cycle: args.current_auction_cycle,
+            num_of_cycles_to_delete: crate::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
+        })
+    }
+}
+
 pub fn delete_auction(args: &DeleteAuctionArgs) -> Instruction {
     let (contract_bank_pubkey, _) =
         Pubkey::find_program_address(&contract_bank_seeds(), &crate::ID);

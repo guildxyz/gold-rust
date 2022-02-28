@@ -27,6 +27,7 @@ pub use set_protocol_fee::*;
 pub use verify_auction::*;
 
 use super::AuctionInstruction;
+use crate::frontend::{to_lamports, Scalar};
 use crate::pda::*;
 use crate::state::*;
 use crate::utils::pad_to_32_bytes;

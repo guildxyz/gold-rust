@@ -116,12 +116,6 @@ pub enum CreateTokenArgs {
     },
 }
 
-#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
-pub enum TokenType {
-    Nft,
-    Token,
-}
-
 #[repr(C)]
 #[derive(BorshSchema, BorshDeserialize, BorshSerialize, MaxSerializedLen, Debug, Clone)]
 pub struct NftData {
