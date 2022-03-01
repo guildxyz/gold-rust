@@ -22,12 +22,10 @@ echo "Target branch: ${TARGET_BRANCH}"
 echo "Wasm build target: ${WASM_TARGET}"
 echo "Wasm build features: ${WASM_FEATURES}"
 
-agsol-glue schema contract
-agsol-glue wasm client --target $WASM_TARGET $WASM_FEATURES
+wasm-pack build client --target ${WASM_TARGET} --out-name index --out-dir ../gold-wasm ${WASM_FEATURES}
 
-cd glue
-npm i
-tsc -p tsconfig.json
+cd gold-wasm
+rm .gitignore
 git init
 git add -A
 git commit -m "Auto-generated wasm code"
@@ -36,4 +34,4 @@ git branch -M $TARGET_BRANCH
 git push -uf origin $TARGET_BRANCH
 
 cd ..
-rm -rf glue
+rm -rf gold-wasm

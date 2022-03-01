@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-glue:
-    name: build and push wasm + schema
+    name: generate wasm
     runs-on: ubuntu-latest
     env:
       ACCESS_HEADER: user:${{ secrets.GH_ACTIONS_AUTH }}@
@@ -16,4 +16,4 @@ jobs:
           cargo install agsol-glue wasm-pack
           git config --global user.name "PopcornPaws"
           git config --global user.email "mark@gold.xyz"
-          ./build-glue.sh ${{ github.event.push.base.ref }}
+          ./build-wasm.sh ${{ github.event.push.base.ref }}
