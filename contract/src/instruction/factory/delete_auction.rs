@@ -16,7 +16,7 @@ pub struct FrontendDeleteAuctionArgs {
     pub auction_owner_pubkey: String,
     pub top_bidder_pubkey: Option<String>,
     pub auction_id: String,
-    pub current_auction_cycle: u64,
+    pub cycle_number: u64,
 }
 
 impl TryFrom<FrontendDeleteAuctionArgs> for DeleteAuctionArgs {
@@ -32,7 +32,7 @@ impl TryFrom<FrontendDeleteAuctionArgs> for DeleteAuctionArgs {
                 .map_err(|e| e.to_string())?,
             top_bidder_pubkey,
             auction_id: pad_to_32_bytes(&args.auction_id)?,
-            current_auction_cycle: args.current_auction_cycle,
+            current_auction_cycle: args.cycle_number,
             num_of_cycles_to_delete: crate::RECOMMENDED_CYCLE_STATES_DELETED_PER_CALL,
         })
     }

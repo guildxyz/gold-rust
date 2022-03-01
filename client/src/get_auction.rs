@@ -205,8 +205,7 @@ mod test {
     #[tokio::test]
     async fn auction_base_array() {
         let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
-        let x = get_auctions(&mut client, true).await.unwrap();
-        println!("{:#?}", x);
+        get_auctions(&mut client, true).await.unwrap();
         get_auctions(&mut client, false).await.unwrap();
     }
 }
