@@ -7,6 +7,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::AuctionContractError;
@@ -32,7 +33,6 @@ use std::str::FromStr;
 // Invalid use cases:
 //   - Deleting an auction without the owner's signature
 //   - Deleting an auction with unclaimed rewards
-
 #[tokio::test]
 async fn test_delete_auction_immediately() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();

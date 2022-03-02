@@ -17,11 +17,7 @@ use agsol_gold_contract::pda::{
     auction_bank_seeds, auction_cycle_state_seeds, auction_root_state_seeds,
     protocol_fee_state_seeds, EditionPda,
 };
-use agsol_gold_contract::state::{
-    AuctionConfig, AuctionCycleState, AuctionDescription, AuctionRootState, BidData,
-    CreateTokenArgs, ModifyAuctionData, NftData, ProtocolFeeState, TokenConfig, TokenData,
-    TokenType,
-};
+use agsol_gold_contract::state::*;
 use agsol_gold_contract::utils::unpuff_metadata;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
@@ -514,7 +510,7 @@ pub async fn place_bid_transaction(
         get_state_pubkeys(testbench, auction_id).await?;
 
     let place_bid_args = PlaceBidArgs {
-        user_main_pubkey: user_keypair.pubkey(),
+        bidder_pubkey: user_keypair.pubkey(),
         auction_id,
         cycle_number: get_current_cycle_number(testbench, &auction_root_state_pubkey).await?,
         top_bidder_pubkey: get_top_bidder_pubkey(testbench, &auction_cycle_state_pubkey).await?,

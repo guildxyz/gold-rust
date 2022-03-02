@@ -27,20 +27,27 @@ pub use set_protocol_fee::*;
 pub use verify_auction::*;
 
 use super::AuctionInstruction;
+use crate::frontend::{to_lamports, Scalar};
 use crate::pda::*;
-use crate::state::{
-    AuctionConfig, AuctionDescription, AuctionId, AuctionName, CreateTokenArgs, ModifyAuctionData,
-    TokenType,
-};
+use crate::state::*;
+use crate::utils::pad_to_32_bytes;
+use agsol_borsh_schema::BorshSchema;
 use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
 use agsol_token_metadata::state::EDITION_MARKER_BIT_SIZE;
 use agsol_token_metadata::ID as META_ID;
 use borsh::{BorshDeserialize, BorshSerialize};
-
-use agsol_borsh_schema::BorshSchema;
+use serde::Deserialize;
 use solana_program::clock::UnixTimestamp;
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::pubkey::Pubkey;
 use solana_program::system_program::ID as SYS_ID;
 use solana_program::sysvar::rent::ID as RENT_ID;
 use spl_token::ID as TOKEN_ID;
+
+use std::str::FromStr;
+
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum TokenType {
+    Nft,
+    Token,
+}

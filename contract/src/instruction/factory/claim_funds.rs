@@ -10,6 +10,30 @@ pub struct ClaimFundsArgs {
     pub amount: u64,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendClaimFundsArgs {
+    pub payer_pubkey: String,
+    pub auction_owner_pubkey: String,
+    pub auction_id: String,
+    pub cycle_number: u64,
+    pub amount: Scalar,
+}
+
+impl TryFrom<FrontendClaimFundsArgs> for ClaimFundsArgs {
+    type Error = String;
+    fn try_from(args: FrontendClaimFundsArgs) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payer_pubkey: Pubkey::from_str(&args.payer_pubkey).map_err(|e| e.to_string())?,
+            auction_owner_pubkey: Pubkey::from_str(&args.payer_pubkey)
+                .map_err(|e| e.to_string())?,
+            auction_id: pad_to_32_bytes(&args.auction_id)?,
+            cycle_number: args.cycle_number,
+            amount: to_lamports(args.amount),
+        })
+    }
+}
+
 pub fn claim_funds(args: &ClaimFundsArgs) -> Instruction {
     let (auction_bank_pubkey, _) =
         Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);

@@ -3,6 +3,7 @@ mod test_factory;
 use test_factory::{initialize_new_auction, TestUser, TRANSACTION_FEE};
 
 use agsol_common::MaxSerializedLen;
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::utils::unpuff_metadata;

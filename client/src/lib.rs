@@ -2,27 +2,20 @@
 // on the wasm_bindgen expressions
 #![allow(clippy::unused_unit)]
 
+mod auction_exists;
 mod get_auction;
-mod get_current_cycle;
-mod get_top_bidder;
-mod try_find_master;
 
+use agsol_gold_contract::frontend::*;
 use agsol_gold_contract::instruction::factory::*;
-use agsol_gold_contract::pda::{
-    auction_pool_seeds, auction_root_state_seeds, secondary_pool_seeds,
-};
-use agsol_gold_contract::solana_program;
 use agsol_gold_contract::solana_program::pubkey::Pubkey;
-use agsol_gold_contract::ID as GOLD_ID;
+use agsol_gold_contract::utils::pad_to_32_bytes;
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
-use agsol_wasm_client::{wasm_instruction, Net};
-use borsh::BorshSerialize;
-use js_sys::Uint8Array;
+use agsol_wasm_client::{Net, RpcClient};
 use wasm_bindgen::prelude::*;
 
-#[cfg(feature = "Devnet")]
+#[cfg(not(feature = "mainnet"))]
 const NET: Net = Net::Devnet;
-#[cfg(not(feature = "Devnet"))]
+#[cfg(feature = "mainnet")]
 const NET: Net = Net::Mainnet;
 
 const RPC_CONFIG: RpcConfig = RpcConfig {
@@ -30,72 +23,111 @@ const RPC_CONFIG: RpcConfig = RpcConfig {
     commitment: Some(CommitmentLevel::Processed),
 };
 
-wasm_instruction!(initialize_auction);
-wasm_instruction!(delete_auction);
-wasm_instruction!(place_bid);
-wasm_instruction!(claim_funds);
+#[cfg(test)]
+const TEST_AUCTION_ID: &str = "teletubbies";
 
 #[wasm_bindgen(js_name = "getAuctionWasm")]
-pub async fn get_auction_wasm(auction_id: String) -> Result<Uint8Array, JsValue> {
-    let auction = get_auction::get_auction(auction_id)
+pub async fn get_auction_wasm(auction_id: String) -> Result<JsValue, JsValue> {
+    let id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction = get_auction::get_auction(&mut client, &id)
         .await
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    Ok(Uint8Array::from(auction.try_to_vec().unwrap().as_slice()))
+    JsValue::from_serde(&auction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-#[wasm_bindgen(js_name = "getAuctionCycleStateWasm")]
-pub async fn get_auction_cycle_state_wasm(
+#[wasm_bindgen(js_name = "getAuctionsWasm")]
+pub async fn get_auctions_wasm(secondary: bool) -> Result<JsValue, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auctions = get_auction::get_auctions(&mut client, secondary)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    JsValue::from_serde(&auctions).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "getAuctionCycleWasm")]
+pub async fn get_auction_cycle_wasm(
     root_state_pubkey: Pubkey,
     cycle_num: u64,
-) -> Result<Uint8Array, JsValue> {
-    let auction_cycle_state = get_auction::get_auction_cycle_state(&root_state_pubkey, cycle_num)
+) -> Result<JsValue, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_cycle =
+        get_auction::get_auction_cycle_state(&mut client, &root_state_pubkey, cycle_num)
+            .await
+            .map_err(|e| JsValue::from(e.to_string()))?;
+
+    JsValue::from_serde(&auction_cycle).map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "auctionExistsWasm")]
+pub async fn auction_exists_wasm(auction_id: String) -> Result<bool, JsValue> {
+    let mut client = RpcClient::new_with_config(NET, RPC_CONFIG);
+    let auction_id = pad_to_32_bytes(&auction_id).map_err(|e| JsValue::from(e.to_string()))?;
+    auction_exists::auction_exists(&mut client, &auction_id)
         .await
+        .map_err(|e| JsValue::from(e.to_string()))
+}
+
+#[wasm_bindgen(js_name = "claimFundsWasm")]
+pub async fn claim_funds_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendClaimFundsArgs = args
+        .into_serde()
         .map_err(|e| JsValue::from(e.to_string()))?;
 
-    Ok(Uint8Array::from(
-        auction_cycle_state.try_to_vec().unwrap().as_slice(),
-    ))
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
+
+    let instruction = claim_funds(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-#[wasm_bindgen(js_name = "getTopBidderWasm")]
-pub async fn get_top_bidder_wasm(auction_id: String) -> Result<Pubkey, JsValue> {
-    get_top_bidder::get_top_bidder(auction_id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
+#[wasm_bindgen(js_name = "initializeAuctionWasm")]
+pub async fn initialize_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendAuctionConfig = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
+    let instruction = initialize_auction(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
+}
+#[wasm_bindgen(js_name = "placeBidWasm")]
+pub async fn place_bid_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendPlaceBidArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
+    let instruction = place_bid(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-#[wasm_bindgen(js_name = "getCurrentCycleWasm")]
-pub async fn get_current_cycle_wasm(auction_id: String) -> Result<u64, JsValue> {
-    get_current_cycle::get_current_cycle(auction_id)
-        .await
-        .map_err(|e| JsValue::from(e.to_string()))
+#[wasm_bindgen(js_name = "claimRewardsWasm")]
+pub async fn claim_rewards_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendClaimRewardsArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into().map_err(JsValue::from)?;
+    let instruction = claim_rewards(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-#[wasm_bindgen(js_name = "getAuctionPoolPubkeyWasm")]
-pub fn wasm_auction_pool_pubkey(secondary: bool) -> Pubkey {
-    let seeds = if secondary {
-        secondary_pool_seeds()
-    } else {
-        auction_pool_seeds()
-    };
-    let (auction_pool_pubkey, _) = Pubkey::find_program_address(&seeds, &GOLD_ID);
-    auction_pool_pubkey
+#[wasm_bindgen(js_name = "modifyAuctionWasm")]
+pub async fn modify_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendModifyAuctionArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into()?;
+    let instruction = modify_auction(&args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }
 
-#[wasm_bindgen(js_name = "getAuctionRootStatePubkeyWasm")]
-pub fn wasm_auction_root_state_pubkey(auction_id: &[u8]) -> Pubkey {
-    let (auction_root_state_pubkey, _) =
-        Pubkey::find_program_address(&auction_root_state_seeds(auction_id), &GOLD_ID);
-    auction_root_state_pubkey
-}
-
-#[wasm_bindgen(js_name = "isIdUniqueWasm")]
-pub async fn wasm_is_id_unique(auction_id: String) -> bool {
-    try_find_master::try_find_master(auction_id).await.is_err()
-}
-
-#[wasm_bindgen(js_name = "getNetWasm")]
-pub fn wasm_get_net() -> String {
-    NET.to_url().to_owned()
+#[wasm_bindgen(js_name = "deleteAuctionWasm")]
+pub async fn delete_auction_wasm(args: JsValue) -> Result<JsValue, JsValue> {
+    let frontend_args: FrontendDeleteAuctionArgs = args
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let args = frontend_args.try_into()?;
+    let instruction = delete_all(args);
+    JsValue::from_serde(&instruction).map_err(|e| JsValue::from(e.to_string()))
 }

@@ -2,12 +2,40 @@ use super::*;
 
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct PlaceBidArgs {
-    pub user_main_pubkey: Pubkey,
+    pub bidder_pubkey: Pubkey,
     #[alias([u8; 32])]
     pub auction_id: AuctionId,
     pub cycle_number: u64,
     pub top_bidder_pubkey: Option<Pubkey>,
     pub amount: u64,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendPlaceBidArgs {
+    pub bidder_pubkey: String,
+    pub auction_id: String,
+    pub cycle_number: u64,
+    pub amount: Scalar,
+    pub top_bidder_pubkey: Option<String>,
+}
+
+impl TryFrom<FrontendPlaceBidArgs> for PlaceBidArgs {
+    type Error = String;
+    fn try_from(args: FrontendPlaceBidArgs) -> Result<Self, Self::Error> {
+        let top_bidder_pubkey = if let Some(pubkey_string) = args.top_bidder_pubkey {
+            Some(Pubkey::from_str(&pubkey_string).map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        Ok(Self {
+            bidder_pubkey: Pubkey::from_str(&args.bidder_pubkey).map_err(|e| e.to_string())?,
+            auction_id: pad_to_32_bytes(&args.auction_id)?,
+            cycle_number: args.cycle_number,
+            amount: to_lamports(args.amount),
+            top_bidder_pubkey,
+        })
+    }
 }
 
 pub fn place_bid(args: &PlaceBidArgs) -> Instruction {
@@ -30,7 +58,7 @@ pub fn place_bid(args: &PlaceBidArgs) -> Instruction {
     };
 
     let accounts = vec![
-        AccountMeta::new(args.user_main_pubkey, true),
+        AccountMeta::new(args.bidder_pubkey, true),
         AccountMeta::new(auction_bank_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
         AccountMeta::new(auction_cycle_state_pubkey, false),
