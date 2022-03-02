@@ -63,6 +63,8 @@ impl PoolRecord {
         self.root_state = client
             .get_and_deserialize_account_data(&self.root_pubkey)
             .await?;
+
+        self.current_cycle_number = self.root_state.status.current_auction_cycle;
         Ok(())
     }
 
@@ -79,6 +81,7 @@ impl PoolRecord {
         self.cycle_state = client
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
+        
         Ok(())
     }
 
