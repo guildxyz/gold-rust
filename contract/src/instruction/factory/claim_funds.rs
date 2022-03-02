@@ -25,7 +25,7 @@ impl TryFrom<FrontendClaimFundsArgs> for ClaimFundsArgs {
     fn try_from(args: FrontendClaimFundsArgs) -> Result<Self, Self::Error> {
         Ok(Self {
             payer_pubkey: Pubkey::from_str(&args.payer_pubkey).map_err(|e| e.to_string())?,
-            auction_owner_pubkey: Pubkey::from_str(&args.payer_pubkey)
+            auction_owner_pubkey: Pubkey::from_str(&args.auction_owner_pubkey)
                 .map_err(|e| e.to_string())?,
             auction_id: pad_to_32_bytes(&args.auction_id)?,
             cycle_number: args.cycle_number,

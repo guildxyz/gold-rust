@@ -19,6 +19,8 @@ pub struct PoolRecord {
     pub root_state: AuctionRootState,
     /// The auction cycle state
     pub cycle_state: AuctionCycleState,
+    /// The current auction cycle
+    pub current_cycle_number: u64,
     /// The number of times an unexpected error occured on consecutive cycle
     /// closings
     pub error_streak: u8,
@@ -46,10 +48,12 @@ impl PoolRecord {
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
 
+        let current_cycle_number = root_state.status.current_auction_cycle;
         Ok(Self {
             root_pubkey,
             root_state,
             cycle_state,
+            current_cycle_number,
             error_streak: 0,
         })
     }
@@ -59,6 +63,8 @@ impl PoolRecord {
         self.root_state = client
             .get_and_deserialize_account_data(&self.root_pubkey)
             .await?;
+
+        self.current_cycle_number = self.root_state.status.current_auction_cycle;
         Ok(())
     }
 
@@ -75,6 +81,7 @@ impl PoolRecord {
         self.cycle_state = client
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
+
         Ok(())
     }
 
@@ -116,6 +123,11 @@ impl PoolRecord {
     /// Should be used after successful cycle closing.
     pub fn reset_error_streak(&mut self) {
         self.error_streak = 0;
+    }
+
+    /// Increments cycle number in cache
+    pub fn increment_cycle_number(&mut self) {
+        self.current_cycle_number += 1;
     }
 
     /// Returns if the auction is likely broken. Currently identified by

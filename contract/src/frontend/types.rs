@@ -1,7 +1,9 @@
 use super::*;
 use crate::instruction::factory::InitializeAuctionArgs;
+use crate::pda::contract_pda_seeds;
 use crate::state::*;
 use crate::utils::pad_to_32_bytes;
+use crate::ID as GOLD_ID;
 use crate::UNIVERSAL_BID_FLOOR;
 use agsol_token_metadata::instruction::CreateMetadataAccountArgs;
 use agsol_token_metadata::state::{Creator, Data as NftMetadata};
@@ -104,6 +106,12 @@ impl TryInto<InitializeAuctionArgs> for FrontendAuctionConfig {
     fn try_into(self) -> Result<InitializeAuctionArgs, Self::Error> {
         let auction_owner_pubkey =
             Pubkey::from_str(&self.base.owner_pubkey).map_err(|e| e.to_string())?;
+        let (contract_pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &GOLD_ID);
+        let contract_pda_creator = Creator {
+            address: contract_pda,
+            verified: false,
+            share: 0,
+        };
         let creator = Creator {
             address: auction_owner_pubkey,
             verified: false,
@@ -143,7 +151,7 @@ impl TryInto<InitializeAuctionArgs> for FrontendAuctionConfig {
                         symbol,
                         uri,
                         seller_fee_basis_points: SELLER_FEE_BASIS_POINTS,
-                        creators: Some(vec![creator]),
+                        creators: Some(vec![contract_pda_creator, creator]),
                     },
                     is_mutable: true,
                 },
@@ -350,7 +358,9 @@ mod test {
                     metadata_args.data.seller_fee_basis_points,
                     SELLER_FEE_BASIS_POINTS
                 );
-                assert_eq!(&creators[0].address.to_string(), &owner);
+                let (pda, _) = Pubkey::find_program_address(&contract_pda_seeds(), &GOLD_ID);
+                assert_eq!(&creators[0].address, &pda);
+                assert_eq!(&creators[1].address.to_string(), &owner);
             }
             _ => panic!("should be NFT"),
         }
