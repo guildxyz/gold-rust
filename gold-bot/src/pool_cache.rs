@@ -81,7 +81,7 @@ impl PoolRecord {
         self.cycle_state = client
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
-        
+
         Ok(())
     }
 
