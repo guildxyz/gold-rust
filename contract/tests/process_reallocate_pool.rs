@@ -2,9 +2,9 @@
 mod test_factory;
 use test_factory::*;
 
-use agsol_gold_contract::instruction::factory::reallocate_pool;
+use agsol_gold_contract::instruction::factory::{reallocate_pool, TokenType};
 use agsol_gold_contract::pda::{auction_pool_seeds, contract_bank_seeds, secondary_pool_seeds};
-use agsol_gold_contract::state::{AuctionConfig, AuctionPool, TokenType};
+use agsol_gold_contract::state::{AuctionConfig, AuctionPool};
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;

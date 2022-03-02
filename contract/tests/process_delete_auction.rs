@@ -7,6 +7,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::AuctionContractError;

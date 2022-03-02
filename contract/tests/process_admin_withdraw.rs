@@ -5,7 +5,7 @@ use test_factory::*;
 use agsol_common::MaxSerializedLen;
 use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::*;
-use agsol_gold_contract::state::{AuctionConfig, ContractBankState, TokenType};
+use agsol_gold_contract::state::{AuctionConfig, ContractBankState};
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::DEFAULT_PROTOCOL_FEE;
 use agsol_gold_contract::ID as CONTRACT_ID;

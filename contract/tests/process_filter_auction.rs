@@ -2,6 +2,7 @@
 mod test_factory;
 use test_factory::*;
 
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::AuctionContractError;

@@ -45,3 +45,9 @@ use solana_program::sysvar::rent::ID as RENT_ID;
 use spl_token::ID as TOKEN_ID;
 
 use std::str::FromStr;
+
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum TokenType {
+    Nft,
+    Token,
+}

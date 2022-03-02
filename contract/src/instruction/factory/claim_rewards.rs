@@ -1,11 +1,5 @@
 use super::*;
 
-#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TokenType {
-    Nft,
-    Token,
-}
-
 #[derive(BorshSchema, BorshSerialize, BorshDeserialize)]
 pub struct ClaimRewardsArgs {
     pub payer_pubkey: Pubkey,
