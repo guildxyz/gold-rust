@@ -188,6 +188,7 @@ async fn try_close_cycle(
         }
     } else {
         // update pool record cache on success
+        pool_record.increment_cycle_number();
         pool_record.update_cycle_state(client).await?;
         pool_record.reset_error_streak();
     }
@@ -204,6 +205,7 @@ async fn close_cycle(
     pool_record: &mut PoolRecord,
     bot_keypair: &Keypair,
 ) -> Result<(), anyhow::Error> {
+    pool_record.update_cycle_state(client).await?;
     let token_type = match pool_record.root_state.token_config {
         TokenConfig::Nft(_) => TokenType::Nft,
         TokenConfig::Token(_) => TokenType::Token,
@@ -226,7 +228,7 @@ async fn close_cycle(
         auction_owner_pubkey: pool_record.root_state.auction_owner,
         top_bidder_pubkey: top_bidder,
         auction_id: *auction_id,
-        next_cycle_num: pool_record.root_state.status.current_auction_cycle,
+        next_cycle_num: pool_record.current_cycle_number,
         token_type,
         existing_token_mint,
     };
