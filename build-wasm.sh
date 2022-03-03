@@ -15,7 +15,7 @@ if [ $2 ]; then
 	# target branch name + wasm target (e.g. dev-nodejs)
 	TARGET_BRANCH="${TARGET_BRANCH}-${WASM_TARGET}"
 else
-	WASM_TARGET="web"
+	WASM_TARGET="bundler"
 fi
 
 echo "Target branch: ${TARGET_BRANCH}"
