@@ -112,7 +112,7 @@ pub fn process_claim_rewards(
 
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
     match auction_root_state.token_config {
-        TokenConfig::Nft(ref nft_data) => {
+        TokenConfig::Nft(_) => {
             let metadata_program = next_account_info(account_info_iter)?;
             // nft child accounts
             let child_edition_account = next_account_info(account_info_iter)?;
