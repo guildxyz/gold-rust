@@ -7,8 +7,7 @@ name: Branch based docker build and publish
 
 on:
   push:
-    branches:
-      - "*"
+    branches: [main, dev]
     # branches-ignore:
     #  - 'main'
     tags:
