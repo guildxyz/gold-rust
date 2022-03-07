@@ -138,11 +138,6 @@ pub fn process_claim_rewards(
             {
                 return Err(AuctionContractError::InvalidAccountOwner.into());
             }
-            if *master_edition_account.owner != META_ID {
-                return Err(AuctionContractError::InvalidAccountOwner.into());
-            }
-            assert_token_account_owner(master_holding_account, contract_pda.key)?;
-            assert_mint_authority(master_mint_account, master_edition_account.key)?;
 
             // Check cross-program invocation addresses
             assert_metaplex_program(metadata_program.key)?;
@@ -162,32 +157,7 @@ pub fn process_claim_rewards(
             let child_holding_pda =
                 SignerPda::new_checked(&child_holding_seeds, program_id, child_holding_account)?;
 
-            SignerPda::check_owner(
-                &master_mint_seeds(&auction_id),
-                program_id,
-                &TOKEN_ID,
-                master_mint_account,
-            )?;
-
-            SignerPda::check_owner(
-                &master_holding_seeds(&auction_id),
-                program_id,
-                &TOKEN_ID,
-                master_holding_account,
-            )?;
-
-            SignerPda::check_owner(
-                &metadata_seeds(master_mint_account.key),
-                &META_ID,
-                &META_ID,
-                master_metadata_account,
-            )?;
-
             // check nft validity
-            if &nft_data.master_edition != master_edition_account.key {
-                return Err(AuctionContractError::MasterEditionMismatch.into());
-            }
-
             if !child_metadata_account.data_is_empty() {
                 return Err(AuctionContractError::NftAlreadyExists.into());
             }
