@@ -232,7 +232,7 @@ async fn test_process_claim_rewards_nft() {
 }
 
 #[tokio::test]
-async fn test_process_claim_rewards_nfst_non_chronological() {
+async fn test_process_claim_rewards_nft_non_chronological() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
 
     let auction_id = [1; 32];
