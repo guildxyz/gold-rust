@@ -162,6 +162,13 @@ pub fn process_claim_rewards(
                 return Err(AuctionContractError::NftAlreadyExists.into());
             }
 
+            SignerPda::check_owner(
+                &master_mint_seeds(&auction_id),
+                program_id,
+                &TOKEN_ID,
+                master_mint_account,
+            )?;
+
             // Mint child nft to highest bidder
             // create child nft mint account
             //msg!("Mint account creation");
