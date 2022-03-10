@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ $1 == "main" ]; then
+if [ "$1" == "main" ]; then
 	WASM_FEATURES="--features mainnet"
 	TARGET_BRANCH=$1
 else
