@@ -1,12 +1,15 @@
 mod admin_withdraw;
 mod bid;
 mod claim_funds;
+mod claim_rewards;
 mod close_auction_cycle;
 mod delete_auction;
 mod filter_auction;
 mod initialize_auction;
 mod initialize_contract;
+mod modify_auction;
 mod reallocate_pool;
+mod set_protocol_fee;
 mod verify_auction;
 
 use crate::assertions::*;
@@ -92,6 +95,9 @@ pub fn process(
         AuctionInstruction::ClaimFunds { id, amount } => {
             claim_funds::process_claim_funds(program_id, accounts, id, amount)
         }
+        AuctionInstruction::ClaimRewards { id, cycle_number } => {
+            claim_rewards::process_claim_rewards(program_id, accounts, id, cycle_number)
+        }
         AuctionInstruction::VerifyAuction { id } => {
             verify_auction::process_verify_auction(program_id, accounts, id)
         }
@@ -108,5 +114,11 @@ pub fn process(
         AuctionInstruction::ReallocatePool {
             new_max_auction_num,
         } => reallocate_pool::reallocate_pool(program_id, accounts, new_max_auction_num),
+        AuctionInstruction::SetProtocolFee { new_fee } => {
+            set_protocol_fee::process_set_protocol_fee(program_id, accounts, new_fee)
+        }
+        AuctionInstruction::ModifyAuction { id, modify_data } => {
+            modify_auction::process_modify_auction(program_id, accounts, id, modify_data)
+        }
     }
 }

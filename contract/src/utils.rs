@@ -15,6 +15,8 @@ pub fn pad_to_32_bytes(input: &str) -> Result<[u8; 32], &'static str> {
     Ok(array)
 }
 
+/// We are assuming that there are no valid auction names with random `\u{0}`
+/// characters in them.
 pub fn unpad_id(id: &[u8; 32]) -> String {
     let mut unpadded = String::from_utf8_lossy(id).to_string();
     unpadded.retain(|c| c != '\u{0}');

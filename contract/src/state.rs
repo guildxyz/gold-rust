@@ -38,6 +38,18 @@ pub struct AuctionDescription {
     pub goal_treasury_amount: Option<u64>,
 }
 
+/// Contains which information to modify on a ModifyAuction call.
+/// If a member is set to `None` it will be unchanged.
+#[repr(C)]
+#[derive(BorshSchema, BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct ModifyAuctionData {
+    #[alias(Option<String>)]
+    pub new_description: Option<DescriptionString>,
+    #[alias(Option<Vec<String>>)]
+    pub new_socials: Option<SocialsVec>,
+    pub new_encore_period: Option<UnixTimestamp>,
+}
+
 /// The main configuration parameters of an auction.
 #[repr(C)]
 #[derive(BorshSchema, BorshDeserialize, BorshSerialize, MaxSerializedLen, Debug, Clone, Copy)]
@@ -97,13 +109,11 @@ pub enum CreateTokenArgs {
     ///
     /// The `per_cycle_amount` is the amount of tokens being auctioned off in
     /// each auction round.
-    Token { decimals: u8, per_cycle_amount: u64 },
-}
-
-#[derive(Debug, Clone)]
-pub enum TokenType {
-    Nft,
-    Token,
+    Token {
+        decimals: u8,
+        per_cycle_amount: u64,
+        existing_mint: Option<Pubkey>,
+    },
 }
 
 #[repr(C)]
@@ -157,6 +167,8 @@ pub struct AuctionRootState {
     pub available_funds: u64,
     /// Start timestamp of the auction (in seconds)
     pub start_time: UnixTimestamp,
+    /// Number of unclaimed rewards
+    pub unclaimed_rewards: u16,
 }
 
 /// State respective to a given auction cycle.
@@ -234,6 +246,15 @@ pub struct ContractBankState {
     /// Address of the withdraw authority who may withdraw from the contract
     /// bank.
     pub withdraw_authority: Pubkey,
+}
+
+#[repr(C)]
+#[derive(BorshDeserialize, BorshSerialize, AccountState, MaxSerializedLen, Debug, Clone)]
+pub struct ProtocolFeeState {
+    /// The protocol fee collected on all claimed funds.
+    ///
+    /// Expressed in thousandths, max 5% (50)
+    pub fee: u8,
 }
 
 #[cfg(test)]
@@ -317,6 +338,7 @@ mod test {
             all_time_treasury: 0,
             available_funds: 0,
             start_time: 0,
+            unclaimed_rewards: 0,
         };
 
         assert_eq!(

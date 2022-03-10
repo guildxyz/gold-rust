@@ -7,9 +7,11 @@ use cli_utils::*;
 
 use agsol_gold_contract::utils::{pad_to_32_bytes, unpad_id};
 
-use agsol_gold_contract::instruction::factory::{close_auction_cycle, CloseAuctionCycleArgs};
+use agsol_gold_contract::instruction::factory::{
+    close_auction_cycle, CloseAuctionCycleArgs, TokenType,
+};
 use agsol_gold_contract::pda::auction_pool_seeds;
-use agsol_gold_contract::state::{AuctionPool, TokenConfig, TokenType};
+use agsol_gold_contract::state::{AuctionPool, TokenConfig};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::{Net, RpcClient};
 
@@ -186,6 +188,7 @@ async fn try_close_cycle(
         }
     } else {
         // update pool record cache on success
+        pool_record.increment_cycle_number();
         pool_record.update_cycle_state(client).await?;
         pool_record.reset_error_streak();
     }
@@ -202,6 +205,7 @@ async fn close_cycle(
     pool_record: &mut PoolRecord,
     bot_keypair: &Keypair,
 ) -> Result<(), anyhow::Error> {
+    pool_record.update_cycle_state(client).await?;
     let token_type = match pool_record.root_state.token_config {
         TokenConfig::Nft(_) => TokenType::Nft,
         TokenConfig::Token(_) => TokenType::Token,
@@ -216,13 +220,17 @@ async fn close_cycle(
             .get_last_element()
             .map(|x| x.bidder_pubkey)
     };
+
+    let existing_token_mint = pool_record.get_token_mint_option().await;
+
     let close_auction_cycle_args = CloseAuctionCycleArgs {
         payer_pubkey: bot_keypair.pubkey(),
         auction_owner_pubkey: pool_record.root_state.auction_owner,
         top_bidder_pubkey: top_bidder,
         auction_id: *auction_id,
-        next_cycle_num: pool_record.root_state.status.current_auction_cycle,
+        next_cycle_num: pool_record.current_cycle_number,
         token_type,
+        existing_token_mint,
     };
     let close_auction_cycle_ix = close_auction_cycle(&close_auction_cycle_args);
 

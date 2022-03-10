@@ -1,0 +1,19 @@
+name: generating wasm and schema
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  build-glue:
+    name: generate wasm
+    runs-on: ubuntu-latest
+    env:
+      ACCESS_HEADER: user:${{ secrets.GH_ACTIONS_AUTH }}@
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          cargo install wasm-pack # agsol-glue
+          git config --global user.name "PopcornPaws"
+          git config --global user.email "mark@gold.xyz"
+          ./build-wasm.sh ${{ github.event.push.base.ref }}

@@ -16,6 +16,7 @@ pub fn process_delete_auction(
     let contract_bank_account = next_account_info(account_info_iter)?; // 5
     let auction_pool_account = next_account_info(account_info_iter)?; // 6
     let secondary_pool_account = next_account_info(account_info_iter)?; // 7
+    let protocol_fee_state_account = next_account_info(account_info_iter)?; // 8
 
     if !auction_owner_account.is_signer {
         msg!("Auction owner signature is missing");
@@ -70,6 +71,11 @@ pub fn process_delete_auction(
     let mut auction_root_state = AuctionRootState::read(auction_root_state_account)?;
     if auction_owner_account.key != &auction_root_state.auction_owner {
         return Err(AuctionContractError::AuctionOwnerMismatch.into());
+    }
+
+    // Check unclaimed rewards
+    if auction_root_state.unclaimed_rewards != 0 {
+        return Err(AuctionContractError::UnclaimedRewards.into());
     }
 
     let removable_cycle_states_num = std::cmp::min(
@@ -127,6 +133,7 @@ pub fn process_delete_auction(
         auction_owner_account,
         auction_bank_account,
         contract_bank_account,
+        protocol_fee_state_account,
     )?;
 
     deallocate_state(auction_root_state_account, auction_owner_account)?;

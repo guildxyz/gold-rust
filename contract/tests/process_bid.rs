@@ -3,44 +3,29 @@
 mod test_factory;
 use test_factory::*;
 
+use agsol_gold_contract::instruction::factory::*;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
+use agsol_gold_contract::UNIVERSAL_BID_FLOOR;
 use agsol_testbench::{tokio, Testbench};
 use solana_program::pubkey::Pubkey;
 use solana_sdk::signer::Signer;
 
-async fn assert_auction_state(
-    testbench: &mut Testbench,
-    auction_id: [u8; 32],
-    expected_top_bidder: &Pubkey,
-    bid_amount: u64,
-) {
-    let (_auction_root_state_pubkey, auction_cycle_state_pubkey) =
-        get_state_pubkeys(testbench, auction_id).await.unwrap();
-    let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
-
-    // Assert top bidder
-    if let Some(top_bid) = &get_top_bid(testbench, &auction_cycle_state_pubkey)
-        .await
-        .unwrap()
-    {
-        assert_eq!(&top_bid.bidder_pubkey, expected_top_bidder);
-        assert_eq!(top_bid.bid_amount, bid_amount);
-    }
-
-    // Assert fund holding account balance
-    let min_balance = testbench.rent.minimum_balance(0);
-    assert_eq!(
-        min_balance + bid_amount,
-        testbench
-            .get_account_lamports(&auction_bank_pubkey)
-            .await
-            .unwrap()
-    );
-}
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Bidding on nft auction
+//   - Bidding more than current top bid
+//   - Triggering encore period with a bid
+//   - (Test for bidding on token auctions in `process_tokens.rs`)
+//
+// Invalid use cases:
+//   - Bidding less than the minimum bid
+//   - Bidding less than current top bid
+//   - Bidding on auction after its current cycle has ended
+//   - (Test for bidding on ended auctions in `process_close_auction_cycle.rs`)
 
 #[tokio::test]
 async fn test_process_bid() {
@@ -83,12 +68,16 @@ async fn test_process_bid() {
 
     // Invalid use case
     // Test bid lower than minimum_bid
-    let lower_than_minimum_bid_error =
-        place_bid_transaction(&mut testbench, auction_id, &user_2.keypair, 10_000_000)
-            .await
-            .unwrap()
-            .err()
-            .unwrap();
+    let lower_than_minimum_bid_error = place_bid_transaction(
+        &mut testbench,
+        auction_id,
+        &user_2.keypair,
+        UNIVERSAL_BID_FLOOR - 1,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
 
     assert_eq!(
         lower_than_minimum_bid_error,
@@ -289,5 +278,36 @@ async fn test_encore_bid() {
     assert_eq!(
         end_time_after,
         block_time_before + auction_root_state.auction_config.encore_period
+    );
+}
+
+async fn assert_auction_state(
+    testbench: &mut Testbench,
+    auction_id: [u8; 32],
+    expected_top_bidder: &Pubkey,
+    bid_amount: u64,
+) {
+    let (_auction_root_state_pubkey, auction_cycle_state_pubkey) =
+        get_state_pubkeys(testbench, auction_id).await.unwrap();
+    let (auction_bank_pubkey, _) =
+        Pubkey::find_program_address(&auction_bank_seeds(&auction_id), &CONTRACT_ID);
+
+    // Assert top bidder
+    if let Some(top_bid) = &get_top_bid(testbench, &auction_cycle_state_pubkey)
+        .await
+        .unwrap()
+    {
+        assert_eq!(&top_bid.bidder_pubkey, expected_top_bidder);
+        assert_eq!(top_bid.bid_amount, bid_amount);
+    }
+
+    // Assert fund holding account balance
+    let min_balance = testbench.rent.minimum_balance(0);
+    assert_eq!(
+        min_balance + bid_amount,
+        testbench
+            .get_account_lamports(&auction_bank_pubkey)
+            .await
+            .unwrap()
     );
 }

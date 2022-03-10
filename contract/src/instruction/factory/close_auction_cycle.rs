@@ -7,11 +7,10 @@ pub struct CloseAuctionCycleArgs {
     pub auction_id: AuctionId,
     pub next_cycle_num: u64,
     pub token_type: TokenType,
+    pub existing_token_mint: Option<Pubkey>,
 }
 
 pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
-    let (auction_bank_pubkey, _) =
-        Pubkey::find_program_address(&auction_bank_seeds(&args.auction_id), &crate::ID);
     let (auction_root_state_pubkey, _) =
         Pubkey::find_program_address(&auction_root_state_seeds(&args.auction_id), &crate::ID);
     let (auction_pool_pubkey, _) = Pubkey::find_program_address(&auction_pool_seeds(), &crate::ID);
@@ -43,8 +42,6 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
 
     let mut accounts = vec![
         AccountMeta::new(args.payer_pubkey, true),
-        AccountMeta::new(auction_bank_pubkey, false),
-        AccountMeta::new(args.auction_owner_pubkey, false),
         AccountMeta::new(auction_pool_pubkey, false),
         AccountMeta::new(secondary_pool_pubkey, false),
         AccountMeta::new(auction_root_state_pubkey, false),
@@ -60,26 +57,9 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
     let mut token_accounts = match args.token_type {
         TokenType::Nft => {
             let master_pdas = EditionPda::new(EditionType::Master, &args.auction_id);
-            let child_pdas =
-                EditionPda::new(EditionType::Child(args.next_cycle_num), &args.auction_id);
-
-            let next_edition_div = args
-                .next_cycle_num
-                .checked_div(EDITION_MARKER_BIT_SIZE)
-                .unwrap();
-            let next_edition_string = next_edition_div.to_string();
-            let (child_edition_marker_pubkey, _) = Pubkey::find_program_address(
-                &edition_marker_seeds(&next_edition_string, &master_pdas.mint),
-                &agsol_token_metadata::ID,
-            );
 
             vec![
                 AccountMeta::new_readonly(META_ID, false),
-                AccountMeta::new(child_pdas.edition, false),
-                AccountMeta::new(child_edition_marker_pubkey, false),
-                AccountMeta::new(child_pdas.metadata, false),
-                AccountMeta::new(child_pdas.mint, false),
-                AccountMeta::new(child_pdas.holding, false),
                 AccountMeta::new(master_pdas.edition, false),
                 AccountMeta::new(master_pdas.metadata, false),
                 AccountMeta::new_readonly(master_pdas.mint, false),
@@ -87,14 +67,15 @@ pub fn close_auction_cycle(args: &CloseAuctionCycleArgs) -> Instruction {
             ]
         }
         TokenType::Token => {
-            let (token_mint_pubkey, _) =
-                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID);
+            let mint_pubkey = args.existing_token_mint.unwrap_or_else(|| {
+                Pubkey::find_program_address(&token_mint_seeds(&args.auction_id), &crate::ID).0
+            });
             let (token_holding_pubkey, _) = Pubkey::find_program_address(
-                &token_holding_seeds(&token_mint_pubkey, &top_bidder),
+                &token_holding_seeds(&mint_pubkey, &top_bidder),
                 &crate::ID,
             );
             vec![
-                AccountMeta::new(token_mint_pubkey, false),
+                AccountMeta::new(mint_pubkey, false),
                 AccountMeta::new(token_holding_pubkey, false),
             ]
         }

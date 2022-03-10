@@ -3,6 +3,7 @@ mod test_factory;
 use test_factory::{initialize_new_auction, TestUser, TRANSACTION_FEE};
 
 use agsol_common::MaxSerializedLen;
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
 use agsol_gold_contract::utils::unpuff_metadata;
@@ -17,6 +18,23 @@ use solana_program::pubkey::Pubkey;
 
 const AUCTION_CREATION_COST: u64 = 24_102_480 + TRANSACTION_FEE;
 
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Creating nft auction
+//   - (Test for creating token auction in `process_tokens.rs`)
+//
+// Invalid use cases:
+//   - Creating auction with non-ascii charactes in its id
+//   - Creating auction with minimum_bid_amount lower than UNIVERSAL_BID_FLOOR
+//   - Creating auction with too short cycle period
+//   - Creating auction with too long cycle period
+//   - Creating auction with negative encore period
+//   - Creating auction with too long encore period
+//   - Create auction with an id already taken by the same user
+//   - Create auction with an id already taken by another user
+//   - (Test for trying to initialize an auction with a full pool in `process_reallocate_pool.rs`)
+
 #[tokio::test]
 async fn test_process_initialize_auction() {
     let (mut testbench, auction_owner) = test_factory::testbench_setup().await.unwrap().unwrap();
@@ -26,12 +44,13 @@ async fn test_process_initialize_auction() {
 
     let mut auction_config = AuctionConfig {
         cycle_period: 86400,
-        encore_period: 300,
+        encore_period: 30,
         minimum_bid_amount: 50_000_000,
         number_of_cycles: Some(10),
     };
 
-    // invalid auction id (not ascii)
+    // Invalid use case
+    // Creating auction with non-ascii characters in its id
     let invalid_auction_id_error = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -71,7 +90,8 @@ async fn test_process_initialize_auction() {
         AuctionContractError::InvalidMinimumBidAmount
     );
 
-    // cycle period too small
+    // Invalid use case
+    // Creating auction with too short cycle period
     auction_config.cycle_period = 30;
     auction_config.minimum_bid_amount = 50_000_000;
 
@@ -92,7 +112,8 @@ async fn test_process_initialize_auction() {
         AuctionContractError::InvalidCyclePeriod
     );
 
-    // cycle period too large
+    // Invalid use case
+    // Creating auction with too long cycle period
     auction_config.cycle_period = 50_000_000;
     let invalid_cycle_period_error = initialize_new_auction(
         &mut testbench,
@@ -113,6 +134,49 @@ async fn test_process_initialize_auction() {
 
     auction_config.cycle_period = 60;
 
+    // Invalid use case
+    // Creating auction with negative encore period
+    auction_config.encore_period = -1;
+    let negative_encore_period_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        negative_encore_period_error,
+        AuctionContractError::InvalidEncorePeriod
+    );
+
+    // Invalid use case
+    // Creating auction with too long encore period
+    auction_config.encore_period = auction_config.cycle_period / 2 + 1;
+    let negative_encore_period_error = initialize_new_auction(
+        &mut testbench,
+        &auction_owner.keypair,
+        &auction_config,
+        auction_id,
+        TokenType::Nft,
+    )
+    .await
+    .unwrap()
+    .err()
+    .unwrap();
+
+    assert_eq!(
+        negative_encore_period_error,
+        AuctionContractError::InvalidEncorePeriod
+    );
+
+    auction_config.encore_period = 0;
+
+    // Create a valid auction
     let balance_change = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -209,6 +273,7 @@ async fn test_process_initialize_auction() {
     assert_eq!(auction_root_state.status.current_auction_cycle, 1);
     assert_eq!(auction_root_state.status.current_idle_cycle_streak, 0);
     assert!(auction_cycle_state.bid_history.get_last_element().is_none());
+    assert_eq!(auction_root_state.unclaimed_rewards, 0);
 
     let (auction_pool_pubkey, _) =
         Pubkey::find_program_address(&auction_pool_seeds(), &CONTRACT_ID);
@@ -220,7 +285,7 @@ async fn test_process_initialize_auction() {
     assert_eq!(auction_pool.pool[0], [123_u8; 32]);
 
     // Invalid use case
-    // Create auction with the same id
+    // Create auction with an id already taken by the same user
     let reinitialize_auction_error = initialize_new_auction(
         &mut testbench,
         &auction_owner.keypair,
@@ -237,8 +302,9 @@ async fn test_process_initialize_auction() {
         AuctionContractError::AuctionIdNotUnique
     );
 
+    // Invalid use case
+    // Create auction with an id already taken by another user
     let other_user = TestUser::new(&mut testbench).await.unwrap().unwrap();
-
     let initialize_auction_with_same_id_error = initialize_new_auction(
         &mut testbench,
         &other_user.keypair,

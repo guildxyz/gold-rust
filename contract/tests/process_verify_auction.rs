@@ -2,11 +2,22 @@
 mod test_factory;
 use test_factory::*;
 
+use agsol_gold_contract::instruction::factory::TokenType;
 use agsol_gold_contract::pda::*;
 use agsol_gold_contract::state::*;
+use agsol_gold_contract::AuctionContractError;
 use agsol_gold_contract::ID as CONTRACT_ID;
 use agsol_testbench::tokio;
 use solana_program::pubkey::Pubkey;
+
+// This file includes the following tests:
+//
+// Valid use cases:
+//   - Verifying an auction with admin signature
+//   - Verifying an already verified auction
+//
+// Invalid use cases:
+//   - Verifying without contract admin signature
 
 #[tokio::test]
 async fn test_process_verify_auction() {
@@ -39,6 +50,20 @@ async fn test_process_verify_auction() {
         .await
         .unwrap();
     assert!(!auction_root_state.status.is_verified);
+
+    // Invalid use case
+    // Verifying without admin signature
+    let verify_without_admin_signature =
+        verify_auction_transaction(&mut testbench, auction_id, &auction_owner.keypair)
+            .await
+            .unwrap()
+            .err()
+            .unwrap();
+
+    assert_eq!(
+        verify_without_admin_signature,
+        AuctionContractError::ContractAdminMismatch
+    );
 
     // Verifying auction
     let payer = testbench.clone_payer();

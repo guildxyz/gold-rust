@@ -1,5 +1,5 @@
 use agsol_gold_contract::pda::{auction_cycle_state_seeds, auction_root_state_seeds};
-use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState};
+use agsol_gold_contract::state::{AuctionCycleState, AuctionId, AuctionRootState, TokenConfig};
 use agsol_gold_contract::ID as GOLD_ID;
 use agsol_wasm_client::RpcClient;
 use solana_sdk::clock::UnixTimestamp;
@@ -19,6 +19,8 @@ pub struct PoolRecord {
     pub root_state: AuctionRootState,
     /// The auction cycle state
     pub cycle_state: AuctionCycleState,
+    /// The current auction cycle
+    pub current_cycle_number: u64,
     /// The number of times an unexpected error occured on consecutive cycle
     /// closings
     pub error_streak: u8,
@@ -46,10 +48,12 @@ impl PoolRecord {
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
 
+        let current_cycle_number = root_state.status.current_auction_cycle;
         Ok(Self {
             root_pubkey,
             root_state,
             cycle_state,
+            current_cycle_number,
             error_streak: 0,
         })
     }
@@ -59,6 +63,8 @@ impl PoolRecord {
         self.root_state = client
             .get_and_deserialize_account_data(&self.root_pubkey)
             .await?;
+
+        self.current_cycle_number = self.root_state.status.current_auction_cycle;
         Ok(())
     }
 
@@ -75,7 +81,15 @@ impl PoolRecord {
         self.cycle_state = client
             .get_and_deserialize_account_data(&cycle_pubkey)
             .await?;
+
         Ok(())
+    }
+
+    pub async fn get_token_mint_option(&mut self) -> Option<Pubkey> {
+        match self.root_state.token_config {
+            TokenConfig::Nft(_) => None,
+            TokenConfig::Token(ref token_data) => Some(token_data.mint),
+        }
     }
 
     /// Logs error appropriately, if unexpected error occurs then increments
@@ -109,6 +123,11 @@ impl PoolRecord {
     /// Should be used after successful cycle closing.
     pub fn reset_error_streak(&mut self) {
         self.error_streak = 0;
+    }
+
+    /// Increments cycle number in cache
+    pub fn increment_cycle_number(&mut self) {
+        self.current_cycle_number += 1;
     }
 
     /// Returns if the auction is likely broken. Currently identified by

@@ -1,4 +1,6 @@
 use super::*;
+use crate::DEFAULT_PROTOCOL_FEE;
+
 use solana_program::rent::Rent;
 
 pub fn process_claim_funds(
@@ -8,14 +10,16 @@ pub fn process_claim_funds(
     amount: u64,
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
+    let payer_account = next_account_info(account_info_iter)?;
     let auction_owner_account = next_account_info(account_info_iter)?;
     let auction_bank_account = next_account_info(account_info_iter)?;
     let auction_root_state_account = next_account_info(account_info_iter)?;
     let auction_cycle_state_account = next_account_info(account_info_iter)?;
     let contract_bank_account = next_account_info(account_info_iter)?;
+    let protocol_fee_state_account = next_account_info(account_info_iter)?;
 
-    if !auction_owner_account.is_signer {
-        msg!("admin signature is missing");
+    if !payer_account.is_signer {
+        msg!("payer signature is missing");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
@@ -92,6 +96,7 @@ pub fn process_claim_funds(
         auction_owner_account,
         auction_bank_account,
         contract_bank_account,
+        protocol_fee_state_account,
     )?;
 
     // Update available funds in the root state
@@ -108,13 +113,22 @@ pub fn claim_lamports(
     auction_owner_account: &AccountInfo<'_>,
     auction_bank_account: &AccountInfo<'_>,
     contract_bank_account: &AccountInfo<'_>,
-) -> Result<(), AuctionContractError> {
+    protocol_fee_state_account: &AccountInfo<'_>,
+) -> Result<(), ProgramError> {
+    let fee_state =
+        ProtocolFeeState::read(protocol_fee_state_account).unwrap_or(ProtocolFeeState {
+            fee: DEFAULT_PROTOCOL_FEE,
+        });
+
+    let mut fee_float: f64 = fee_state.fee.into();
+    // convert into multiplier from thousandths
+    fee_float /= 1_000.0;
+
     // This may not be precise because of integer rounding but it is more simple
-    // Error is at most 19 lamports which is negligible
-    let lamport_divided = amount / 20;
-    let auction_owner_share = lamport_divided * 19;
-    let contract_bank_share = amount
-        .checked_sub(auction_owner_share)
+    let amount_float = amount as f64;
+    let contract_bank_share = (amount_float * fee_float) as u64;
+    let auction_owner_share = amount
+        .checked_sub(contract_bank_share)
         .ok_or(AuctionContractError::ArithmeticError)?;
 
     checked_credit_account(contract_bank_account, contract_bank_share)?;
@@ -123,5 +137,7 @@ pub fn claim_lamports(
     checked_debit_account(
         auction_bank_account,
         auction_owner_share + contract_bank_share,
-    )
+    )?;
+
+    Ok(())
 }

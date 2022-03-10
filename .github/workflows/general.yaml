@@ -18,7 +18,6 @@ jobs:
       RUSTFLAGS: -Dwarnings # fails on warnings as well
     steps:
       - uses: actions/checkout@v2
-
       - name: Set env vars
         run: |
           source ci/rust-version.sh nightly
@@ -53,7 +52,6 @@ jobs:
       
       - name: Install dependencies
         run: |
-          cargo install wasm-pack
           ./ci/install-build-deps.sh
           ./ci/install-program-deps.sh
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH

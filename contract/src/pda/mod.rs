@@ -15,6 +15,10 @@ pub fn secondary_pool_seeds<'a>() -> [&'a [u8]; 1] {
     [b"gold_secondary_pool"]
 }
 
+pub fn protocol_fee_state_seeds<'a>() -> [&'a [u8]; 1] {
+    [b"gold_protocol_fee"]
+}
+
 pub fn auction_bank_seeds(auction_id: &[u8]) -> [&[u8]; 2] {
     [b"gold_auction_bank", auction_id]
 }
