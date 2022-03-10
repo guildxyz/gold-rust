@@ -16,4 +16,4 @@ jobs:
           cargo install wasm-pack # agsol-glue
           git config --global user.name "PopcornPaws"
           git config --global user.email "mark@gold.xyz"
-          ./build-wasm.sh ${{ github.event.push.base.ref }}
+          bash build-wasm.sh ${{ github.event.push.base.ref }}
