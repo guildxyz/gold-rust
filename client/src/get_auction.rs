@@ -147,6 +147,7 @@ pub async fn get_auction_cycle_state(
     let bid_history: Vec<BidData> = cycle_state.bid_history.into();
     let bids = bid_history
         .into_iter()
+        .rev()
         .map(|bid| FrontendBid {
             bidder_pubkey: bid.bidder_pubkey.to_string(),
             amount: to_sol(bid.bid_amount),
